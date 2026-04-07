@@ -32,8 +32,8 @@ export default function ActivityLogs() {
     return (
         <Layout isAdmin>
             <div className="mb-8 fade-in-up">
-                <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Activity Logs</h1>
-                <p className="text-sm mt-1" style={{ color: 'rgba(232,245,233,0.4)' }}>{filtered.length} entries</p>
+                <h1 className="text-3xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>Activity Logs</h1>
+                <p className="text-sm mt-1" style={{ color: 'var(--tx-muted)' }}>{filtered.length} entries</p>
             </div>
 
             <div className="flex gap-2 mb-6">
@@ -42,7 +42,7 @@ export default function ActivityLogs() {
                         className="px-4 py-2 rounded-xl text-sm font-semibold capitalize transition-all"
                         style={{
                             background: filter === f ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.03)',
-                            color: filter === f ? '#4ADE80' : 'rgba(232,245,233,0.4)',
+                            color: filter === f ? '#4ADE80' : 'var(--tx-muted)',
                             border: `1px solid ${filter === f ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.06)'}`,
                         }}>
                         {f === 'all' ? '⊞ All' : f === 'user' ? '◉ Users' : '⚙ Admin'}
@@ -51,12 +51,12 @@ export default function ActivityLogs() {
             </div>
 
             <div className="glass-card overflow-hidden">
-                {loading ? <p className="text-center py-8 text-white">Loading...</p> : (
-                    <div className="divide-y" style={{ borderColor: 'rgba(34,197,94,0.06)' }}>
+                {loading ? <p className="text-center py-8">Loading...</p> : (
+                    <div className="divide-y" style={{ borderColor: 'var(--border-md)' }}>
                         {filtered.length === 0 ? (
-                            <p className="text-center py-12" style={{ color: 'rgba(232,245,233,0.3)' }}>No logs yet</p>
+                            <p className="text-center py-12" style={{ color: 'var(--tx-muted)' }}>No logs yet</p>
                         ) : filtered.map((log, i) => {
-                            const ac = actionColors[log.action] || { bg: 'rgba(255,255,255,0.05)', text: 'rgba(232,245,233,0.5)' };
+                            const ac = actionColors[log.action] || { bg: 'rgba(255,255,255,0.05)', text: 'var(--tx-muted)' };
                             return (
                                 <div key={log._id || i} className="flex items-start gap-4 px-5 py-4">
                                     <div className="flex flex-col items-center flex-shrink-0 mt-1">
@@ -64,15 +64,15 @@ export default function ActivityLogs() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap mb-1">
-                                            <span className={`text-xs px-2 py-0.5 rounded font-semibold ${log.actorType === 'admin' ? 'bg-orange-500/15 text-orange-400' : 'bg-green-500/10 text-green-400'
+                                            <span className={`text-xs px-2 py-0.5 rounded font-semibold ${log.actorType === 'admin' ? 'bg-orange-500/15 text-orange-400' : 'status-completed'
                                                 }`}>{log.actorType}</span>
                                             {log.action && (
                                                 <span className="text-xs px-2 py-0.5 rounded font-mono font-semibold"
                                                     style={{ background: ac.bg, color: ac.text }}>{log.action}</span>
                                             )}
                                         </div>
-                                        <p className="text-sm" style={{ color: 'rgba(232,245,233,0.65)' }}>{log.description}</p>
-                                        <p className="text-xs mt-1" style={{ color: 'rgba(232,245,233,0.25)' }}>
+                                        <p className="text-sm" style={{ color: 'var(--tx-muted)' }}>{log.description}</p>
+                                        <p className="text-xs mt-1" style={{ color: 'var(--tx-muted)' }}>
                                             {new Date(log.createdAt).toLocaleString()}
                                         </p>
                                     </div>

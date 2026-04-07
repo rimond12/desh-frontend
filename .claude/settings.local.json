@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/project/DESH-PROJECT-MAIN/desh-server/server/models//**)",
+      "Read(//c/project/DESH-PROJECT-MAIN/desh-server/server/routes//**)",
+      "Read(//c/project/DESH-PROJECT-MAIN/desh-server/server/controllers//**)",
+      "Read(//c/project/DESH-PROJECT-MAIN/desh-server/**)"
+    ],
+    "additionalDirectories": [
+      "c:\\project\\DESH-PROJECT-MAIN\\desh-server\\server\\routes",
+      "c:\\project\\DESH-PROJECT-MAIN\\desh-server\\server\\models"
+    ]
+  }
+}

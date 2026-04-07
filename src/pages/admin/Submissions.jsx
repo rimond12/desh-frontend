@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
 import { LeafBadge } from '../../components/shared/LeafLogo.jsx';
 import toast from 'react-hot-toast';
@@ -6,16 +7,62 @@ import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 
 const LEVELS = ['All', 'Green Leaf', 'Yellow Leaf', 'Orange Leaf', 'Brown Leaf'];
 
+const REVIEW_STATUS_CFG = {
+  under_review: { label: 'Under Review', color: '#92400E', bg: '#FEF9C3', dot: '#D97706' },
+  verified:     { label: 'Verified',     color: '#145C28', bg: '#D6F5E3', dot: '#22A84B' },
+  cancelled:    { label: 'Cancelled',    color: '#991B1B', bg: '#FEE2E2', dot: '#EF4444' },
+};
+
+function IconEye() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+    </svg>
+  );
+}
+function IconTrash() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+      <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+    </svg>
+  );
+}
+
+// Summarise section statuses as small chips in table
+function SectionStatusSummary({ sectionStatuses }) {
+  if (!sectionStatuses?.length) return <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+      {sectionStatuses.slice(0, 2).map((ss, i) => {
+        const cfg = REVIEW_STATUS_CFG[ss.status];
+        if (!cfg) return null;
+        return (
+          <span key={i} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 3,
+            padding: '1px 7px', borderRadius: 99, fontSize: 10, fontWeight: 700,
+            background: cfg.bg, color: cfg.color, fontFamily: 'Montserrat,sans-serif',
+          }}>
+            <span style={{ width: 4, height: 4, borderRadius: '50%', background: cfg.dot }} />
+            {cfg.label}
+          </span>
+        );
+      })}
+      {sectionStatuses.length > 2 && (
+        <span style={{ fontSize: 10, color: 'var(--tx-faint)', fontWeight: 600 }}>+{sectionStatuses.length - 2}</span>
+      )}
+    </div>
+  );
+}
+
 export default function Submissions() {
   const axiosSecure = useAxiosSecure();
+  const navigate    = useNavigate();
+
   const [projects, setProjects] = useState([]);
-  const [search, setSearch] = useState('');
+  const [search, setSearch]     = useState('');
   const [levelFilter, setLevelFilter] = useState('All');
-  const [selected, setSelected] = useState(null);
-  const [override, setOverride] = useState('');
-  const [adminNote, setAdminNote] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]   = useState(true);
 
   const fetchSubmissions = () => {
     axiosSecure.get('/submissions')
@@ -26,24 +73,13 @@ export default function Submissions() {
 
   useEffect(() => { fetchSubmissions(); }, []);
 
-  const openSelected = (s) => {
-    setSelected(s);
-    setOverride(s.adminOverride || s.leafLevel || '');
-    setAdminNote('');
-  };
-
-  const saveChanges = async () => {
-    setSaving(true);
+  const deleteProject = async (s) => {
+    if (!window.confirm(`Delete "${s.title}"? This cannot be undone.`)) return;
     try {
-      await axiosSecure.patch(`/submissions/${selected._id}`, {
-        adminOverride: override,
-        adminNote: adminNote || undefined,
-      });
-      toast.success('Changes saved!');
-      setSelected(null);
+      await axiosSecure.delete(`/submissions/${s._id}`);
+      toast.success('Project deleted');
       fetchSubmissions();
-    } catch { toast.error('Failed to save'); }
-    finally { setSaving(false); }
+    } catch { toast.error('Failed to delete'); }
   };
 
   const filtered = projects.filter(s =>
@@ -57,7 +93,7 @@ export default function Submissions() {
     filtered.forEach(s => rows.push([
       s.title, s.userId?.name, s.userId?.email,
       `${s.scorePercent || 0}%`, s.adminOverride || s.leafLevel || '—',
-      new Date(s.updatedAt).toLocaleDateString()
+      new Date(s.updatedAt).toLocaleDateString(),
     ]));
     const csv = rows.map(r => r.join(',')).join('\n');
     const a = document.createElement('a');
@@ -69,8 +105,8 @@ export default function Submissions() {
   return (
     <Layout isAdmin>
       <div className="mb-8 fade-in-up">
-        <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Submissions</h1>
-        <p className="text-sm mt-1" style={{ color: 'rgba(232,245,233,0.4)' }}>{filtered.length} of {projects.length} projects</p>
+        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>Submissions</h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--tx-muted)' }}>{filtered.length} of {projects.length} projects</p>
       </div>
 
       <div className="flex flex-wrap gap-3 mb-6">
@@ -83,38 +119,65 @@ export default function Submissions() {
         </select>
         <button onClick={exportCSV}
           className="ml-auto flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold"
-          style={{ borderColor: 'rgba(34,197,94,0.15)', color: '#4ADE80', background: 'rgba(34,197,94,0.06)' }}>
+          style={{ borderColor: 'var(--border-md)', color: 'var(--g600)', background: 'var(--g50)' }}>
           ↓ Export CSV
         </button>
       </div>
 
       <div className="glass-card overflow-hidden">
-        {loading ? <p className="text-center py-8 text-white">Loading...</p> : (
+        {loading ? <p className="text-center py-8">Loading...</p> : (
           <table className="premium-table">
             <thead>
-              <tr><th>Project</th><th>User</th><th>Level</th><th>Score</th><th>Date</th><th>Actions</th></tr>
+              <tr>
+                <th>Project</th><th>User</th><th>Level</th><th>Score</th>
+                <th>Section Statuses</th><th>Date</th><th>Actions</th>
+              </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-12" style={{ color: 'rgba(232,245,233,0.4)' }}>No submissions found</td></tr>
+                <tr><td colSpan={7} className="text-center py-12" style={{ color: 'var(--tx-muted)' }}>No submissions found</td></tr>
               ) : filtered.map(s => {
                 const level = s.adminOverride || s.leafLevel;
                 return (
-                  <tr key={s._id}>
-                    <td className="font-semibold text-white text-sm">{s.title}</td>
+                  <tr key={s._id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/admin/submissions/${s._id}`)}>
+                    <td className="font-semibold text-sm" style={{ color: 'var(--tx)' }}>{s.title}</td>
                     <td>
-                      <p className="text-xs font-semibold text-white">{s.userId?.name || '—'}</p>
-                      <p className="text-xs" style={{ color: 'rgba(232,245,233,0.3)' }}>{s.userId?.email}</p>
+                      <p className="text-xs font-semibold">{s.userId?.name || '—'}</p>
+                      <p className="text-xs" style={{ color: 'var(--tx-muted)' }}>{s.userId?.email}</p>
                     </td>
                     <td>{level ? <LeafBadge level={level} /> : '—'}</td>
-                    <td className="font-bold text-white">{s.scorePercent || 0}%</td>
+                    <td className="font-bold" style={{ color: 'var(--tx)' }}>{s.scorePercent || 0}%</td>
+                    <td onClick={e => e.stopPropagation()}>
+                      <SectionStatusSummary sectionStatuses={s.sectionStatuses} />
+                    </td>
                     <td className="text-xs">{new Date(s.updatedAt).toLocaleDateString()}</td>
-                    <td>
-                      <button onClick={() => openSelected(s)}
-                        className="text-xs px-2 py-1 rounded-lg"
-                        style={{ color: 'rgba(232,245,233,0.5)', background: 'rgba(34,197,94,0.06)' }}>
-                        View →
-                      </button>
+                    <td onClick={e => e.stopPropagation()}>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        {/* View — navigates to detail page */}
+                        <button
+                          onClick={() => navigate(`/admin/submissions/${s._id}`)}
+                          title="View details"
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            width: 30, height: 30, borderRadius: 8,
+                            border: '1px solid var(--border)', background: 'var(--bg-soft)',
+                            color: 'var(--g700)', cursor: 'pointer',
+                          }}>
+                          <IconEye />
+                        </button>
+                        {/* Delete */}
+                        <button
+                          onClick={() => deleteProject(s)}
+                          title="Delete project"
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            width: 30, height: 30, borderRadius: 8,
+                            border: '1px solid #FECACA', background: '#FEF2F2',
+                            color: '#DC2626', cursor: 'pointer',
+                          }}>
+                          <IconTrash />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -123,67 +186,6 @@ export default function Submissions() {
           </table>
         )}
       </div>
-
-      {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="glass-card w-full max-w-lg p-6 fade-in-up">
-            <div className="flex items-start justify-between mb-5">
-              <div>
-                <h2 className="font-bold text-white text-lg">{selected.title}</h2>
-                <p className="text-sm mt-0.5" style={{ color: 'rgba(232,245,233,0.4)' }}>by {selected.userId?.name}</p>
-              </div>
-              <button onClick={() => setSelected(null)} style={{ color: 'rgba(232,245,233,0.4)' }}>✕</button>
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: 'rgba(34,197,94,0.06)' }}>
-                <div>
-                  <p className="text-xs" style={{ color: 'rgba(232,245,233,0.4)' }}>Score</p>
-                  <p className="text-2xl font-bold text-white">{selected.scorePercent || 0}%</p>
-                </div>
-                {(selected.adminOverride || selected.leafLevel) &&
-                  <LeafBadge level={selected.adminOverride || selected.leafLevel} />}
-              </div>
-
-              {/* User notes */}
-              {selected.notes?.filter(n => n.senderRole === 'user').length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold mb-2" style={{ color: 'rgba(232,245,233,0.4)', letterSpacing: '0.06em' }}>USER NOTES</p>
-                  <div className="p-3 rounded-xl text-sm" style={{ background: 'rgba(34,197,94,0.06)', color: 'rgba(232,245,233,0.7)' }}>
-                    {selected.notes.filter(n => n.senderRole === 'user').slice(-1)[0]?.message}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: 'rgba(232,245,233,0.4)', letterSpacing: '0.06em' }}>
-                  OVERRIDE LEAF LEVEL
-                </label>
-                <select value={override} onChange={e => setOverride(e.target.value)}
-                  className="input-dark px-3 py-2.5 text-sm w-full">
-                  <option value="">— No override —</option>
-                  {LEVELS.slice(1).map(l => <option key={l} value={l}>{l}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: 'rgba(232,245,233,0.4)', letterSpacing: '0.06em' }}>
-                  ADD ADMIN NOTE
-                </label>
-                <textarea value={adminNote} onChange={e => setAdminNote(e.target.value)}
-                  placeholder="Add note to user..." rows={3}
-                  className="input-dark w-full px-4 py-3 text-sm resize-none" />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button onClick={saveChanges} disabled={saving} className="btn-primary-green flex-1 justify-center text-sm">
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </button>
-                <button onClick={() => setSelected(null)}
-                  className="flex-1 py-2.5 rounded-xl border text-sm font-semibold"
-                  style={{ borderColor: 'rgba(34,197,94,0.15)', color: 'rgba(232,245,233,0.5)' }}>Cancel</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </Layout>
   );
 }

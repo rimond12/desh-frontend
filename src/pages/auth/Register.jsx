@@ -15,169 +15,362 @@ export default function Register() {
   const submit = async (e) => {
     e.preventDefault();
     if (form.password !== form.confirm) { toast.error('Passwords do not match'); return; }
-    if (form.password.length < 6) { toast.error('Password must be at least 6 characters'); return; }
-
+    if (form.password.length < 6) { toast.error('Min. 6 characters'); return; }
     setLoading(true);
     try {
       await register(form.email, form.password, form.name);
-      toast.success('Account created! Welcome to DESH.');
+      toast.success('Welcome to DESH!');
       navigate('/dashboard');
-    } catch (err) {
-      toast.error(err.message || 'Registration failed');
-    } finally { setLoading(false); }
+    } catch (err) { toast.error(err.message || 'Registration failed'); }
+    finally { setLoading(false); }
   };
 
-  // Password Strength Logic
   const strength = form.password.length === 0 ? 0 : form.password.length < 6 ? 1 : form.password.length < 10 ? 2 : 3;
-  const strengthColors = ['', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500'];
-  const textColors = ['', 'text-orange-500', 'text-yellow-600', 'text-green-600'];
-  const strengthLabels = ['', 'Weak', 'Fair', 'Strong'];
+  const strengthColor = ['', '#EA580C', '#D97706', '#22A84B'][strength];
+  const strengthLabel = ['', 'Weak', 'Fair', 'Strong'][strength];
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-between py-8 px-4 font-sans">
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap');
 
-      {/* 1. Top Govt Logo Area */}
-      <div className="w-full flex flex-col items-center mt-2 mb-2">
-        <img
-          src="/images/bdLogo.jpg"
-          alt="Govt Logo"
-          className="h-40 w-auto object-contain mb-3"
-        />
-      </div>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-      {/* 2. Main Register Card Area */}
-      <div className="w-full max-w-[500px] flex flex-col items-center">
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(28px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; } to { opacity: 1; }
+        }
 
-        {/* DESH Logo */}
-        <div className="mb-6 flex flex-col items-center">
-          <img
-            src="/images/DESH_Picture1.png"
-            alt="DESH Logo"
-            className="h-48 w-auto object-contain"
-          />
-        </div>
+        .reg-root {
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          background: #f5f4f0;
+          font-family: 'DM Sans', sans-serif;
+          position: relative;
+          overflow-x: hidden;
+        }
 
-        {/* Form Container */}
-        <div className="w-full    p-8 md:p-10">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-black text-gray-800 tracking-tight">Create Account</h2>
-            <p className="text-gray-500 text-sm mt-1">Join the green building community</p>
+        .reg-root::before {
+          content: '';
+          position: fixed;
+          inset: 0;
+          background:
+            radial-gradient(ellipse 900px 600px at 15% 10%, rgba(34,139,60,0.06) 0%, transparent 70%),
+            radial-gradient(ellipse 700px 500px at 85% 90%, rgba(34,139,60,0.05) 0%, transparent 70%),
+            radial-gradient(ellipse 400px 400px at 50% 50%, rgba(255,255,255,0.8) 0%, transparent 100%);
+          pointer-events: none;
+          z-index: 0;
+        }
+        .reg-root::after {
+          content: '';
+          position: fixed;
+          inset: 0;
+          background-image:
+            linear-gradient(rgba(34,139,60,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(34,139,60,0.04) 1px, transparent 1px);
+          background-size: 60px 60px;
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        .gov-header {
+          width: 100%;
+          background: #fff;
+          border-bottom: 1px solid rgba(34,139,60,0.12);
+          padding: 14px 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 20px;
+          position: relative;
+          z-index: 10;
+          animation: fadeIn 0.5s ease both;
+          box-shadow: 0 1px 0 rgba(34,139,60,0.08), 0 4px 24px rgba(0,0,0,0.04);
+        }
+        .gov-header img { height: 100px; object-fit: contain; }
+        .gov-header-text { display: flex; flex-direction: column; }
+        .gov-header-text .title-bn {
+          font-size: 15px; font-weight: 600; color: #1a4a28;
+          line-height: 1.4; letter-spacing: 0.01em;
+        }
+        .gov-header-text .title-en {
+          font-size: 11px; color: #5a7a63; font-weight: 500;
+          letter-spacing: 0.06em; text-transform: uppercase;
+        }
+        .gov-divider { width: 1px; height: 50px; background: rgba(34,139,60,0.2); }
+
+        .main-section {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 48px 20px;
+          position: relative;
+          z-index: 1;
+        }
+
+        .form-card {
+          width: 100%;
+          max-width: 440px;
+          animation: fadeUp 0.6s ease 0.15s both;
+        }
+
+        .desh-logo-wrap {
+          text-align: center;
+          margin-bottom: 32px;
+        }
+        .desh-logo-wrap img {
+          height: 110px;
+          object-fit: contain;
+          filter: drop-shadow(0 4px 16px rgba(34,139,60,0.18));
+        }
+        .desh-logo-wrap .system-label {
+          display: block;
+          margin-top: 10px;
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          color: #7a9e84;
+        }
+
+        .card-box {
+          background: #ffffff;
+          border-radius: 20px;
+          border: 1px solid rgba(34,139,60,0.1);
+          box-shadow:
+            0 1px 0 rgba(255,255,255,0.9) inset,
+            0 8px 32px rgba(34,139,60,0.08),
+            0 32px 80px rgba(0,0,0,0.06);
+          padding: 36px 32px;
+        }
+
+        .card-heading {
+          font-family: 'Playfair Display', serif;
+          font-size: 26px;
+          font-weight: 700;
+          color: #0d2b14;
+          margin-bottom: 4px;
+          letter-spacing: -0.02em;
+        }
+        .card-subheading {
+          font-size: 13px;
+          color: #8ba98f;
+          font-weight: 500;
+          margin-bottom: 28px;
+        }
+
+        .field-wrap { position: relative; margin-bottom: 14px; }
+        .field-icon {
+          position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+          font-size: 15px; color: #b0c8b4; pointer-events: none; line-height: 1;
+        }
+        .field-input {
+          width: 100%;
+          padding: 13px 16px 13px 44px;
+          border: 1.5px solid #e2ede4;
+          border-radius: 12px;
+          font-size: 14px;
+          font-family: 'DM Sans', sans-serif;
+          font-weight: 500;
+          color: #1a3d20;
+          background: #f9fdf9;
+          outline: none;
+          transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        }
+        .field-input::placeholder { color: #b5cab8; }
+        .field-input:focus {
+          border-color: #2e9e52;
+          background: #fff;
+          box-shadow: 0 0 0 3px rgba(46,158,82,0.1);
+        }
+        .show-btn {
+          position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+          background: none; border: none; font-size: 9px; font-weight: 800;
+          letter-spacing: 0.12em; color: #8fba96; cursor: pointer;
+          font-family: 'DM Sans', sans-serif; padding: 4px 6px; border-radius: 6px;
+          transition: color 0.15s, background 0.15s;
+        }
+        .show-btn:hover { color: #2e9e52; background: rgba(46,158,82,0.07); }
+
+        .strength-bars { display: flex; gap: 4px; margin-bottom: 4px; }
+        .strength-bar { flex: 1; height: 3px; border-radius: 99px; transition: all 0.3s; }
+        .strength-label {
+          font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+
+        .mismatch-msg { color: #EA580C; font-size: 12px; font-weight: 600; margin: -6px 0 6px; }
+
+        .submit-btn {
+          width: 100%; padding: 14px; margin-top: 8px; border: none; border-radius: 12px;
+          background: linear-gradient(135deg, #1e8c44 0%, #2db55d 100%);
+          color: #fff; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700;
+          letter-spacing: 0.04em; cursor: pointer; display: flex; align-items: center;
+          justify-content: center; gap: 8px;
+          transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+          box-shadow: 0 4px 16px rgba(30,140,68,0.25), 0 1px 0 rgba(255,255,255,0.2) inset;
+        }
+        .submit-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(30,140,68,0.32); }
+        .submit-btn:active:not(:disabled) { transform: translateY(0); }
+        .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        .spinner {
+          width: 16px; height: 16px;
+          border: 2px solid rgba(255,255,255,0.35);
+          border-top-color: #fff; border-radius: 50%;
+          animation: spin 0.8s linear infinite; display: inline-block;
+        }
+
+        .card-links { margin-top: 22px; text-align: center; }
+        .card-links p { font-size: 13px; color: #8ba98f; font-weight: 500; }
+        .card-links a.reg-link { color: #1e8c44; font-weight: 700; text-decoration: none; }
+        .card-links a.reg-link:hover { text-decoration: underline; }
+
+        .partner-footer {
+          position: relative; z-index: 10;
+          background: #fff; border-top: 1px solid rgba(34,139,60,0.1);
+          padding: 20px 40px 24px;
+          animation: fadeIn 0.6s ease 0.4s both;
+        }
+        .partner-label {
+          text-align: center; font-size: 9px; font-weight: 700;
+          letter-spacing: 0.22em; text-transform: uppercase; color: #bccdc0;
+          margin-bottom: 14px; font-family: 'DM Sans', sans-serif;
+        }
+        .partner-logos { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 28px; }
+        .partner-logos img {
+          height: 80px; object-fit: contain; 
+          transition: opacity 0.2s, filter 0.2s;
+        }
+        .partner-logos img:hover { opacity: 0.75; filter: grayscale(40%); }
+
+        @media (max-width: 480px) {
+          .gov-header { padding: 12px 20px; }
+          .card-box { padding: 28px 20px; }
+          .partner-footer { padding: 18px 20px 20px; }
+          .partner-logos { gap: 18px; }
+          .partner-logos img { height: 28px; }
+        }
+      `}</style>
+
+      <div className="reg-root">
+
+        {/* ══ SECTION 1: Government Header ══ */}
+        <header className="gov-header">
+          <img src="/images/bdLogo.jpg" alt="Bangladesh Government Logo" />
+          <div className="gov-divider" />
+          <div className="gov-header-text">
+            <span className="title-bn">গণপ্রজাতন্ত্রী বাংলাদেশ সরকার</span>
+            <span className="title-en">Government of the People's Republic of Bangladesh</span>
           </div>
+        </header>
 
-          <form onSubmit={submit} className="space-y-5">
-            {/* Full Name */}
-            <div>
-              <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Full Name</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">👤</span>
-                <input
-                  type="text" name="name" value={form.name} onChange={handle} required
-                  placeholder="Muhammad Rahman"
-                  /* text-gray-900 যোগ করা হয়েছে */
-                  className="w-full pl-11 pr-4 py-3.5 bg-[#EBF2FE] text-gray-900 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-green-100 focus:bg-white focus:border-green-500 transition-all text-sm"
-                />
+        {/* ══ SECTION 2: Main Register Form ══ */}
+        <main className="main-section">
+          <div className="form-card">
+
+            {/* DESH Logo + label */}
+        
+            {/* Card */}
+            <div className="card-box">
+              <div className="desh-logo-wrap flex flex-col mx-auto">
+                <img src="/images/logo (1).png" alt="DESH" />
+                <span className="system-label">Green Building Assessment System</span>
               </div>
-            </div>
+              <h2 className="card-heading text-center">Create Account</h2>
+              <p className="card-subheading text-center">Join the green building community</p>
 
-            {/* Email */}
-            <div>
-              <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Email Address</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">✉</span>
-                <input
-                  type="email" name="email" value={form.email} onChange={handle} required
-                  placeholder="you@example.com"
-                  /* text-gray-900 যোগ করা হয়েছে */
-                  className="w-full pl-11 pr-4 py-3.5 bg-[#EBF2FE] text-gray-900 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-green-100 focus:bg-white focus:border-green-500 transition-all text-sm"
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div>
-              <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Password</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔒</span>
-                <input
-                  type={showPass ? 'text' : 'password'} name="password" value={form.password} onChange={handle} required
-                  placeholder="Min. 6 characters"
-                  /* text-gray-900 যোগ করা হয়েছে */
-                  className="w-full pl-11 pr-12 py-3.5 bg-[#EBF2FE] text-gray-900 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-green-100 focus:bg-white focus:border-green-500 transition-all text-sm"
-                />
-                <button
-                  type="button" onClick={() => setShowPass(!showPass)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400 hover:text-green-600 uppercase transition-colors"
-                >
-                  {showPass ? 'Hide' : 'Show'}
-                </button>
-              </div>
-
-              {/* Password Strength Indicator */}
-              {form.password && (
-                <div className="mt-3 px-1">
-                  <div className="flex gap-1.5 mb-1.5">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-500 ${strength >= i ? strengthColors[strength] : 'bg-gray-100'}`} />
-                    ))}
-                  </div>
-                  <p className={`text-[10px] font-bold uppercase tracking-wider ${textColors[strength]}`}>{strengthLabels[strength]} Password</p>
+              <form onSubmit={submit}>
+                {/* Full Name */}
+                <div className="field-wrap">
+                  <span className="field-icon">👤</span>
+                  <input type="text" name="name" value={form.name} onChange={handle}
+                    required placeholder="Full name" className="field-input" />
                 </div>
-              )}
-            </div>
 
-            {/* Confirm Password */}
-            <div>
-              <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 ml-1">Confirm Password</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔒</span>
-                <input
-                  type="password" name="confirm" value={form.confirm} onChange={handle} required
-                  placeholder="Repeat password"
-                  /* text-gray-900 যোগ করা হয়েছে */
-                  className="w-full pl-11 pr-4 py-3.5 bg-[#EBF2FE] text-gray-900 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-green-100 focus:bg-white focus:border-green-500 transition-all text-sm"
-                />
+                {/* Email */}
+                <div className="field-wrap">
+                  <span className="field-icon">✉</span>
+                  <input type="email" name="email" value={form.email} onChange={handle}
+                    required placeholder="Email address" className="field-input" />
+                </div>
+
+                {/* Password */}
+                <div className="field-wrap">
+                  <span className="field-icon">🔒</span>
+                  <input type={showPass ? 'text' : 'password'} name="password"
+                    value={form.password} onChange={handle} required
+                    placeholder="Password (min. 6 chars)" className="field-input"
+                    style={{ paddingRight: 56 }} />
+                  <button type="button" className="show-btn"
+                    onClick={() => setShowPass(!showPass)}>
+                    {showPass ? 'HIDE' : 'SHOW'}
+                  </button>
+                </div>
+
+                {/* Strength bar */}
+                {form.password && (
+                  <div style={{ marginBottom: 14 }}>
+                    <div className="strength-bars">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="strength-bar"
+                          style={{ background: strength >= i ? strengthColor : '#e2ede4' }} />
+                      ))}
+                    </div>
+                    <span className="strength-label" style={{ color: strengthColor }}>
+                      {strengthLabel} Password
+                    </span>
+                  </div>
+                )}
+
+                {/* Confirm Password */}
+                <div className="field-wrap">
+                  <span className="field-icon">🔒</span>
+                  <input type="password" name="confirm" value={form.confirm}
+                    onChange={handle} required placeholder="Confirm password"
+                    className="field-input" />
+                </div>
+
+                {form.confirm && form.password !== form.confirm && (
+                  <p className="mismatch-msg">⚠ Passwords don't match</p>
+                )}
+
+                <button type="submit" disabled={loading} className="submit-btn">
+                  {loading
+                    ? <><span className="spinner" /> Creating…</>
+                    : 'Create Account →'}
+                </button>
+              </form>
+
+              <div className="card-links">
+                <p>
+                  Already have an account?{' '}
+                  <Link to="/login" className="reg-link">Sign in</Link>
+                </p>
               </div>
-              {form.confirm && form.password !== form.confirm && (
-                <p className="mt-2 text-xs text-orange-500 font-medium ml-1">Passwords don't match</p>
-              )}
             </div>
 
-            <button
-              type="submit" disabled={loading}
-              className="w-full py-4 bg-[#2D8A56] hover:bg-[#246e45] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_10px_20px_rgba(45,138,86,0.15)] active:scale-[0.98] disabled:opacity-70 mt-4"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 5a.75.75 0 01.75.75v3.5h3.5a.75.75 0 010 1.5h-3.5v3.5a.75.75 0 01-1.5 0v-3.5h-3.5a.75.75 0 010-1.5h3.5v-3.5A.75.75 0 0110 5z" /></svg>
-                  Create Account
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-8 text-center pt-6 border-t border-gray-50">
-            <p className="text-gray-500 text-sm">
-              Already have an account?{' '}
-              <Link to="/login" className="text-[#2D8A56] font-bold hover:underline">Sign in →</Link>
-            </p>
           </div>
-        </div>
-      </div>
+        </main>
 
-      {/* 3. Footer Partner Logos */}
-      <div className="w-full max-w-7xl mt-12 mb-4 bg-gray-50/50 py-8 px-6 rounded-3xl border border-gray-100">
-        <p className="text-center text-[10px] text-gray-400 mb-8 font-bold uppercase tracking-[0.2em]">Institutional Partners & Supporters</p>
-        <div className="flex flex-wrap justify-center items-center gap-10 md:gap-16">
-          <img src="/images/0_HBRI_Picture3.png" alt="HBRI" className="h-14 w-auto object-contain" />
-          <img src="/images/1_UNOPS_Picture4.png" alt="UNOPS" className="h-10 w-auto object-contain" />
-          <img src="/images/2_PS3_Picture5.png" alt="UN Environment" className="h-12 w-auto object-contain" />
-          <img src="/images/3_UN_HABITAT_Picture8.png" alt="UN Habitat" className="h-12 w-auto object-contain" />
-          <img src="/images/4_UNEP_Picture6.png" alt="UNEP" className="h-14 w-auto object-contain" />
-          <img src="/images/5_GABC_Picture7.png" alt="GABC" className="h-14 w-auto object-contain" />
-        </div>
+        {/* ══ SECTION 3: Partner Footer ══ */}
+        <footer className="partner-footer">
+          <p className="partner-label">Institutional Partners &amp; Supporters</p>
+          <div className="partner-logos">
+            {['0_HBRI_Picture3.png', '1_UNOPS_Picture4.png', '2_PS3_Picture5.png',
+              '3_UN_HABITAT_Picture8.png', '4_UNEP_Picture6.png', '5_GABC_Picture7.png'].map((img, i) => (
+                <img key={i} src={`/images/${img}`} alt="" />
+              ))}
+          </div>
+        </footer>
+
       </div>
-    </div>
+    </>
   );
 }

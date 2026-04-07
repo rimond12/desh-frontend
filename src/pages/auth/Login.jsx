@@ -3,10 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 
-const ADMIN_EMAILS = ['draculabile55@gmail.com', 'rimondey010@gmail.com'];
-
 export default function Login() {
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, getRoleFromDb } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
@@ -15,145 +13,515 @@ export default function Login() {
 
   const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
-  const redirectAfterLogin = (email) => {
-    if (ADMIN_EMAILS.includes(email)) {
-      navigate('/admin');
-    } else {
-      navigate('/dashboard');
-    }
+  const redirectByRole = async () => {
+    const role = await getRoleFromDb();
+    if (role === 'admin')         navigate('/admin');
+    else if (role === 'reviewer') navigate('/reviewer/submissions');
+    else                          navigate('/dashboard');
   };
 
   const submit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const cred = await login(form.email, form.password);
+      await login(form.email, form.password);
       toast.success('Welcome back!');
-      redirectAfterLogin(cred.user.email);
-    } catch {
-      toast.error('Invalid email or password.');
-    } finally {
-      setLoading(false);
-    }
+      await redirectByRole();
+    } catch { toast.error('Invalid email or password.'); }
+    finally { setLoading(false); }
   };
 
   const handleGoogle = async () => {
     setGLoading(true);
     try {
-      const cred = await loginWithGoogle();
-      toast.success('Signed in with Google!');
-      redirectAfterLogin(cred.user.email);
-    } catch {
-      toast.error('Google sign-in failed.');
-    } finally {
-      setGLoading(false);
-    }
+      await loginWithGoogle();
+      toast.success('Signed in!');
+      await redirectByRole();
+    } catch { toast.error('Google sign-in failed.'); }
+    finally { setGLoading(false); }
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-between py-8 px-4 font-sans">
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap');
 
-      {/* 1. Top Govt Logo - বড় এবং সাদা ব্যাকগ্রাউন্ডে স্পষ্ট */}
-      <div className="w-full flex justify-center mt-4 mb-5">
-        <img
-          src="/images/bdLogo.jpg"
-          alt="Govt Logo"
-          className="h-40 w-auto object-contain"
-        />
-      </div>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-      {/* 2. Main Login Card Area */}
-      <div className="w-full max-w-[440px] flex flex-col items-center">
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(28px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; } to { opacity: 1; }
+        }
+        @keyframes shimmer {
+          0%   { background-position: -200% center; }
+          100% { background-position:  200% center; }
+        }
 
-        {/* DESH Main Logo - স্ক্রিনশটের মতো বড় সাইজ */}
-        <div className="mb-8 flex flex-col items-center">
-          <img
-            src="/images/DESH_Picture1.png"
-            alt="DESH Logo"
-            className="h-48 w-auto object-contain"
-          />
-        </div>
+        .login-root {
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          background: #f5f4f0;
+          font-family: 'DM Sans', sans-serif;
+          position: relative;
+          overflow-x: hidden;
+        }
 
-        {/* Form Container */}
-        <div className="w-full space-y-5">
-          {/* Email Field */}
-          <div>
-            <label className="block text-gray-700 font-semibold mb-1.5 ml-1">Email Address</label>
-            <div className="relative flex items-center">
-              <div className="absolute left-4 text-gray-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-              </div>
-              <input
-                type="email" name="email" value={form.email} onChange={handle} required
-                placeholder="ashikj2000@gmail.com"
-                className="w-full pl-12 pr-4 py-3.5 bg-[#EBF2FE] border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all text-gray-700"
-              />
-            </div>
+        /* Subtle geometric background */
+        .login-root::before {
+          content: '';
+          position: fixed;
+          inset: 0;
+          background:
+            radial-gradient(ellipse 900px 600px at 15% 10%, rgba(34,139,60,0.06) 0%, transparent 70%),
+            radial-gradient(ellipse 700px 500px at 85% 90%, rgba(34,139,60,0.05) 0%, transparent 70%),
+            radial-gradient(ellipse 400px 400px at 50% 50%, rgba(255,255,255,0.8) 0%, transparent 100%);
+          pointer-events: none;
+          z-index: 0;
+        }
+        .login-root::after {
+          content: '';
+          position: fixed;
+          inset: 0;
+          background-image:
+            linear-gradient(rgba(34,139,60,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(34,139,60,0.04) 1px, transparent 1px);
+          background-size: 60px 60px;
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        /* ── SECTION 1: Gov Header ── */
+        .gov-header {
+          width: 100%;
+          background: #fff;
+          border-bottom: 1px solid rgba(34,139,60,0.12);
+          padding: 14px 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          position: relative;
+          z-index: 10;
+          animation: fadeIn 0.5s ease both;
+          box-shadow: 0 1px 0 rgba(34,139,60,0.08), 0 4px 24px rgba(0,0,0,0.04);
+        }
+        .gov-header img {
+          height: 100px;
+          object-fit: contain;
+        }
+        .gov-header-text {
+          display: flex;
+          flex-direction: column;
+        }
+        .gov-header-text .title-bn {
+          font-size: 15px;
+          font-weight: 600;
+          color: #1a4a28;
+          line-height: 1.4;
+          letter-spacing: 0.01em;
+        }
+        .gov-header-text .title-en {
+          font-size: 11px;
+          color: #5a7a63;
+          font-weight: 500;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
+        .gov-divider {
+          width: 1px;
+          height: 50px;
+          background: rgba(34,139,60,0.2);
+        }
+
+        /* ── SECTION 2: Main Form ── */
+        .main-section {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 48px 20px;
+          position: relative;
+          z-index: 1;
+        }
+
+        .form-card {
+          width: 100%;
+          max-width: 440px;
+          animation: fadeUp 0.6s ease 0.15s both;
+        }
+
+        .desh-logo-wrap {
+          text-align: center;
+          margin-bottom: 32px;
+        }
+        .desh-logo-wrap img {
+          height: 110px;
+          object-fit: contain;
+          filter: drop-shadow(0 4px 16px rgba(34,139,60,0.18));
+        }
+        .desh-logo-wrap .system-label {
+          display: block;
+          margin-top: 10px;
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          color: #7a9e84;
+        }
+
+        .card-box {
+          background: #ffffff;
+          border-radius: 20px;
+          border: 1px solid rgba(34,139,60,0.1);
+          box-shadow:
+            0 1px 0 rgba(255,255,255,0.9) inset,
+            0 8px 32px rgba(34,139,60,0.08),
+            0 32px 80px rgba(0,0,0,0.06);
+          padding: 36px 32px;
+        }
+
+        .card-heading {
+          font-family: 'Playfair Display', serif;
+          font-size: 26px;
+          font-weight: 700;
+          color: #0d2b14;
+          margin-bottom: 4px;
+          letter-spacing: -0.02em;
+        }
+        .card-subheading {
+          font-size: 13px;
+          color: #8ba98f;
+          font-weight: 500;
+          margin-bottom: 28px;
+        }
+
+        .field-wrap {
+          position: relative;
+          margin-bottom: 14px;
+        }
+        .field-icon {
+          position: absolute;
+          left: 16px;
+          top: 50%;
+          transform: translateY(-50%);
+          font-size: 15px;
+          color: #b0c8b4;
+          pointer-events: none;
+          line-height: 1;
+        }
+        .field-input {
+          width: 100%;
+          padding: 13px 16px 13px 44px;
+          border: 1.5px solid #e2ede4;
+          border-radius: 12px;
+          font-size: 14px;
+          font-family: 'DM Sans', sans-serif;
+          font-weight: 500;
+          color: #1a3d20;
+          background: #f9fdf9;
+          outline: none;
+          transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        }
+        .field-input::placeholder { color: #b5cab8; }
+        .field-input:focus {
+          border-color: #2e9e52;
+          background: #fff;
+          box-shadow: 0 0 0 3px rgba(46,158,82,0.1);
+        }
+        .show-btn {
+          position: absolute;
+          right: 14px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: none;
+          border: none;
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          color: #8fba96;
+          cursor: pointer;
+          font-family: 'DM Sans', sans-serif;
+          padding: 4px 6px;
+          border-radius: 6px;
+          transition: color 0.15s, background 0.15s;
+        }
+        .show-btn:hover { color: #2e9e52; background: rgba(46,158,82,0.07); }
+
+        .submit-btn {
+          width: 100%;
+          padding: 14px;
+          margin-top: 8px;
+          border: none;
+          border-radius: 12px;
+          background: linear-gradient(135deg, #1e8c44 0%, #2db55d 100%);
+          color: #fff;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 14px;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+          box-shadow: 0 4px 16px rgba(30,140,68,0.25), 0 1px 0 rgba(255,255,255,0.2) inset;
+        }
+        .submit-btn:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 8px 24px rgba(30,140,68,0.32);
+        }
+        .submit-btn:active:not(:disabled) { transform: translateY(0); }
+        .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        .spinner {
+          width: 16px; height: 16px;
+          border: 2px solid rgba(255,255,255,0.35);
+          border-top-color: #fff;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+          display: inline-block;
+        }
+
+        .divider {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin: 20px 0;
+        }
+        .divider-line { flex: 1; height: 1px; background: #edf3ee; }
+        .divider-text { font-size: 11px; font-weight: 700; color: #b8ceba; letter-spacing: 0.08em; }
+
+        .google-btn {
+          width: 100%;
+          padding: 13px;
+          border: 1.5px solid #e2ede4;
+          border-radius: 12px;
+          background: #fff;
+          color: #2a4a30;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        }
+        .google-btn:hover:not(:disabled) {
+          border-color: #b2d4ba;
+          background: #f5fbf6;
+          box-shadow: 0 4px 12px rgba(34,139,60,0.08);
+        }
+        .google-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        .card-links {
+          margin-top: 22px;
+          text-align: center;
+        }
+        .card-links p {
+          font-size: 13px;
+          color: #8ba98f;
+          font-weight: 500;
+          margin-bottom: 10px;
+        }
+        .card-links a.reg-link {
+          color: #1e8c44;
+          font-weight: 700;
+          text-decoration: none;
+        }
+        .card-links a.reg-link:hover { text-decoration: underline; }
+        .card-links a.admin-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 12px;
+          color: #a8c0ac;
+          font-weight: 600;
+          text-decoration: none;
+          padding: 5px 12px;
+          border-radius: 8px;
+          border: 1px solid #e6eee7;
+          transition: all 0.2s;
+        }
+        .card-links a.admin-link:hover {
+          background: #f4faf5;
+          color: #1e8c44;
+          border-color: #c5dfc8;
+        }
+
+        /* ── SECTION 3: Partner Footer ── */
+        .partner-footer {
+          position: relative;
+          z-index: 10;
+          background: #fff;
+          border-top: 1px solid rgba(34,139,60,0.1);
+          padding: 20px 40px 24px;
+          animation: fadeIn 0.6s ease 0.4s both;
+        }
+        .partner-label {
+          text-align: center;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.22em;
+          text-transform: uppercase;
+          color: #bccdc0;
+          margin-bottom: 14px;
+          font-family: 'DM Sans', sans-serif;
+        }
+        .partner-logos {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          align-items: center;
+          gap: 28px;
+        }
+        .partner-logos img {
+          height: 70px;
+          object-fit: contain;
+          
+          
+          transition: opacity 0.2s, filter 0.2s;
+        }
+        .partner-logos img:hover {
+          opacity: 0.75;
+          filter: grayscale(40%);
+        }
+
+        @media (max-width: 480px) {
+          .gov-header { padding: 12px 20px; }
+          .card-box { padding: 28px 20px; }
+          .partner-footer { padding: 18px 20px 20px; }
+          .partner-logos { gap: 18px; }
+          .partner-logos img { height: 28px; }
+        }
+      `}</style>
+
+      <div className="login-root">
+
+        {/* ══ SECTION 1: Government Header ══ */}
+        <header className="gov-header">
+          <img src="/images/bdLogo.jpg" alt="Bangladesh Government Logo" />
+          <div className="gov-divider" />
+          <div className="gov-header-text">
+            <span className="title-bn">গণপ্রজাতন্ত্রী বাংলাদেশ সরকার</span>
+            <span className="title-en">Government of the People's Republic of Bangladesh</span>
           </div>
+        </header>
 
-          {/* Password Field */}
-          <div>
-            <label className="block text-gray-700 font-semibold mb-1.5 ml-1">Password</label>
-            <div className="relative flex items-center">
-              <div className="absolute left-4 text-gray-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+        {/* ══ SECTION 2: Main Login Form ══ */}
+        <main className="main-section">
+          <div className="form-card">
+
+            {/* DESH Logo + label */}
+           
+
+            {/* Card */}
+            <div className="card-box">
+              <div className="desh-logo-wrap flex flex-col mx-auto">
+                <img src="/images/logo (1).png" alt="DESH" />
+                <span className="system-label">Green Building Assessment System</span>
               </div>
-              <input
-                type={showPass ? 'text' : 'password'} name="password" value={form.password} onChange={handle} required
-                placeholder="••••••"
-                className="w-full pl-12 pr-12 py-3.5 bg-[#EBF2FE] border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all text-gray-700"
-              />
-              <button
-                type="button" onClick={() => setShowPass(!showPass)}
-                className="absolute right-4 text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+              <h2 className="card-heading text-center">Sign In</h2>
+              <p className="card-subheading text-center">Sign in to continue to your account</p>
+
+              <form onSubmit={submit}>
+                {/* Email */}
+                <div className="field-wrap">
+                  <span className="field-icon">✉</span>
+                  <input
+                    type="email"
+                    name="email"
+                    value={form.email}
+                    onChange={handle}
+                    required
+                    placeholder="Email address"
+                    className="field-input"
+                  />
+                </div>
+
+                {/* Password */}
+                <div className="field-wrap">
+                  <span className="field-icon">🔒</span>
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    name="password"
+                    value={form.password}
+                    onChange={handle}
+                    required
+                    placeholder="Password"
+                    className="field-input"
+                    style={{ paddingRight: 56 }}
+                  />
+                  <button
+                    type="button"
+                    className="show-btn"
+                    onClick={() => setShowPass(!showPass)}
+                  >
+                    {showPass ? 'HIDE' : 'SHOW'}
+                  </button>
+                </div>
+
+                <button type="submit" disabled={loading} className="submit-btn">
+                  {loading
+                    ? <><span className="spinner" /> Signing in…</>
+                    : 'Sign In →'}
+                </button>
+              </form>
+
+              <div className="divider">
+                <div className="divider-line" />
+                <span className="divider-text">OR</span>
+                <div className="divider-line" />
+              </div>
+
+              <button onClick={handleGoogle} disabled={gLoading} className="google-btn">
+                {gLoading
+                  ? 'Connecting…'
+                  : <>
+                    <svg viewBox="0 0 24 24" width="18" height="18">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                    </svg>
+                    Continue with Google
+                  </>}
               </button>
+
+              <div className="card-links">
+                <p>
+                  Don't have an account?{' '}
+                  <Link to="/register" className="reg-link">Register</Link>
+                </p>
+                <Link to="/admin/login" className="admin-link">
+                  🔐 Admin Portal
+                </Link>
+              </div>
             </div>
+
           </div>
+        </main>
 
-          {/* Sign In Button */}
-          <button
-            onClick={submit} disabled={loading}
-            className="w-full py-4 bg-[#2D8A56] hover:bg-[#246e45] text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors shadow-md mt-2"
-          >
-            {loading ? 'Processing...' : <><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" transform="rotate(180)"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg> Sign In</>}
-          </button>
+        {/* ══ SECTION 3: Partner Footer ══ */}
+        <footer className="partner-footer">
+          <p className="partner-label">Institutional Partners &amp; Supporters</p>
+          <div className="partner-logos">
+            {['0_HBRI_Picture3.png', '1_UNOPS_Picture4.png', '2_PS3_Picture5.png',
+              '3_UN_HABITAT_Picture8.png', '4_UNEP_Picture6.png', '5_GABC_Picture7.png'].map((img, i) => (
+                <img key={i} src={`/images/${img}`} alt="" />
+              ))}
+          </div>
+        </footer>
 
-          {/* Google Button (Optional but added for functionality) */}
-          <button
-            onClick={handleGoogle} disabled={gLoading}
-            className="w-full py-3 border border-gray-200 rounded-lg flex items-center justify-center gap-3 text-gray-600 font-medium hover:bg-gray-50 transition-all text-sm shadow-sm"
-          >
-            {gLoading ? 'Connecting...' : 'Sign in with Google'}
-          </button>
-        </div>
-
-        {/* Divider & Links */}
-        <div className="mt-8 text-center">
-          <div className="w-full h-px bg-gray-100 mb-6"></div>
-          <p className="text-gray-600 mb-4 font-medium">
-            Don't have an account? <Link to="/register" className="text-[#2D8A56] font-bold hover:underline">Register here</Link>
-          </p>
-          <Link to="/admin/login" className="flex items-center justify-center gap-1.5 text-gray-500 hover:text-gray-800 transition-colors text-sm font-semibold">
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"></path></svg>
-            Admin Login
-          </Link>
-        </div>
       </div>
-
-      {/* 3. Footer Partners - স্ক্রিনশটের মতো বড় এবং কালারফুল */}
-      <div className="w-full max-w-7xl mt-12 mb-4">
-        <div className="flex flex-wrap justify-center items-center gap-10 md:gap-16">
-          <img src="/images/0_HBRI_Picture3.png" alt="HBRI" className="h-16 w-auto" />
-          <img src="/images/1_UNOPS_Picture4.png" alt="UNOPS" className="h-12 w-auto" />
-          <img src="/images/2_PS3_Picture5.png" alt="UN Environment" className="h-14 w-auto" />
-          <img src="/images/3_UN_HABITAT_Picture8.png" alt="GABC" className="h-12 w-auto" />
-          <img src="/images/4_UNEP_Picture6.png" alt="German Coop" className="h-16 w-auto" />
-          <img src="/images/5_GABC_Picture7.png" alt="German Coop" className="h-16 w-auto" />
-        </div>
-      </div>
-
-    </div>
+    </>
   );
 }

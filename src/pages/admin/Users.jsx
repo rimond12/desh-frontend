@@ -56,14 +56,14 @@ export default function Users() {
         <Layout isAdmin>
             <div className="flex items-start justify-between mb-8 fade-in-up">
                 <div>
-                    <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Users</h1>
-                    <p className="text-sm mt-1" style={{ color: 'rgba(232,245,233,0.4)' }}>
+                    <h1 className="text-3xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>Users</h1>
+                    <p className="text-sm mt-1" style={{ color: 'var(--tx-muted)' }}>
                         {filtered.length} of {users.length} registered users
                     </p>
                 </div>
                 <button onClick={exportCSV}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold"
-                    style={{ borderColor: 'rgba(34,197,94,0.15)', color: '#4ADE80', background: 'rgba(34,197,94,0.06)' }}>
+                    style={{ borderColor: 'var(--border-md)', color: 'var(--g600)', background: 'var(--g50)' }}>
                     ↓ Export CSV
                 </button>
             </div>
@@ -75,7 +75,7 @@ export default function Users() {
             </div>
 
             <div className="glass-card overflow-hidden">
-                {loading ? <p className="text-center py-8 text-white">Loading...</p> : (
+                {loading ? <p className="text-center py-8">Loading...</p> : (
                     <table className="premium-table">
                         <thead>
                             <tr><th>#</th><th>User</th><th>Role</th><th>Joined</th><th>Actions</th></tr>
@@ -84,31 +84,34 @@ export default function Users() {
                             {filtered.map((u, i) => (
                                 <tr key={u._id}>
                                     <td><span className="text-xs font-mono px-2 py-0.5 rounded"
-                                        style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(232,245,233,0.4)' }}>
+                                        style={{ background: 'var(--bg-subtle)', color: 'var(--tx-muted)' }}>
                                         #{i + 1}
                                     </span></td>
                                     <td>
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
                                                 style={{ background: 'linear-gradient(135deg,#16520A,#22C55E)' }}>
                                                 {u.name?.[0] || '?'}
                                             </div>
                                             <div>
-                                                <p className="font-semibold text-white text-sm">{u.name}</p>
-                                                <p className="text-xs" style={{ color: 'rgba(232,245,233,0.35)' }}>{u.email}</p>
+                                                <p className="font-semibold text-sm" style={{ color: "var(--tx)" }}>{u.name}</p>
+                                                <p className="text-xs" style={{ color: 'var(--tx-muted)' }}>{u.email}</p>
                                             </div>
                                         </div>
                                     </td>
                                     <td>
-                                        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${u.role === 'admin' ? 'bg-orange-500/15 text-orange-400' : 'bg-green-500/10 text-green-400'
-                                            }`}>{u.role}</span>
+                                        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
+                                            u.role === 'admin'    ? 'bg-orange-500/15 text-orange-400' :
+                                            u.role === 'reviewer' ? 'bg-purple-500/15 text-purple-400' :
+                                            'status-completed'
+                                        }`}>{u.role}</span>
                                     </td>
                                     <td className="text-sm">{new Date(u.createdAt).toLocaleDateString()}</td>
                                     <td>
                                         <div className="flex gap-2">
                                             <button onClick={() => setSelected(u)}
                                                 className="text-xs px-3 py-1.5 rounded-lg border"
-                                                style={{ borderColor: 'rgba(34,197,94,0.15)', color: 'rgba(232,245,233,0.5)', background: 'rgba(34,197,94,0.05)' }}>
+                                                style={{ borderColor: 'var(--border-md)', color: 'var(--tx-muted)', background: 'var(--g50)' }}>
                                                 Manage
                                             </button>
                                             <button onClick={() => deleteUser(u._id, u.name)}
@@ -128,33 +131,38 @@ export default function Users() {
             {/* Modal */}
             {selected && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-                    <div className="glass-card w-full max-w-sm p-6 fade-in-up">
+                    <div className="fade-in-up" style={{ width: '100%', maxWidth: 400, padding: '28px 24px', background: '#fff', borderRadius: 18, boxShadow: '0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.06)' }}>
                         <div className="flex items-start justify-between mb-5">
                             <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white"
-                                    style={{ background: 'linear-gradient(135deg,#16520A,#22C55E)' }}>
+                                <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold"
+                                    style={{ background: 'linear-gradient(135deg,#16520A,#22C55E)', color: '#fff' }}>
                                     {selected.name?.[0]}
                                 </div>
                                 <div>
-                                    <p className="font-bold text-white">{selected.name}</p>
-                                    <p className="text-xs" style={{ color: 'rgba(232,245,233,0.4)' }}>{selected.email}</p>
+                                    <p className="font-bold" style={{ color: '#111' }}>{selected.name}</p>
+                                    <p className="text-xs" style={{ color: '#888' }}>{selected.email}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setSelected(null)} style={{ color: 'rgba(232,245,233,0.4)' }}>✕</button>
+                            <button onClick={() => setSelected(null)} style={{ color: '#aaa', fontSize: 18, background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>✕</button>
                         </div>
 
                         <div className="mb-5">
-                            <p className="text-xs font-semibold mb-2" style={{ color: 'rgba(232,245,233,0.4)', letterSpacing: '0.06em' }}>
-                                CHANGE ROLE
+                            <p className="text-xs font-semibold mb-2" style={{ color: '#888', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'Montserrat,sans-serif' }}>
+                                Change Role
                             </p>
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap">
                                 <button onClick={() => changeRole(selected._id, 'user')}
-                                    className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition-all ${selected.role === 'user' ? 'bg-green-500/15 text-green-400 border-green-500/30' : 'border-white/10 text-white/50'
+                                    className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition-all ${selected.role === 'user' ? 'bg-green-500/15 text-green-600 border-green-500/30' : 'border-gray-200 text-gray-400'
                                         }`}>
                                     User
                                 </button>
+                                <button onClick={() => changeRole(selected._id, 'reviewer')}
+                                    className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition-all ${selected.role === 'reviewer' ? 'bg-purple-500/15 text-purple-600 border-purple-500/30' : 'border-gray-200 text-gray-400'
+                                        }`}>
+                                    Reviewer
+                                </button>
                                 <button onClick={() => changeRole(selected._id, 'admin')}
-                                    className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition-all ${selected.role === 'admin' ? 'bg-orange-500/15 text-orange-400 border-orange-500/30' : 'border-white/10 text-white/50'
+                                    className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition-all ${selected.role === 'admin' ? 'bg-orange-500/15 text-orange-600 border-orange-500/30' : 'border-gray-200 text-gray-400'
                                         }`}>
                                     Admin
                                 </button>

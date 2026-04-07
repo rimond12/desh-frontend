@@ -9,15 +9,38 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider } from '../services/firebase';
 
+const API_BASE = 'http://localhost:5000/api';
+
 const AuthContext = createContext(null);
 
+async function fetchDbUser(firebaseUser) {
+  const token = await firebaseUser.getIdToken();
+  const res = await fetch(`${API_BASE}/users/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.user || null;
+}
+
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser]     = useState(null);   // Firebase user
+  const [dbUser, setDbUser] = useState(null);   // MongoDB user (has .role)
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+      if (firebaseUser) {
+        try {
+          const mongoUser = await fetchDbUser(firebaseUser);
+          setDbUser(mongoUser);
+        } catch {
+          setDbUser(null);
+        }
+      } else {
+        setDbUser(null);
+      }
       setLoading(false);
     });
     return unsub;
@@ -35,10 +58,41 @@ export const AuthProvider = ({ children }) => {
       return cred;
     });
 
-  const logout = () => signOut(auth);
+  const logout = () => {
+    setDbUser(null);
+    return signOut(auth);
+  };
+
+  // Call this after an admin changes the current user's role so it takes effect
+  const refreshDbUser = async () => {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) return;
+    try {
+      await firebaseUser.getIdToken(true);
+      const mongoUser = await fetchDbUser(firebaseUser);
+      setDbUser(mongoUser);
+    } catch { /* silent */ }
+  };
+
+  // Call this immediately after login to get the role for navigation
+  // Also updates the context state so no double-fetch problem
+  const getRoleFromDb = async () => {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) return 'user';
+    try {
+      const mongoUser = await fetchDbUser(firebaseUser);
+      setDbUser(mongoUser);
+      return mongoUser?.role || 'user';
+    } catch {
+      return 'user';
+    }
+  };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, register, logout }}>
+    <AuthContext.Provider value={{
+      user, dbUser, loading,
+      login, loginWithGoogle, register, logout, refreshDbUser, getRoleFromDb,
+    }}>
       {!loading && children}
     </AuthContext.Provider>
   );

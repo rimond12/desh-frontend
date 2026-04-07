@@ -59,8 +59,8 @@ export default function Tabs() {
         <Layout isAdmin>
             <div className="flex items-start justify-between mb-8 fade-in-up">
                 <div>
-                    <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Tabs</h1>
-                    <p className="text-sm mt-1" style={{ color: 'rgba(232,245,233,0.4)' }}>{tabs.length} tabs total</p>
+                    <h1 className="text-3xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>Tabs</h1>
+                    <p className="text-sm mt-1" style={{ color: 'var(--tx-muted)' }}>{tabs.length} tabs total</p>
                 </div>
                 <button onClick={openNew} className="btn-primary-green text-sm">+ New Tab</button>
             </div>
@@ -69,17 +69,17 @@ export default function Tabs() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
                     <div className="glass-card w-full max-w-md p-6 fade-in-up">
                         <div className="flex items-center justify-between mb-5">
-                            <h2 className="font-bold text-white text-lg">{editItem ? 'Edit Tab' : 'New Tab'}</h2>
-                            <button onClick={() => setShowForm(false)} style={{ color: 'rgba(232,245,233,0.4)' }}>✕</button>
+                            <h2 className="font-bold text-lg">{editItem ? 'Edit Tab' : 'New Tab'}</h2>
+                            <button onClick={() => setShowForm(false)} style={{ color: 'var(--tx-muted)' }}>✕</button>
                         </div>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-semibold mb-2" style={{ color: 'rgba(232,245,233,0.45)', letterSpacing: '0.06em' }}>TAB TITLE *</label>
+                                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>TAB TITLE *</label>
                                 <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
                                     placeholder="e.g. Site & Environment" className="input-dark w-full px-4 py-3 text-sm" autoFocus />
                             </div>
                             <div>
-                                <label className="block text-xs font-semibold mb-2" style={{ color: 'rgba(232,245,233,0.45)', letterSpacing: '0.06em' }}>SORT ORDER</label>
+                                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>SORT ORDER</label>
                                 <input type="number" value={form.sortOrder} onChange={e => setForm({ ...form, sortOrder: e.target.value })}
                                     className="input-dark w-full px-4 py-3 text-sm" />
                             </div>
@@ -89,7 +89,7 @@ export default function Tabs() {
                                 </button>
                                 <button onClick={() => setShowForm(false)}
                                     className="flex-1 py-2.5 rounded-xl border text-sm font-semibold"
-                                    style={{ borderColor: 'rgba(34,197,94,0.15)', color: 'rgba(232,245,233,0.5)' }}>Cancel</button>
+                                    style={{ borderColor: 'var(--border-md)', color: 'var(--tx-muted)' }}>Cancel</button>
                             </div>
                         </div>
                     </div>
@@ -97,20 +97,20 @@ export default function Tabs() {
             )}
 
             <div className="glass-card overflow-hidden">
-                {loading ? <p className="text-center py-8 text-white">Loading...</p> : (
+                {loading ? <p className="text-center py-8">Loading...</p> : (
                     <table className="premium-table">
                         <thead><tr><th>Order</th><th>Tab Title</th><th>Status</th><th>Actions</th></tr></thead>
                         <tbody>
                             {tabs.sort((a, b) => a.sortOrder - b.sortOrder).map(t => (
                                 <tr key={t._id}>
                                     <td><span className="text-xs font-mono px-2 py-1 rounded"
-                                        style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(232,245,233,0.5)' }}>
+                                        style={{ background: 'var(--bg-subtle)', color: 'var(--tx-muted)' }}>
                                         #{t.sortOrder}
                                     </span></td>
-                                    <td className="font-semibold text-white">{t.title}</td>
+                                    <td className="font-semibold">{t.title}</td>
                                     <td>
                                         <button onClick={() => toggleActive(t)}
-                                            className={`text-xs px-3 py-1 rounded-full font-semibold ${t.isActive ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                                            className={`text-xs px-3 py-1 rounded-full font-semibold ${t.isActive ? 'status-completed' : 'bg-red-500/10 text-red-400'
                                                 }`}>
                                             {t.isActive ? '● Active' : '○ Inactive'}
                                         </button>
@@ -119,7 +119,7 @@ export default function Tabs() {
                                         <div className="flex gap-2">
                                             <button onClick={() => openEdit(t)}
                                                 className="text-xs px-3 py-1.5 rounded-lg border"
-                                                style={{ borderColor: 'rgba(34,197,94,0.15)', color: 'rgba(232,245,233,0.5)', background: 'rgba(34,197,94,0.05)' }}>
+                                                style={{ borderColor: 'var(--border-md)', color: 'var(--tx-muted)', background: 'var(--g50)' }}>
                                                 ✎ Edit
                                             </button>
                                             <button onClick={() => deleteTab(t._id)}

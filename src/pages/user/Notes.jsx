@@ -51,8 +51,8 @@
 //     return (
 //         <Layout>
 //             <div className="mb-8 fade-in-up">
-//                 <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Notes</h1>
-//                 <p className="text-sm mt-1" style={{ color: 'rgba(232,245,233,0.4)' }}>
+//                 <h1 className="text-3xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>Notes</h1>
+//                 <p className="text-sm mt-1" style={{ color: 'var(--tx-muted)' }}>
 //                     Communicate with admin per project
 //                 </p>
 //             </div>
@@ -62,7 +62,7 @@
 //                 {/* Project list */}
 //                 <div className="lg:col-span-1">
 //                     <p className="text-xs font-semibold mb-3 px-1"
-//                         style={{ color: 'rgba(232,245,233,0.3)', letterSpacing: '0.08em' }}>
+//                         style={{ color: 'var(--tx-muted)', letterSpacing: '0.08em' }}>
 //                         YOUR PROJECTS
 //                     </p>
 //                     <div className="space-y-2">
@@ -78,7 +78,7 @@
 //                                 </p>
 //                                 <div className="flex items-center gap-2 mt-1.5">
 //                                     {p.userNote && (
-//                                         <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-400">
+//                                         <span className="text-xs px-2 py-0.5 rounded-full status-completed">
 //                                             My note
 //                                         </span>
 //                                     )}
@@ -88,7 +88,7 @@
 //                                         </span>
 //                                     )}
 //                                     {!p.userNote && !p.adminNote && (
-//                                         <span className="text-xs" style={{ color: 'rgba(232,245,233,0.25)' }}>No notes yet</span>
+//                                         <span className="text-xs" style={{ color: 'var(--tx-muted)' }}>No notes yet</span>
 //                                     )}
 //                                 </div>
 //                             </button>
@@ -108,17 +108,17 @@
 //                                         style={{ background: 'linear-gradient(135deg,#E2670C,#97542A)', color: 'white' }}>
 //                                         A
 //                                     </div>
-//                                     <p className="text-sm font-semibold text-white">Admin Note</p>
-//                                     <span className="text-xs ml-auto" style={{ color: 'rgba(232,245,233,0.25)' }}>Read only</span>
+//                                     <p className="text-sm font-semibold" style={{ color: "var(--tx)" }}>Admin Note</p>
+//                                     <span className="text-xs ml-auto" style={{ color: 'var(--tx-muted)' }}>Read only</span>
 //                                 </div>
 //                                 {active.adminNote ? (
 //                                     <div className="p-4 rounded-xl text-sm leading-relaxed"
-//                                         style={{ background: 'rgba(226,103,12,0.06)', border: '1px solid rgba(226,103,12,0.12)', color: 'rgba(232,245,233,0.8)' }}>
+//                                         style={{ background: 'rgba(226,103,12,0.06)', border: '1px solid rgba(226,103,12,0.12)', color: 'var(--tx-muted)' }}>
 //                                         {active.adminNote}
 //                                     </div>
 //                                 ) : (
 //                                     <div className="p-4 rounded-xl text-sm text-center"
-//                                         style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.06)', color: 'rgba(232,245,233,0.25)' }}>
+//                                         style={{ background: 'var(--bg)', border: '1px dashed rgba(255,255,255,0.06)', color: 'var(--tx-muted)' }}>
 //                                         No admin reply yet
 //                                     </div>
 //                                 )}
@@ -127,12 +127,12 @@
 //                             {/* User note — editable */}
 //                             <div className="glass-card p-5">
 //                                 <div className="flex items-center gap-2 mb-3">
-//                                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white"
+//                                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
 //                                         style={{ background: 'linear-gradient(135deg,#16520A,#22C55E)' }}>
 //                                         U
 //                                     </div>
-//                                     <p className="text-sm font-semibold text-white">My Note</p>
-//                                     <span className="text-xs ml-auto" style={{ color: 'rgba(232,245,233,0.25)' }}>
+//                                     <p className="text-sm font-semibold" style={{ color: "var(--tx)" }}>My Note</p>
+//                                     <span className="text-xs ml-auto" style={{ color: 'var(--tx-muted)' }}>
 //                                         {active.title}
 //                                     </span>
 //                                 </div>
@@ -144,7 +144,7 @@
 //                                     className="input-dark w-full px-4 py-3 text-sm resize-none mb-3"
 //                                 />
 //                                 <div className="flex items-center justify-between">
-//                                     <p className="text-xs" style={{ color: 'rgba(232,245,233,0.25)' }}>
+//                                     <p className="text-xs" style={{ color: 'var(--tx-muted)' }}>
 //                                         {active.userNote.length} characters
 //                                     </p>
 //                                     <button onClick={handleSave} disabled={saving || !active.userNote.trim()}
@@ -214,14 +214,14 @@ export default function Notes() {
     return (
         <Layout>
             <div className="mb-8 fade-in-up">
-                <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Notes</h1>
-                <p className="text-sm mt-1" style={{ color: 'rgba(232,245,233,0.4)' }}>Communicate with admin per project</p>
+                <h1 className="text-3xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>Notes</h1>
+                <p className="text-sm mt-1" style={{ color: 'var(--tx-muted)' }}>Communicate with admin per project</p>
             </div>
 
-            {loading ? <p className="text-white text-center py-20">Loading...</p> : (
+            {loading ? <p className="text-center py-20">Loading...</p> : (
                 <div className="grid lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-1">
-                        <p className="text-xs font-semibold mb-3 px-1" style={{ color: 'rgba(232,245,233,0.3)', letterSpacing: '0.08em' }}>YOUR PROJECTS</p>
+                        <p className="text-xs font-semibold mb-3 px-1" style={{ color: 'var(--tx-muted)', letterSpacing: '0.08em' }}>YOUR PROJECTS</p>
                         <div className="space-y-2">
                             {projects.map(p => {
                                 const hasUserNote = p.notes?.some(n => n.senderRole === 'user');
@@ -235,7 +235,7 @@ export default function Notes() {
                                         }}>
                                         <p className={`text-sm font-semibold ${activeId === p._id ? 'text-green-300' : 'text-white'}`}>{p.title}</p>
                                         <div className="flex gap-2 mt-1.5">
-                                            {hasUserNote && <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-400">My note</span>}
+                                            {hasUserNote && <span className="text-xs px-2 py-0.5 rounded-full status-completed">My note</span>}
                                             {hasAdminNote && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400">Admin reply</span>}
                                         </div>
                                     </button>
@@ -246,20 +246,20 @@ export default function Notes() {
 
                     <div className="lg:col-span-2 space-y-4">
                         <div className="glass-card p-5">
-                            <p className="text-sm font-semibold text-white mb-3">Admin Note <span className="text-xs ml-2" style={{ color: 'rgba(232,245,233,0.25)' }}>Read only</span></p>
+                            <p className="text-sm font-semibold mb-3">Admin Note <span className="text-xs ml-2" style={{ color: 'var(--tx-muted)' }}>Read only</span></p>
                             {adminNote ? (
-                                <div className="p-4 rounded-xl text-sm" style={{ background: 'rgba(226,103,12,0.06)', border: '1px solid rgba(226,103,12,0.12)', color: 'rgba(232,245,233,0.8)' }}>
+                                <div className="p-4 rounded-xl text-sm" style={{ background: 'rgba(226,103,12,0.06)', border: '1px solid rgba(226,103,12,0.12)', color: 'var(--tx-muted)' }}>
                                     {adminNote}
                                 </div>
                             ) : (
-                                <div className="p-4 rounded-xl text-sm text-center" style={{ color: 'rgba(232,245,233,0.25)', border: '1px dashed rgba(255,255,255,0.06)' }}>
+                                <div className="p-4 rounded-xl text-sm text-center" style={{ color: 'var(--tx-muted)', border: '1px dashed rgba(255,255,255,0.06)' }}>
                                     No admin reply yet
                                 </div>
                             )}
                         </div>
 
                         <div className="glass-card p-5">
-                            <p className="text-sm font-semibold text-white mb-3">My Note</p>
+                            <p className="text-sm font-semibold mb-3">My Note</p>
                             <textarea
                                 value={noteText}
                                 onChange={e => setNoteText(e.target.value)}

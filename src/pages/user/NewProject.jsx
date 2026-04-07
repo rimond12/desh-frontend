@@ -69,7 +69,7 @@
 //             <LeafLogo size={56} animated />
 //           </div>
 
-//           <h1 className="text-3xl font-bold text-white">
+//           <h1 className="text-3xl font-bold">
 //             Start a New Project
 //           </h1>
 
@@ -156,7 +156,7 @@ export default function NewProject() {
       <div className="max-w-lg mx-auto fade-in-up">
         <div className="text-center mb-10">
           <div className="inline-block mb-4"><LeafLogo size={56} animated /></div>
-          <h1 className="text-3xl font-bold text-white">Start a New Project</h1>
+          <h1 className="text-3xl font-bold">Start a New Project</h1>
           <p className="mt-2 text-sm text-gray-400">Give your green building assessment a name</p>
         </div>
         <div className="glass-card p-8">

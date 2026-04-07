@@ -35,20 +35,20 @@ export default function Manual() {
                     <div className="inline-block mb-4">
                         <LeafLogo size={64} animated />
                     </div>
-                    <h1 className="text-4xl font-bold text-white mb-3" style={{ fontFamily: 'Syne, sans-serif' }}>
+                    <h1 className="text-4xl font-bold mb-3" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                         User Manual
                     </h1>
-                    <p className="text-base" style={{ color: 'rgba(232,245,233,0.5)' }}>
+                    <p className="text-base" style={{ color: 'var(--tx-muted)' }}>
                         Complete guide to using the DESH Green Building Assessment System
                     </p>
                 </div>
 
                 {/* Getting started */}
                 <div className="glass-card p-6 mb-6">
-                    <h2 className="text-xl font-bold text-white mb-2" style={{ fontFamily: 'Syne, sans-serif' }}>
+                    <h2 className="text-xl font-bold mb-2" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                         📖 Getting Started
                     </h2>
-                    <p className="text-sm leading-relaxed" style={{ color: 'rgba(232,245,233,0.6)' }}>
+                    <p className="text-sm leading-relaxed" style={{ color: 'var(--tx-muted)' }}>
                         The <strong className="text-white">DESH</strong> system helps you assess and score construction or development
                         projects across multiple evaluation criteria. Your project receives a <strong className="text-white">Leaf Level</strong> rating
                         based on your total score percentage.
@@ -57,19 +57,19 @@ export default function Manual() {
 
                 {/* Steps */}
                 <div className="glass-card p-6 mb-6">
-                    <h2 className="text-xl font-bold text-white mb-5" style={{ fontFamily: 'Syne, sans-serif' }}>
+                    <h2 className="text-xl font-bold mb-5" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                         🪜 How to Use
                     </h2>
                     <div className="space-y-4">
                         {steps.map((s, i) => (
                             <div key={i} className="flex gap-4 items-start">
                                 <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm"
-                                    style={{ background: 'rgba(34,197,94,0.12)', color: '#4ADE80', fontFamily: 'Syne, sans-serif' }}>
+                                    style={{ background: 'var(--g100)', color: 'var(--g600)', fontFamily: 'Montserrat, sans-serif' }}>
                                     {s.num}
                                 </div>
                                 <div className="flex-1 pt-1">
-                                    <p className="font-semibold text-white text-sm mb-0.5">{s.title}</p>
-                                    <p className="text-sm leading-relaxed" style={{ color: 'rgba(232,245,233,0.55)' }}>{s.desc}</p>
+                                    <p className="font-semibold text-sm mb-0.5">{s.title}</p>
+                                    <p className="text-sm leading-relaxed" style={{ color: 'var(--tx-muted)' }}>{s.desc}</p>
                                 </div>
                                 {i < steps.length - 1 && (
                                     <div className="w-px bg-green-500/10 absolute" />
@@ -81,7 +81,7 @@ export default function Manual() {
 
                 {/* Leaf Level guide */}
                 <div className="glass-card p-6 mb-6">
-                    <h2 className="text-xl font-bold text-white mb-5" style={{ fontFamily: 'Syne, sans-serif' }}>
+                    <h2 className="text-xl font-bold mb-5" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                         🍃 Leaf Level System
                     </h2>
                     <div className="grid sm:grid-cols-2 gap-3">
@@ -102,10 +102,10 @@ export default function Manual() {
                                                 </linearGradient>
                                             </defs>
                                         </svg>
-                                        <span className="font-bold text-white text-sm">{l.name}</span>
+                                        <span className="font-bold text-sm">{l.name}</span>
                                         <span className="ml-auto font-bold text-sm" style={{ color: l.to }}>{l.range}</span>
                                     </div>
-                                    <p className="text-xs" style={{ color: 'rgba(232,245,233,0.45)' }}>{l.desc}</p>
+                                    <p className="text-xs" style={{ color: 'var(--tx-muted)' }}>{l.desc}</p>
                                 </div>
                             </div>
                         ))}
@@ -119,7 +119,7 @@ export default function Manual() {
                                     style={{ background: `linear-gradient(90deg, ${l.from}, ${l.to})` }} />
                             ))}
                         </div>
-                        <div className="flex justify-between mt-1 text-xs" style={{ color: 'rgba(232,245,233,0.3)' }}>
+                        <div className="flex justify-between mt-1 text-xs" style={{ color: 'var(--tx-muted)' }}>
                             <span>20%</span><span>40%</span><span>60%</span><span>80%</span><span>100%</span>
                         </div>
                     </div>
@@ -127,23 +127,23 @@ export default function Manual() {
 
                 {/* Input types */}
                 <div className="glass-card p-6 mb-6">
-                    <h2 className="text-xl font-bold text-white mb-4" style={{ fontFamily: 'Syne, sans-serif' }}>
+                    <h2 className="text-xl font-bold mb-4" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                         📝 Input Field Types
                     </h2>
                     <div className="space-y-3">
                         {[
-                            { type: 'NUMBER', color: '#22C55E', desc: 'Enter a numeric value. Points are awarded based on predefined ranges.' },
+                            { type: 'NUMBER', color: 'var(--g500)', desc: 'Enter a numeric value. Points are awarded based on predefined ranges.' },
                             { type: 'DROPDOWN', color: '#F8A514', desc: 'Select one option from a list. Each option carries different points.' },
                             { type: 'RADIO', color: '#E2670C', desc: 'Choose one option from multiple buttons. Similar to dropdown but displayed differently.' },
                             { type: 'TEXT', color: '#97542A', desc: 'Free text input for descriptive answers. Used for qualitative information.' },
                         ].map(f => (
                             <div key={f.type} className="flex items-start gap-3 p-3 rounded-xl"
-                                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(34,197,94,0.06)' }}>
+                                style={{ background: 'var(--bg)', border: '1px solid rgba(34,197,94,0.06)' }}>
                                 <span className="text-xs px-2 py-1 rounded font-mono font-bold flex-shrink-0"
                                     style={{ background: `${f.color}15`, color: f.color }}>
                                     {f.type}
                                 </span>
-                                <p className="text-sm" style={{ color: 'rgba(232,245,233,0.6)' }}>{f.desc}</p>
+                                <p className="text-sm" style={{ color: 'var(--tx-muted)' }}>{f.desc}</p>
                             </div>
                         ))}
                     </div>
@@ -151,15 +151,15 @@ export default function Manual() {
 
                 {/* FAQ */}
                 <div className="glass-card p-6 mb-6">
-                    <h2 className="text-xl font-bold text-white mb-5" style={{ fontFamily: 'Syne, sans-serif' }}>
+                    <h2 className="text-xl font-bold mb-5" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                         ❓ Frequently Asked Questions
                     </h2>
                     <div className="space-y-4">
                         {faqs.map((f, i) => (
                             <div key={i} className="pb-4 border-b last:border-0 last:pb-0"
-                                style={{ borderColor: 'rgba(34,197,94,0.08)' }}>
-                                <p className="text-sm font-semibold text-white mb-1">Q: {f.q}</p>
-                                <p className="text-sm" style={{ color: 'rgba(232,245,233,0.55)' }}>A: {f.a}</p>
+                                style={{ borderColor: 'var(--border-md)' }}>
+                                <p className="text-sm font-semibold mb-1">Q: {f.q}</p>
+                                <p className="text-sm" style={{ color: 'var(--tx-muted)' }}>A: {f.a}</p>
                             </div>
                         ))}
                     </div>
@@ -168,8 +168,8 @@ export default function Manual() {
                 {/* Contact */}
                 <div className="text-center py-6 glass-card p-6">
                     <p className="text-2xl mb-2">🌿</p>
-                    <p className="font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Need more help?</p>
-                    <p className="text-sm mt-1 mb-4" style={{ color: 'rgba(232,245,233,0.4)' }}>
+                    <p className="font-bold" style={{ color: "var(--tx)" }} style={{ fontFamily: 'Montserrat, sans-serif' }}>Need more help?</p>
+                    <p className="text-sm mt-1 mb-4" style={{ color: 'var(--tx-muted)' }}>
                         Use the Notes section to communicate directly with the admin
                     </p>
                     <a href="/notes"

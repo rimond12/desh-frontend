@@ -48,26 +48,26 @@ export default function Settings() {
     return (
         <Layout isAdmin>
             <div className="mb-8 fade-in-up">
-                <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>Settings</h1>
-                <p className="text-sm mt-1" style={{ color: 'rgba(232,245,233,0.4)' }}>System configuration</p>
+                <h1 className="text-3xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>Settings</h1>
+                <p className="text-sm mt-1" style={{ color: 'var(--tx-muted)' }}>System configuration</p>
             </div>
 
             <div className="max-w-2xl space-y-6">
                 <div className="glass-card p-6">
-                    <h2 className="font-bold text-white text-lg mb-5">⚙ Site Settings</h2>
+                    <h2 className="font-bold text-lg mb-5">⚙ Site Settings</h2>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-xs font-semibold mb-2" style={{ color: 'rgba(232,245,233,0.45)', letterSpacing: '0.06em' }}>SITE NAME</label>
+                            <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>SITE NAME</label>
                             <input value={site.siteName} onChange={e => setSite({ ...site, siteName: e.target.value })}
                                 className="input-dark w-full px-4 py-3 text-sm" />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold mb-2" style={{ color: 'rgba(232,245,233,0.45)', letterSpacing: '0.06em' }}>MAX FILE SIZE (MB)</label>
+                            <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>MAX FILE SIZE (MB)</label>
                             <input type="number" value={site.maxFileSize} onChange={e => setSite({ ...site, maxFileSize: e.target.value })}
                                 className="input-dark w-40 px-4 py-3 text-sm" />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold mb-2" style={{ color: 'rgba(232,245,233,0.45)', letterSpacing: '0.06em' }}>ALLOWED FILE TYPES</label>
+                            <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>ALLOWED FILE TYPES</label>
                             <input value={site.allowedTypes} onChange={e => setSite({ ...site, allowedTypes: e.target.value })}
                                 className="input-dark w-full px-4 py-3 text-sm" />
                         </div>
@@ -78,7 +78,7 @@ export default function Settings() {
                 </div>
 
                 <div className="glass-card p-6">
-                    <h2 className="font-bold text-white text-lg mb-5">🔒 Change Password</h2>
+                    <h2 className="font-bold text-lg mb-5">🔒 Change Password</h2>
                     <div className="space-y-4">
                         {[
                             { label: 'CURRENT PASSWORD', key: 'current', placeholder: '••••••••' },
@@ -86,7 +86,7 @@ export default function Settings() {
                             { label: 'CONFIRM PASSWORD', key: 'confirm', placeholder: 'Repeat new password' },
                         ].map(f => (
                             <div key={f.key}>
-                                <label className="block text-xs font-semibold mb-2" style={{ color: 'rgba(232,245,233,0.45)', letterSpacing: '0.06em' }}>{f.label}</label>
+                                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>{f.label}</label>
                                 <input type="password" value={pass[f.key]} onChange={e => setPass({ ...pass, [f.key]: e.target.value })}
                                     placeholder={f.placeholder} className="input-dark w-full px-4 py-3 text-sm" />
                             </div>

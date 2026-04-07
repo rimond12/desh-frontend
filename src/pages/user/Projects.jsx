@@ -25,8 +25,8 @@ export default function Projects() {
     <Layout>
       <div className="flex items-start justify-between mb-8 fade-in-up">
         <div>
-          <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Syne, sans-serif' }}>My Projects</h1>
-          <p className="text-sm mt-1" style={{ color: 'rgba(232,245,233,0.4)' }}>
+          <h1 className="text-3xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>My Projects</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--tx-muted)' }}>
             {projects.length} projects
           </p>
         </div>
@@ -43,11 +43,11 @@ export default function Projects() {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-white">Loading...</div>
+        <div className="text-center py-20">Loading...</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 glass-card">
           <p className="text-4xl mb-3">🌱</p>
-          <p className="text-white font-semibold">No projects found</p>
+          <p className="font-semibold" style={{ color: "var(--tx)" }}>No projects found</p>
           <Link to="/projects/new" className="btn-primary-green mt-4 text-sm inline-flex">+ Start One</Link>
         </div>
       ) : (
@@ -55,9 +55,9 @@ export default function Projects() {
           {filtered.map((p, i) => <ProjectCard key={p._id} project={p} delay={i * 0.07} />)}
           <Link to="/projects/new"
             className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed min-h-48 transition-all hover:border-green-500/40"
-            style={{ borderColor: 'rgba(34,197,94,0.15)' }}>
-            <span className="text-3xl" style={{ color: 'rgba(232,245,233,0.3)' }}>+</span>
-            <p className="text-sm font-semibold" style={{ color: 'rgba(232,245,233,0.3)' }}>New Project</p>
+            style={{ borderColor: 'var(--border-md)' }}>
+            <span className="text-3xl" style={{ color: 'var(--tx-muted)' }}>+</span>
+            <p className="text-sm font-semibold" style={{ color: 'var(--tx-muted)' }}>New Project</p>
           </Link>
         </div>
       )}
@@ -77,8 +77,8 @@ function ProjectCard({ project: p, delay }) {
       style={{ animationDelay: `${delay}s` }}>
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0 mr-3">
-          <p className="font-bold text-white text-base" style={{ fontFamily: 'Syne, sans-serif' }}>{p.title}</p>
-          <p className="text-xs mt-1" style={{ color: 'rgba(232,245,233,0.3)' }}>
+          <p className="font-bold text-base" style={{ fontFamily: 'Montserrat, sans-serif' }}>{p.title}</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--tx-muted)' }}>
             Updated {new Date(p.updatedAt).toLocaleDateString()}
           </p>
         </div>
@@ -95,11 +95,11 @@ function ProjectCard({ project: p, delay }) {
               strokeDashoffset={`${2 * Math.PI * 26 * (1 - (p.scorePercent || 0) / 100)}`} />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-xs font-bold text-white">{p.scorePercent || 0}%</span>
+            <span className="text-xs font-bold">{p.scorePercent || 0}%</span>
           </div>
         </div>
         <div className="flex-1">
-          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${p.status === 'submitted' ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-400'
+          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${p.status === 'submitted' ? 'status-completed' : 'status-pending'
             }`}>
             {p.status === 'submitted' ? '✓ Submitted' : '◌ Draft'}
           </span>

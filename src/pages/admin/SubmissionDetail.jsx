@@ -1,0 +1,609 @@
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import Layout from '../../components/shared/Layout.jsx';
+import { ColoredLeaf, LeafBadge } from '../../components/shared/LeafLogo.jsx';
+import CommentThread from '../../components/shared/CommentThread.jsx';
+import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
+import toast from 'react-hot-toast';
+
+const SERVER_BASE = 'http://localhost:5000';
+
+const STATUS_CFG = {
+  under_review: { label: 'Under Review', color: '#92400E', bg: '#FEF9C3', border: '#FDE68A', dot: '#D97706' },
+  verified:     { label: 'Verified',     color: '#145C28', bg: '#D6F5E3', border: '#A8EFC0', dot: '#22A84B' },
+  cancelled:    { label: 'Cancelled',    color: '#991B1B', bg: '#FEE2E2', border: '#FECACA', dot: '#EF4444' },
+};
+
+// ── Score helpers ─────────────────────────────────────────────────
+function calcInputMax(inp) {
+  if (inp.inputType === 'number' && inp.line)
+    return Math.max(Number(inp.line.y1 || 0), Number(inp.line.y2 || 0));
+  if (inp.inputType === 'checkbox' && inp.options?.length)
+    return inp.options.reduce((t, o) => t + (o.points || 0), 0);
+  return 0;
+}
+
+function calcSectionData(sectionId, tabs) {
+  let earned = 0, max = 0;
+  (tabs || []).forEach(tab => {
+    (tab.modules || []).forEach(mod => {
+      (mod.inputs || []).forEach(inp => {
+        if (String(inp.sectionId) === String(sectionId)) {
+          earned += inp.points || 0;
+          max    += calcInputMax(inp);
+        }
+      });
+    });
+  });
+  const pct = max > 0 ? Math.round((earned / max) * 100) : 0;
+  return { earned, max, pct };
+}
+
+function getLeafLevel(pct, rules) {
+  return rules.find(r => pct >= r.minPercent && pct <= r.maxPercent) || null;
+}
+
+// ── Status badge ──────────────────────────────────────────────────
+function StatusBadge({ status, large }) {
+  const cfg = STATUS_CFG[status];
+  if (!cfg) return null;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: large ? 6 : 4,
+      padding: large ? '4px 12px' : '2px 9px',
+      borderRadius: 99,
+      fontSize: large ? 13 : 11, fontWeight: 700,
+      background: cfg.bg, color: cfg.color,
+      border: `1px solid ${cfg.border}`,
+      fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+    }}>
+      <span style={{ width: large ? 7 : 5, height: large ? 7 : 5, borderRadius: '50%', background: cfg.dot, flexShrink: 0 }} />
+      {cfg.label}
+    </span>
+  );
+}
+
+// ── Download URL ──────────────────────────────────────────────────
+function getDownloadUrl(doc) {
+  if (doc.filename) return `${SERVER_BASE}/uploads/documents/${doc.filename}`;
+  if (doc.path)     return `${SERVER_BASE}/${doc.path.replace(/\\/g, '/')}`;
+  return null;
+}
+
+// ── Edit Modal ────────────────────────────────────────────────────
+function EditModal({ project, globalSections, onSave, onClose }) {
+  const [sectionId, setSectionId] = useState('');
+  const [status, setStatus]       = useState('');
+  const [note, setNote]           = useState('');
+  const [saving, setSaving]       = useState(false);
+
+  const handleSectionChange = (sid) => {
+    setSectionId(sid);
+    const existing = project.sectionStatuses?.find(s => String(s.sectionId) === String(sid));
+    setStatus(existing?.status || '');
+  };
+
+  const save = async () => {
+    if (!sectionId) { toast.error('Please select a section'); return; }
+    setSaving(true);
+    try {
+      await onSave({ sectionId, sectionStatus: status || null, adminNote: note || undefined });
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 60,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', padding: 16,
+    }}>
+      <div className="fade-in-up" style={{ width: '100%', maxWidth: 480, padding: 28, background: '#fff', borderRadius: 18, boxShadow: '0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+          <div>
+            <h3 style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 16, color: '#111', margin: 0 }}>
+              Update Section Status
+            </h3>
+            <p style={{ fontSize: 12, color: '#666', margin: '3px 0 0' }}>{project.title}</p>
+          </div>
+          <button onClick={onClose} style={{ color: '#999', fontSize: 20, lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>✕</button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Section dropdown */}
+          <div>
+            <label style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#888', marginBottom: 8, fontFamily: 'Montserrat,sans-serif' }}>
+              Section
+            </label>
+            <select value={sectionId} onChange={e => handleSectionChange(e.target.value)} className="input-dark px-3 py-2.5 text-sm w-full">
+              <option value="">— Choose a section —</option>
+              {globalSections.map(s => {
+                const existing = project.sectionStatuses?.find(st => String(st.sectionId) === String(s._id));
+                return (
+                  <option key={s._id} value={s._id}>
+                    {s.title}{existing ? ` · ${STATUS_CFG[existing.status]?.label || ''}` : ''}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* Status dropdown */}
+          <div>
+            <label style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#888', marginBottom: 8, fontFamily: 'Montserrat,sans-serif' }}>
+              Status for this Section
+            </label>
+            <select value={status} onChange={e => setStatus(e.target.value)} className="input-dark px-3 py-2.5 text-sm w-full" disabled={!sectionId}>
+              <option value="">— No status / Clear —</option>
+              <option value="under_review">Under Review</option>
+              <option value="verified">Verified</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          {/* Current statuses summary */}
+          {project.sectionStatuses?.length > 0 && (
+            <div style={{ padding: '10px 14px', borderRadius: 10, background: '#f8f8f8', border: '1px solid #e8e8e8' }}>
+              <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#888', fontFamily: 'Montserrat,sans-serif', marginBottom: 8 }}>
+                Current Section Statuses
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {project.sectionStatuses.map((ss, i) => {
+                  const sec = globalSections.find(s => String(s._id) === String(ss.sectionId));
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: '#666' }}>{sec?.title || 'Section'}:</span>
+                      <StatusBadge status={ss.status} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Admin note */}
+          <div>
+            <label style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#888', marginBottom: 8, fontFamily: 'Montserrat,sans-serif' }}>
+              Add Note (optional)
+            </label>
+            <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Add a note to the user..." rows={3} className="input-dark w-full px-4 py-3 text-sm resize-none" />
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
+            <button onClick={save} disabled={saving} className="btn-primary-green flex-1 justify-center text-sm">
+              {saving ? 'Saving…' : 'Save Status'}
+            </button>
+            <button onClick={onClose} style={{ flex: 1, padding: '10px', borderRadius: 12, border: '1.5px solid #e0e0e0', color: '#666', fontWeight: 600, fontSize: 14, cursor: 'pointer', background: 'transparent' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────
+export default function SubmissionDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const axiosSecure = useAxiosSecure();
+  const { dbUser } = useAuth();
+
+  const [project, setProject]               = useState(null);
+  const [tabs, setTabs]                     = useState([]);
+  const [globalSections, setGlobalSections] = useState([]);
+  const [leafRules, setLeafRules]           = useState([]);
+  const [loading, setLoading]               = useState(true);
+  const [selectedSection, setSelectedSection] = useState('');
+  const [showEdit, setShowEdit]             = useState(false);
+  // comment counts per inputId (pre-fetched for badges)
+  const [commentCounts, setCommentCounts]   = useState({});
+
+  useEffect(() => {
+    Promise.all([
+      axiosSecure.get(`/submissions/${id}/detail`),
+      axiosSecure.get('/sections'),
+      axiosSecure.get('/settings/eval-rules'),
+      axiosSecure.get(`/comments/by-project/${id}`),
+    ])
+      .then(([detailRes, secRes, rulesRes, commentsRes]) => {
+        setProject(detailRes.data.project);
+        setTabs(detailRes.data.tabs || []);
+        setGlobalSections(secRes.data.sections || []);
+        setLeafRules(rulesRes.data.rules || []);
+        // Build a count map: { inputId: count }
+        const counts = {};
+        (commentsRes.data.comments || []).forEach(c => {
+          const key = String(c.inputId);
+          counts[key] = (counts[key] || 0) + 1;
+        });
+        setCommentCounts(counts);
+      })
+      .catch(() => toast.error('Failed to load submission'))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  const saveStatus = async (payload) => {
+    const res = await axiosSecure.patch(`/submissions/${id}`, payload);
+    setProject(res.data.project);
+    setShowEdit(false);
+    toast.success('Section status updated!');
+  };
+
+  if (loading) return (
+    <Layout isAdmin>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}>
+        <div style={{ width: 44, height: 44, borderRadius: '50%', border: '4px solid var(--g100)', borderTopColor: 'var(--g600)', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style>
+      </div>
+    </Layout>
+  );
+
+  // ── Score card calculations ──────────────────────────────────────
+  const sortedSections = [...globalSections].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const sectionData    = selectedSection ? calcSectionData(selectedSection, tabs) : null;
+
+  const displayPct    = sectionData ? sectionData.pct    : (project?.scorePercent || 0);
+  const displayEarned = sectionData ? sectionData.earned : (project?.totalPoints  || 0);
+  const displayMax    = sectionData ? sectionData.max    : (project?.maxPoints    || 0);
+
+  const overallRule   = leafRules.find(r => r.name === project?.leafLevel) || null;
+  const sectionRule   = sectionData ? getLeafLevel(sectionData.pct, leafRules) : null;
+  const activeRule    = sectionData ? sectionRule : overallRule;
+
+  const displayLevel     = activeRule?.name     || null;
+  const displayColorCode = activeRule?.colorCode || null;
+  const progressColor    = displayColorCode || '#94A3B8';
+
+  const activeSectionStatus = selectedSection
+    ? project?.sectionStatuses?.find(s => String(s.sectionId) === selectedSection)?.status || null
+    : null;
+
+  const selectedSectionName = sortedSections.find(s => String(s._id) === selectedSection)?.title || '';
+  const docs       = project?.documents || [];
+  const isLocked   = project?.isLocked || false;
+  const lockStatus = project?.lockStatus || 'pending';
+  const ownerId    = project?.userId?._id || project?.userId;
+
+  const LOCK_STATUS_CFG = {
+    pending:           { label: 'Pending Review', bg: '#F3F4F6', border: '#D1D5DB', color: '#4B5563' },
+    locked:            { label: '🔒 Locked',       bg: '#EDE9FE', border: '#C4B5FD', color: '#5B21B6' },
+    unlocked_for_edit: { label: '🔓 Unlocked for Edit', bg: '#FEF9C3', border: '#FDE68A', color: '#92400E' },
+  };
+
+  const unlockSubmission = async () => {
+    if (!window.confirm('Unlock this submission? The user will be able to edit it again.')) return;
+    try {
+      const res = await axiosSecure.post(`/submissions/${id}/unlock`);
+      setProject(res.data.project);
+      toast.success('Submission unlocked');
+    } catch { toast.error('Failed to unlock'); }
+  };
+
+  return (
+    <Layout isAdmin>
+      {/* ── Page header ── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 20, flexWrap: 'wrap' }} className="fade-in-up">
+        <button onClick={() => navigate('/admin/submissions')} style={{
+          display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10,
+          border: '1.5px solid var(--border)', background: '#fff', color: 'var(--tx-muted)',
+          fontWeight: 700, fontSize: 13, cursor: 'pointer', flexShrink: 0, boxShadow: 'var(--sh-xs)',
+        }}>
+          ← Back to Submissions
+        </button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h1 style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 22, color: 'var(--tx)', margin: 0, lineHeight: 1.2 }}>
+            {project?.title}
+          </h1>
+          <p style={{ fontSize: 13, color: 'var(--tx-muted)', margin: '4px 0 0', fontWeight: 500 }}>
+            by <span style={{ fontWeight: 700 }}>{project?.userId?.name}</span>
+            {' · '}{project?.userId?.email}
+            <span style={{ marginLeft: 10, fontSize: 11, color: 'var(--tx-faint)' }}>
+              {new Date(project?.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+          {(() => {
+            const cfg = LOCK_STATUS_CFG[lockStatus];
+            return (
+              <span style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 12,
+                border: `1.5px solid ${cfg.border}`, background: cfg.bg, color: cfg.color,
+                fontWeight: 700, fontSize: 13, fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+              }}>{cfg.label}</span>
+            );
+          })()}
+          {isLocked && (
+            <button onClick={unlockSubmission} style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 12,
+              border: '1.5px solid #E0E0E0', background: '#fff', color: '#555',
+              fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif',
+            }}>🔓 Unlock</button>
+          )}
+          <button onClick={() => setShowEdit(true)} style={{
+            display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 12,
+            background: 'linear-gradient(135deg,var(--g700),var(--g500))',
+            color: '#fff', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer',
+            boxShadow: '0 2px 12px rgba(34,168,75,0.3)', fontFamily: 'Montserrat,sans-serif',
+          }}>✏ Edit Status</button>
+        </div>
+      </div>
+
+      {/* ── Sticky Score Card ── */}
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 20,
+        background: 'linear-gradient(135deg,#EFF9F4,#D6F5E3)',
+        border: '1.5px solid var(--g200)', borderRadius: 20, marginBottom: 24,
+        boxShadow: '0 4px 24px rgba(34,168,75,0.12)', overflow: 'hidden',
+      }} className="fade-in-up">
+
+        {/* Section dropdown strip */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+          padding: '10px 20px', borderBottom: '1px solid rgba(34,168,75,0.15)',
+          background: 'rgba(255,255,255,0.5)',
+        }}>
+          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--g700)', fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap' }}>
+            Section
+          </span>
+          <select value={selectedSection} onChange={e => setSelectedSection(e.target.value)} style={{
+            flex: 1, maxWidth: 360, padding: '6px 12px', borderRadius: 8,
+            border: '1.5px solid var(--g200)', background: '#fff',
+            fontSize: 13, fontWeight: 600, color: 'var(--tx)', cursor: 'pointer', outline: 'none',
+          }}>
+            <option value="">— Overall Score —</option>
+            {sortedSections.map(s => {
+              const ss = project?.sectionStatuses?.find(st => String(st.sectionId) === String(s._id));
+              return <option key={s._id} value={s._id}>{s.title}{ss ? ` · ${STATUS_CFG[ss.status]?.label}` : ''}</option>;
+            })}
+          </select>
+
+          {/* Section status pills */}
+          {(project?.sectionStatuses || []).map((ss, i) => {
+            const sec = sortedSections.find(s => String(s._id) === String(ss.sectionId));
+            return (
+              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', whiteSpace: 'nowrap' }}>
+                {sec?.title}: <StatusBadge status={ss.status} />
+              </span>
+            );
+          })}
+        </div>
+
+        {/* Score body */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '18px 24px', flexWrap: 'wrap' }}>
+          <ColoredLeaf level={displayLevel} colorCode={displayColorCode} size={82} />
+          <div style={{ flex: 1, minWidth: 180 }}>
+            {selectedSection && (
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--g700)', margin: '0 0 4px', fontFamily: 'Montserrat,sans-serif', letterSpacing: '0.04em' }}>
+                ▦ {selectedSectionName}
+              </p>
+            )}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+              <span style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 34, color: 'var(--tx)', lineHeight: 1 }}>
+                {displayPct}%
+              </span>
+              <span style={{ fontSize: 13, color: 'var(--tx-muted)', fontWeight: 600 }}>score</span>
+              <span style={{ fontSize: 14, color: 'var(--tx-muted)', fontWeight: 700 }}>
+                {typeof displayEarned === 'number' ? displayEarned.toFixed(1) : '0.0'} / {displayMax} pts
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {displayLevel
+                ? <LeafBadge level={displayLevel} />
+                : <span style={{ fontSize: 12, color: 'var(--tx-faint)', fontWeight: 600 }}>Not rated yet</span>}
+              <span className={project?.status === 'submitted' ? 'status-chip status-completed' : 'status-chip status-progress'}>
+                {project?.status === 'submitted' ? '✓ Submitted' : '● Draft'}
+              </span>
+              {activeSectionStatus && <StatusBadge status={activeSectionStatus} large />}
+            </div>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div style={{ padding: '0 24px 14px' }}>
+          <div style={{ height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.5)', overflow: 'hidden' }}>
+            <div style={{ height: '100%', borderRadius: 99, background: progressColor, width: `${Math.min(displayPct, 100)}%`, transition: 'width 0.8s ease, background 0.5s ease' }} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Documents ── */}
+      {docs.length > 0 && (
+        <div className="glass-card fade-in-up" style={{ padding: '18px 20px', marginBottom: 20 }}>
+          <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--tx-muted)', fontFamily: 'Montserrat,sans-serif', marginBottom: 12 }}>
+            Uploaded Documents ({docs.length})
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {docs.map((doc, i) => {
+              const url = getDownloadUrl(doc);
+              return (
+                <a key={i} href={url} download={doc.originalName || 'document'} target="_blank" rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    padding: '8px 14px', borderRadius: 10,
+                    background: 'linear-gradient(135deg,var(--g50),#EFF9F4)',
+                    border: '1.5px solid var(--g200)', color: 'var(--g800)',
+                    fontWeight: 600, fontSize: 13, textDecoration: 'none',
+                    boxShadow: 'var(--sh-xs)', transition: 'all 0.15s',
+                  }}>
+                  <span style={{ fontSize: 16 }}>📎</span>
+                  <span style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {doc.originalName || doc.filename || 'Download File'}
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 800, padding: '1px 7px', borderRadius: 5, background: 'var(--g200)', color: 'var(--g800)', flexShrink: 0 }}>↓</span>
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Notes ── */}
+      {project?.notes?.some(n => n.senderRole === 'admin') && (
+        <div className="glass-card fade-in-up" style={{ padding: '16px 20px', marginBottom: 16 }}>
+          <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--tx-muted)', fontFamily: 'Montserrat,sans-serif', marginBottom: 10 }}>Admin Notes</p>
+          {project.notes.filter(n => n.senderRole === 'admin').map((n, i) => (
+            <div key={i} style={{ padding: '9px 12px', borderRadius: 9, background: 'var(--g50)', border: '1px solid var(--g200)', fontSize: 13, color: 'var(--g800)', marginBottom: 6 }}>{n.message}</div>
+          ))}
+        </div>
+      )}
+      {project?.notes?.some(n => n.senderRole === 'user') && (
+        <div className="glass-card fade-in-up" style={{ padding: '16px 20px', marginBottom: 20 }}>
+          <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--tx-muted)', fontFamily: 'Montserrat,sans-serif', marginBottom: 10 }}>User Notes</p>
+          {project.notes.filter(n => n.senderRole === 'user').map((n, i) => (
+            <div key={i} style={{ padding: '9px 12px', borderRadius: 9, background: '#EFF6FF', border: '1px solid #BFDBFE', fontSize: 13, color: '#1D4ED8', marginBottom: 6 }}>{n.message}</div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Tabs → Modules → Inputs ── */}
+      {(tabs || []).map((tab, ti) => {
+        // When a section is selected, only show inputs belonging to it
+        const visibleModules = (tab.modules || []).map(mod => ({
+          ...mod,
+          visibleInputs: selectedSection
+            ? (mod.inputs || []).filter(inp => String(inp.sectionId) === selectedSection)
+            : (mod.inputs || []),
+        })).filter(mod => mod.visibleInputs.length > 0);
+
+        if (visibleModules.length === 0) return null;
+
+        return (
+        <div key={tab._id} className="fade-in-up" style={{ marginBottom: 28 }}>
+          {/* Tab heading */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, paddingBottom: 10, borderBottom: '2px solid var(--g200)' }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 28, height: 28, borderRadius: 8, background: 'var(--g600)', color: '#fff',
+              fontSize: 12, fontWeight: 900, flexShrink: 0, fontFamily: 'Montserrat,sans-serif',
+            }}>{ti + 1}</span>
+            <h2 style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 15, color: 'var(--g800)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {tab.title}
+            </h2>
+          </div>
+
+          {/* Modules */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {visibleModules.map((mod, mi) => {
+              const modEarned = mod.visibleInputs.reduce((s, inp) => s + (inp.points || 0), 0);
+              const modMax    = mod.visibleInputs.reduce((s, inp) => s + calcInputMax(inp), 0);
+              const modPct    = modMax > 0 ? Math.round((modEarned / modMax) * 100) : 0;
+              const scoreColor = modPct >= 70 ? 'var(--g700)' : modPct >= 40 ? '#92400E' : 'var(--tx-faint)';
+              const scoreBg    = modPct >= 70 ? 'var(--g100)' : modPct >= 40 ? '#FEF9C3' : 'var(--bg-muted)';
+
+              return (
+                <div key={mod._id} style={{ border: '1px solid var(--border)', borderRadius: 16, background: '#fff', overflow: 'hidden', boxShadow: 'var(--sh-xs)' }}>
+                  {/* Module header */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', background: 'var(--bg-soft)', borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'var(--g50)', border: '1px solid var(--g200)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: 'var(--g600)' }}>◈</div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 14, color: 'var(--tx)', margin: 0 }}>
+                        <span style={{ color: 'var(--tx-faint)', marginRight: 4 }}>{ti + 1}.{mi + 1}</span>{mod.title}
+                      </p>
+                    </div>
+                    <div style={{ padding: '5px 12px', borderRadius: 20, background: scoreBg, border: `1px solid ${modPct >= 70 ? 'var(--g300)' : modPct >= 40 ? '#FDE68A' : 'var(--border)'}` }}>
+                      <span style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 14, color: scoreColor }}>
+                        {modEarned.toFixed(1)}
+                      </span>
+                      {modMax > 0 && <span style={{ fontSize: 11, color: 'var(--tx-faint)', fontWeight: 600 }}> / {modMax} pts</span>}
+                    </div>
+                  </div>
+
+                  {/* Input rows */}
+                  <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {mod.visibleInputs.map(inp => {
+                      const isEmpty = inp.inputType === 'file' ? !inp.uploaded
+                        : Array.isArray(inp.value) ? inp.value.length === 0
+                        : inp.value === '' || inp.value === undefined;
+
+                      // Find the matching uploaded document for file inputs
+                      const linkedDoc = inp.inputType === 'file'
+                        ? docs.find(d => String(d.inputId) === String(inp._id))
+                        : null;
+                      const linkedUrl = linkedDoc ? getDownloadUrl(linkedDoc) : null;
+
+                      return (
+                        <div key={inp._id} style={{
+                          padding: '10px 12px', borderRadius: 10,
+                          background: isEmpty ? 'var(--bg-subtle)' : '#FAFFFE',
+                          border: `1px solid ${isEmpty ? 'var(--border)' : 'var(--g100)'}`,
+                          opacity: isEmpty ? 0.55 : 1,
+                        }}>
+                          {/* Top row: label + value + points badge */}
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx)', margin: '0 0 3px', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                {inp.label}
+                                {inp.isRequired && <span style={{ color: '#EF4444', fontSize: 10 }}>*</span>}
+                                <span style={{
+                                  fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 4, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'Montserrat,sans-serif',
+                                  background: { number: '#EFF6FF', text: 'var(--g50)', checkbox: '#FEF9C3', file: '#F5F0E8' }[inp.inputType],
+                                  color: { number: '#1D4ED8', text: 'var(--g700)', checkbox: '#92400E', file: '#78350F' }[inp.inputType],
+                                }}>{inp.inputType}</span>
+                              </p>
+                              <div style={{ fontSize: 13, color: isEmpty ? 'var(--tx-faint)' : 'var(--tx)', wordBreak: 'break-word' }}>
+                                {inp.inputType === 'file'
+                                  ? (linkedDoc
+                                    ? (
+                                      <div>
+                                        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', margin: '0 0 5px', letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'Montserrat,sans-serif' }}>
+                                          Document for this question
+                                        </p>
+                                        <a href={linkedUrl} download={linkedDoc.originalName || 'document'} target="_blank" rel="noopener noreferrer"
+                                          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px', borderRadius: 8, background: 'var(--g50)', border: '1px solid var(--g200)', color: 'var(--g800)', fontWeight: 600, fontSize: 12, textDecoration: 'none' }}>
+                                          <span>📎</span>
+                                          <span style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {linkedDoc.originalName || 'Download File'}
+                                          </span>
+                                          <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: 'var(--g200)', color: 'var(--g800)', flexShrink: 0 }}>↓</span>
+                                        </a>
+                                      </div>
+                                    )
+                                    : <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>No file uploaded</span>)
+                                  : inp.inputType === 'checkbox'
+                                    ? (Array.isArray(inp.value) && inp.value.length > 0 ? inp.value.join(', ') : <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)
+                                    : (inp.value || <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)}
+                              </div>
+                            </div>
+                            {inp.points > 0 && (
+                              <span style={{ fontSize: 11, fontWeight: 800, flexShrink: 0, padding: '3px 9px', borderRadius: 7, background: 'var(--g100)', color: 'var(--g700)', border: '1px solid var(--g200)', whiteSpace: 'nowrap' }}>
+                                {inp.points.toFixed(1)} pts
+                              </span>
+                            )}
+                          </div>
+                          {/* Comment thread — admin can view + edit any comment */}
+                          {dbUser && (
+                            <CommentThread
+                              projectId={project._id}
+                              inputId={inp._id}
+                              currentUserId={dbUser._id}
+                              currentRole={dbUser.role}
+                              isLocked={isLocked}
+                              projectOwnerId={ownerId}
+                              initialCount={commentCounts[String(inp._id)] || 0}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        );
+      })}
+
+      {/* Edit modal */}
+      {showEdit && (
+        <EditModal project={project} globalSections={sortedSections} onSave={saveStatus} onClose={() => setShowEdit(false)} />
+      )}
+
+      <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style>
+    </Layout>
+  );
+}
