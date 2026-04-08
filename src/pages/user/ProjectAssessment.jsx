@@ -165,6 +165,10 @@ export default function ProjectAssessment() {
       setProject(r.data.project);
       setTabs(r.data.tabs || []);
       setDisplayLeaf(r.data.displayLeaf);
+      // Initialise section filter from the project's saved active section
+      if (r.data.project?.activeSection) {
+        setSelectedSection(String(r.data.project.activeSection));
+      }
 
       const ans = {};
       (r.data.tabs || []).forEach(tab => {
@@ -522,7 +526,7 @@ export default function ProjectAssessment() {
                 grouped[sid].push(inp);
               });
 
-              // Build ordered section groups
+              // Build ordered section groups (all sections present in this module)
               const sectionGroups = [
                 ...sortedGlobalSections
                   .filter(s => grouped[String(s._id)])
@@ -533,6 +537,14 @@ export default function ProjectAssessment() {
                   })),
                 ...(grouped['none'] ? [{ id: 'none', title: 'Uncategorized', inputs: grouped['none'] }] : []),
               ];
+
+              // Only show the currently selected section's group (or all if none selected)
+              const visibleGroups = selectedSection
+                ? sectionGroups.filter(g => g.id === selectedSection)
+                : sectionGroups;
+
+              // Sections available in this module (for per-module switcher)
+              const moduleSections = sortedGlobalSections.filter(s => grouped[String(s._id)]);
 
               // Total pts for this module (all inputs)
               const modPts = allInputs.reduce((s, inp) => s + calcInputPoints(inp, answers[inp._id]), 0);
@@ -573,9 +585,9 @@ export default function ProjectAssessment() {
                       </p>
                       {/* Collapsed: show section progress chips; Open: show counts */}
                       {!isOpen ? (
-                        sectionGroups.length > 0 ? (
+                        visibleGroups.length > 0 ? (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                            {sectionGroups.map(g => {
+                            {visibleGroups.map(g => {
                               const filled = g.inputs.filter(inp => isInputFilled(inp, answers)).length;
                               const total = g.inputs.length;
                               const done = filled === total && total > 0;
@@ -603,7 +615,7 @@ export default function ProjectAssessment() {
                         )
                       ) : (
                         <p style={{ fontSize: 12, color: 'var(--tx-muted)', margin: '2px 0 0' }}>
-                          {sectionGroups.length} section{sectionGroups.length !== 1 ? 's' : ''} · {allInputs.length} field{allInputs.length !== 1 ? 's' : ''}
+                          {visibleGroups.length} section{visibleGroups.length !== 1 ? 's' : ''} · {visibleGroups.reduce((s, g) => s + g.inputs.length, 0)} field{visibleGroups.reduce((s, g) => s + g.inputs.length, 0) !== 1 ? 's' : ''}
                         </p>
                       )}
                     </div>
@@ -629,6 +641,36 @@ export default function ProjectAssessment() {
                   {/* Module body */}
                   {isOpen && (
                     <div style={{ padding: '20px' }}>
+                      {/* Per-module section switcher */}
+                      {moduleSections.length > 1 && (
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
+                          padding: '10px 14px', borderRadius: 12,
+                          background: 'var(--g50)', border: '1.5px solid var(--g200)',
+                        }}>
+                          <span style={{
+                            fontSize: 10, fontWeight: 800, letterSpacing: '0.1em',
+                            textTransform: 'uppercase', color: 'var(--g700)',
+                            fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+                          }}>▦ Section</span>
+                          <select
+                            value={selectedSection}
+                            onChange={e => setSelectedSection(e.target.value)}
+                            style={{
+                              flex: 1, padding: '5px 10px', borderRadius: 8,
+                              border: '1.5px solid var(--g300)', background: '#fff',
+                              fontSize: 13, fontWeight: 600, color: 'var(--tx)',
+                              cursor: 'pointer', outline: 'none',
+                            }}
+                          >
+                            <option value="">— All Sections —</option>
+                            {moduleSections.map(s => (
+                              <option key={s._id} value={String(s._id)}>{s.title}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
                       {/* Guidelines */}
                       {mod.readDetails && (
                         <div style={{
@@ -645,8 +687,12 @@ export default function ProjectAssessment() {
                         <div style={{ padding: 24, textAlign: 'center', color: 'var(--tx-faint)', fontSize: 13 }}>
                           No input fields in this module.
                         </div>
+                      ) : visibleGroups.length === 0 ? (
+                        <div style={{ padding: 24, textAlign: 'center', color: 'var(--tx-faint)', fontSize: 13 }}>
+                          No inputs for the selected section in this module.
+                        </div>
                       ) : (
-                        sectionGroups.map((group) => {
+                        visibleGroups.map((group) => {
                           const secKey = `${mod._id}-${group.id}`;
                           const isSecOpen = openSections[secKey] !== false; // default open
                           const secEarned = group.inputs.reduce((s, inp) => s + calcInputPoints(inp, answers[inp._id]), 0);

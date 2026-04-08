@@ -1,9 +1,11 @@
 import axios from "axios";
 import { auth } from "../services/firebase";
 
+const baseURL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+
 const useAxiosSecure = () => {
     const instance = axios.create({
-        baseURL: "http://localhost:5000/api",
+        baseURL,
         headers: { "Content-Type": "application/json" },
     });
 
