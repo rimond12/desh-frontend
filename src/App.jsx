@@ -26,6 +26,7 @@ import LeafLevels       from './pages/admin/LeafLevels.jsx';
 import Users            from './pages/admin/Users.jsx';
 import ActivityLogs     from './pages/admin/ActivityLogs.jsx';
 import Settings         from './pages/admin/Settings.jsx';
+import ImportExport     from './pages/admin/ImportExport.jsx';
 
 // ── Route guards — role checked from dbUser (MongoDB), not email lists ──
 
@@ -95,6 +96,7 @@ function AppRoutes() {
       <Route path="/admin/users"            element={<AdminRoute><Users/></AdminRoute>} />
       <Route path="/admin/activity"         element={<AdminRoute><ActivityLogs/></AdminRoute>} />
       <Route path="/admin/settings"         element={<AdminRoute><Settings/></AdminRoute>} />
+      <Route path="/admin/import-export"   element={<AdminRoute><ImportExport/></AdminRoute>} />
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

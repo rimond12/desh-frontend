@@ -100,11 +100,11 @@ export default function Users() {
                                         </div>
                                     </td>
                                     <td>
-                                        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
-                                            u.role === 'admin'    ? 'bg-orange-500/15 text-orange-400' :
+                                        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${u.role === 'admin' ? 'bg-orange-500/15 text-orange-400' :
                                             u.role === 'reviewer' ? 'bg-purple-500/15 text-purple-400' :
-                                            'status-completed'
-                                        }`}>{u.role}</span>
+                                                u.role === 'student' ? 'bg-blue-500/15 text-blue-400' :
+                                                    'status-completed'
+                                            }`}>{u.role}</span>
                                     </td>
                                     <td className="text-sm">{new Date(u.createdAt).toLocaleDateString()}</td>
                                     <td>
@@ -155,6 +155,11 @@ export default function Users() {
                                     className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition-all ${selected.role === 'user' ? 'bg-green-500/15 text-green-600 border-green-500/30' : 'border-gray-200 text-gray-400'
                                         }`}>
                                     User
+                                </button>
+                                <button onClick={() => changeRole(selected._id, 'student')}
+                                    className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition-all ${selected.role === 'student' ? 'bg-blue-500/15 text-blue-600 border-blue-500/30' : 'border-gray-200 text-gray-400'
+                                        }`}>
+                                    Student
                                 </button>
                                 <button onClick={() => changeRole(selected._id, 'reviewer')}
                                     className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition-all ${selected.role === 'reviewer' ? 'bg-purple-500/15 text-purple-600 border-purple-500/30' : 'border-gray-200 text-gray-400'

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
 import { LeafBadge, ColoredLeaf } from '../../components/shared/LeafLogo.jsx';
@@ -152,6 +152,12 @@ export default function ProjectAssessment() {
   const [loading, setLoading] = useState(true);
   const [displayLeaf, setDisplayLeaf] = useState(null);
 
+  // Inline title editing
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [savingTitle, setSavingTitle] = useState(false);
+  const titleInputRef = useRef(null);
+
   // Global sections + leaf rules
   const [globalSections, setGlobalSections] = useState([]);
   const [leafRules, setLeafRules] = useState([]);
@@ -266,6 +272,33 @@ export default function ProjectAssessment() {
 
   const toggleSection = (key) => {
     setOpenSections(p => ({ ...p, [key]: !p[key] }));
+  };
+
+  const startTitleEdit = () => {
+    setEditTitle(project?.title || '');
+    setEditingTitle(true);
+    setTimeout(() => titleInputRef.current?.select(), 50);
+  };
+
+  const cancelTitleEdit = () => {
+    setEditTitle('');
+    setEditingTitle(false);
+  };
+
+  const saveTitleEdit = async () => {
+    const trimmed = editTitle.trim();
+    if (!trimmed || trimmed === project?.title) { setEditingTitle(false); return; }
+    setSavingTitle(true);
+    try {
+      const res = await ax.patch(`/projects/${id}`, { title: trimmed });
+      setProject(p => ({ ...p, title: res.data.project.title }));
+      setEditingTitle(false);
+      toast.success('Renamed');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to rename');
+    } finally {
+      setSavingTitle(false);
+    }
   };
 
   if (loading) return (
@@ -407,12 +440,65 @@ export default function ProjectAssessment() {
 
           {/* Score info */}
           <div style={{ flex: 1, minWidth: 180 }}>
-            <h2 style={{
-              fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
-              fontSize: 20, color: 'var(--tx)', margin: '0 0 4px',
-            }}>
-              {project?.title}
-            </h2>
+            {/* Editable title */}
+            {editingTitle ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <input
+                  ref={titleInputRef}
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') saveTitleEdit();
+                    if (e.key === 'Escape') cancelTitleEdit();
+                  }}
+                  maxLength={120}
+                  disabled={savingTitle}
+                  style={{
+                    flex: 1, padding: '5px 10px', borderRadius: 8, fontSize: 16,
+                    fontFamily: 'Montserrat,sans-serif', fontWeight: 700,
+                    border: '1.5px solid var(--g300)', background: '#fff',
+                    color: 'var(--tx)', outline: 'none',
+                  }}
+                />
+                <button onClick={saveTitleEdit} disabled={savingTitle || !editTitle.trim()} style={{
+                  background: 'rgba(34,168,75,0.12)', border: '1px solid rgba(34,168,75,0.4)',
+                  color: 'var(--g700)', borderRadius: 7, padding: '4px 12px',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+                  opacity: savingTitle || !editTitle.trim() ? 0.5 : 1,
+                }}>
+                  {savingTitle ? '…' : 'Save'}
+                </button>
+                <button onClick={cancelTitleEdit} style={{
+                  background: 'rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.12)',
+                  color: 'var(--tx-muted)', borderRadius: 7, padding: '4px 12px',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                }}>
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <h2 style={{
+                  fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
+                  fontSize: 20, color: 'var(--tx)', margin: 0,
+                }}>
+                  {project?.title}
+                </h2>
+                {project?.status !== 'submitted' && !isLocked && (
+                  <button onClick={startTitleEdit} title="Rename project" style={{
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    color: 'var(--g500)', fontSize: 15, padding: '2px 5px',
+                    borderRadius: 6, lineHeight: 1, flexShrink: 0,
+                    transition: 'color 0.15s',
+                  }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--g700)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--g500)'}
+                  >
+                    ✎
+                  </button>
+                )}
+              </div>
+            )}
             {displayMode && (
               <p style={{
                 fontSize: 11, fontWeight: 700, color: 'var(--g700)',

@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
 import { LeafBadge } from '../../components/shared/LeafLogo.jsx';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
+import toast from 'react-hot-toast';
 
 export default function Projects() {
   const axiosSecure = useAxiosSecure();
@@ -16,6 +17,27 @@ export default function Projects() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  const handleRename = async (id, newTitle) => {
+    try {
+      const res = await axiosSecure.patch(`/projects/${id}`, { title: newTitle });
+      setProjects(prev => prev.map(p => p._id === id ? { ...p, title: res.data.project.title } : p));
+      toast.success('Project renamed');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to rename');
+      throw err; // re-throw so card can revert
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await axiosSecure.delete(`/projects/${id}`);
+      setProjects(prev => prev.filter(p => p._id !== id));
+      toast.success('Project deleted');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete');
+    }
+  };
 
   const filtered = projects.filter(p =>
     p.title.toLowerCase().includes(search.toLowerCase())
@@ -52,7 +74,15 @@ export default function Projects() {
         </div>
       ) : (
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filtered.map((p, i) => <ProjectCard key={p._id} project={p} delay={i * 0.07} />)}
+          {filtered.map((p, i) => (
+            <ProjectCard
+              key={p._id}
+              project={p}
+              delay={i * 0.07}
+              onRename={handleRename}
+              onDelete={handleDelete}
+            />
+          ))}
           <Link to="/projects/new"
             className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed min-h-48 transition-all hover:border-green-500/40"
             style={{ borderColor: 'var(--border-md)' }}>
@@ -65,19 +95,139 @@ export default function Projects() {
   );
 }
 
-function ProjectCard({ project: p, delay }) {
+function ProjectCard({ project: p, delay, onRename, onDelete }) {
+  const navigate = useNavigate();
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(p.title);
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const inputRef = useRef(null);
+
   const ringColor = {
     'Green Leaf': '#22C55E', 'Yellow Leaf': '#F8A514',
     'Orange Leaf': '#E2670C', 'Brown Leaf': '#97542A',
   }[p.leafLevel] || '#22C55E';
 
+  const startEdit = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditTitle(p.title);
+    setEditing(true);
+    setTimeout(() => inputRef.current?.select(), 50);
+  };
+
+  const cancelEdit = (e) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    setEditTitle(p.title);
+    setEditing(false);
+  };
+
+  const saveEdit = async (e) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    const trimmed = editTitle.trim();
+    if (!trimmed || trimmed === p.title) { setEditing(false); return; }
+    setSaving(true);
+    try {
+      await onRename(p._id, trimmed);
+      setEditing(false);
+    } catch {
+      setEditTitle(p.title);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') saveEdit(e);
+    if (e.key === 'Escape') cancelEdit(e);
+  };
+
+  const handleDeleteClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setConfirmDelete(true);
+  };
+
+  const confirmDeleteAction = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setConfirmDelete(false);
+    await onDelete(p._id);
+  };
+
+  const cancelDelete = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setConfirmDelete(false);
+  };
+
   return (
-    <Link to={`/projects/${p._id}`}
-      className="glass-card p-6 flex flex-col gap-4 hover:-translate-y-1 transition-all block"
-      style={{ animationDelay: `${delay}s` }}>
+    <div
+      className="glass-card p-6 flex flex-col gap-4 hover:-translate-y-1 transition-all cursor-pointer fade-in-up"
+      style={{ animationDelay: `${delay}s` }}
+      onClick={() => navigate(`/projects/${p._id}`)}
+    >
+      {/* Title row */}
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0 mr-3">
-          <p className="font-bold text-base" style={{ fontFamily: 'Montserrat, sans-serif' }}>{p.title}</p>
+          {editing ? (
+            <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+              <input
+                ref={inputRef}
+                value={editTitle}
+                onChange={e => setEditTitle(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="input-dark text-sm font-bold flex-1 min-w-0 px-2 py-1"
+                style={{ fontFamily: 'Montserrat, sans-serif', minWidth: 0 }}
+                maxLength={120}
+                disabled={saving}
+              />
+              <button
+                onClick={saveEdit}
+                disabled={saving || !editTitle.trim()}
+                style={{
+                  background: 'rgba(52,201,97,0.18)', border: '1px solid rgba(52,201,97,0.4)',
+                  color: '#5DD882', borderRadius: 8, padding: '3px 10px',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+                  opacity: saving || !editTitle.trim() ? 0.5 : 1,
+                }}
+              >
+                {saving ? '...' : 'Save'}
+              </button>
+              <button
+                onClick={cancelEdit}
+                style={{
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                  color: 'rgba(255,255,255,0.5)', borderRadius: 8, padding: '3px 10px',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 group/title">
+              <p className="font-bold text-base truncate" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                {p.title}
+              </p>
+              <button
+                onClick={startEdit}
+                title="Rename project"
+                style={{
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  color: 'rgba(255,255,255,0.3)', fontSize: 13, padding: '2px 4px',
+                  borderRadius: 6, flexShrink: 0, lineHeight: 1,
+                  transition: 'color 0.15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.75)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+              >
+                ✎
+              </button>
+            </div>
+          )}
           <p className="text-xs mt-1" style={{ color: 'var(--tx-muted)' }}>
             Updated {new Date(p.updatedAt).toLocaleDateString()}
           </p>
@@ -85,6 +235,7 @@ function ProjectCard({ project: p, delay }) {
         {p.leafLevel && <LeafBadge level={p.leafLevel} />}
       </div>
 
+      {/* Score ring + status */}
       <div className="flex items-center gap-4">
         <div className="relative w-16 h-16 flex-shrink-0">
           <svg viewBox="0 0 64 64" width="64" height="64" style={{ transform: 'rotate(-90deg)' }}>
@@ -99,12 +250,64 @@ function ProjectCard({ project: p, delay }) {
           </div>
         </div>
         <div className="flex-1">
-          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${p.status === 'submitted' ? 'status-completed' : 'status-pending'
-            }`}>
+          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${p.status === 'submitted' ? 'status-completed' : 'status-pending'}`}>
             {p.status === 'submitted' ? '✓ Submitted' : '◌ Draft'}
           </span>
         </div>
       </div>
-    </Link>
+
+      {/* Delete button — draft only */}
+      {p.status === 'draft' && (
+        <div onClick={e => e.stopPropagation()}>
+          {confirmDelete ? (
+            <div style={{
+              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+              borderRadius: 10, padding: '8px 12px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+            }}>
+              <span style={{ fontSize: 12, color: 'rgba(252,165,165,0.9)', fontWeight: 600 }}>
+                Delete this project?
+              </span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={confirmDeleteAction} style={{
+                  background: 'rgba(239,68,68,0.22)', border: '1px solid rgba(239,68,68,0.45)',
+                  color: '#FCA5A5', borderRadius: 7, padding: '3px 10px',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                }}>
+                  Delete
+                </button>
+                <button onClick={cancelDelete} style={{
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                  color: 'rgba(255,255,255,0.5)', borderRadius: 7, padding: '3px 10px',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={handleDeleteClick} style={{
+              background: 'transparent', border: '1px solid rgba(239,68,68,0.2)',
+              color: 'rgba(252,165,165,0.5)', borderRadius: 8, padding: '5px 12px',
+              fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%',
+              transition: 'all 0.15s',
+            }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+                e.currentTarget.style.color = 'rgba(252,165,165,0.85)';
+                e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'rgba(252,165,165,0.5)';
+                e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)';
+              }}
+            >
+              Delete Draft
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

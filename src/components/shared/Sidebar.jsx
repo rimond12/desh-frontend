@@ -31,6 +31,7 @@ const adminNav = [
   ]},
   { section:'SYSTEM', items:[
     { icon:'⚙', label:'Settings',     path:'/admin/settings' },
+    { icon:'⇅', label:'Import/Export', path:'/admin/import-export' },
   ]},
 ];
 
