@@ -55,7 +55,7 @@ export default function AdminDashboard() {
     <Layout isAdmin>
       <div className="mb-8 fade-in-up">
         <p className="text-sm" style={{ color: 'var(--tx-muted)' }}>Admin Panel</p>
-        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>Dashboard</h1>
+        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>Deshboard</h1>
       </div>
 
       {/* Stat cards */}

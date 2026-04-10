@@ -15,9 +15,9 @@ export default function Login() {
 
   const redirectByRole = async () => {
     const role = await getRoleFromDb();
-    if (role === 'admin')         navigate('/admin');
+    if (role === 'admin') navigate('/admin');
     else if (role === 'reviewer') navigate('/reviewer/submissions');
-    else                          navigate('/dashboard');
+    else navigate('/dashboard');
   };
 
   const submit = async (e) => {
@@ -421,7 +421,7 @@ export default function Login() {
           <div className="form-card">
 
             {/* DESH Logo + label */}
-           
+
 
             {/* Card */}
             <div className="card-box">
@@ -514,8 +514,8 @@ export default function Login() {
         <footer className="partner-footer">
           <p className="partner-label">Institutional Partners &amp; Supporters</p>
           <div className="partner-logos">
-            {['0_HBRI_Picture3.png', '1_UNOPS_Picture4.png', '2_PS3_Picture5.png',
-              '3_UN_HABITAT_Picture8.png', '4_UNEP_Picture6.png', '5_GABC_Picture7.png'].map((img, i) => (
+            {['0_HBRI_Picture3.png', '1_UNOPS_Picture4.png', 'bdLogo.jpg',
+              , '4_UNEP_Picture6.png', '5_GABC_Picture7.png', 'federal-ministry.png'].map((img, i) => (
                 <img key={i} src={`/images/${img}`} alt="" />
               ))}
           </div>

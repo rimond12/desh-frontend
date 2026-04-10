@@ -81,21 +81,21 @@ export default function Sidebar({ isAdmin=false, isReviewer=false, mobileOpen, o
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontFamily:'Montserrat,sans-serif', fontWeight:900,
               fontSize:17, color:'#fff', letterSpacing:'-0.01em', lineHeight:1.2 }}>
-              DESH
+              DESHBOARD
             </div>
             <div style={{ fontSize:10.5, color:'rgba(255,255,255,0.38)',
               fontWeight:600, letterSpacing:'0.04em', marginTop:2 }}>
               {isAdmin ? 'Admin Panel' : 'User Portal'}
             </div>
           </div>
-          <span style={{
+          {/* <span style={{
             background:'rgba(52,201,97,0.18)',
             border:'1px solid rgba(52,201,97,0.3)',
             color:'#5DD882', fontSize:9, fontWeight:800,
             padding:'2px 7px', borderRadius:99,
             letterSpacing:'0.1em', fontFamily:'Montserrat,sans-serif',
             flexShrink:0
-          }}>GOV</span>
+          }}>GOV</span> */}
         </div>
 
         {/* Green accent */}
