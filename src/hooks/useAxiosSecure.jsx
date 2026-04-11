@@ -12,9 +12,12 @@ const useAxiosSecure = () => {
     instance.interceptors.request.use(async (config) => {
         const user = auth.currentUser;
         if (user) {
-            // Firebase token (localStorage নয়, সরাসরি Firebase থেকে)
             const token = await user.getIdToken();
             config.headers.Authorization = `Bearer ${token}`;
+        }
+        // FormData হলে Content-Type সরিয়ে দাও — browser নিজে boundary সহ সেট করবে
+        if (config.data instanceof FormData) {
+            delete config.headers['Content-Type'];
         }
         return config;
     }, Promise.reject);

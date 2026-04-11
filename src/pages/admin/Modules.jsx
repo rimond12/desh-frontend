@@ -3,6 +3,28 @@ import Layout from '../../components/shared/Layout.jsx';
 import toast from 'react-hot-toast';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 
+const SERVER_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+
+function IconImg({ src, fallback, size = 40 }) {
+  const [failed, setFailed] = useState(false);
+  const r = Math.round(size * 0.28);
+  if (!src || failed) {
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: r, flexShrink: 0,
+        background: 'linear-gradient(135deg,var(--g700),var(--g500))',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: 'white', fontSize: Math.round(size * 0.35), fontWeight: 800,
+        fontFamily: 'Montserrat,sans-serif', boxShadow: '0 2px 8px rgba(26,122,53,0.3)',
+      }}>{fallback}</div>
+    );
+  }
+  return (
+    <img src={src} alt="" onError={() => setFailed(true)}
+      style={{ width: size, height: size, objectFit: 'contain', borderRadius: r, flexShrink: 0, background: 'var(--bg-subtle)', padding: 5, border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(26,122,53,0.15)' }} />
+  );
+}
+
 const INPUT_TYPES = [
   { value: 'number', label: 'Number', color: '#1D4ED8', bg: '#EFF6FF' },
   { value: 'text', label: 'Text', color: 'var(--g700)', bg: 'var(--g50)' },
@@ -95,13 +117,30 @@ export default function Modules() {
       readDetails: MM.d?.readDetails || '',
       sortOrder: MM.d?.sortOrder ?? modules.length + 1,
     });
+    const [iconFile, setIconFile] = useState(null);
+    const [iconPreview, setIconPreview] = useState(
+      MM.d?.iconUrl ? `${SERVER_URL}${MM.d.iconUrl}` : ''
+    );
+
+    const handleIconChange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      setIconFile(file);
+      setIconPreview(URL.createObjectURL(file));
+    };
 
     const save = async () => {
       if (!f.title.trim()) { toast.error('Title required'); return; }
       try {
+        const fd = new FormData();
+        fd.append('title', f.title);
+        fd.append('readDetails', f.readDetails);
+        fd.append('sortOrder', Number(f.sortOrder));
+        if (iconFile) fd.append('icon', iconFile);
+
         editing
-          ? await ax.put(`/tabs/${activeTab}/modules/${MM.d._id}`, f)
-          : await ax.post(`/tabs/${activeTab}/modules`, f);
+          ? await ax.put(`/tabs/${activeTab}/modules/${MM.d._id}`, fd)
+          : await ax.post(`/tabs/${activeTab}/modules`, fd);
         toast.success(editing ? 'Updated!' : 'Created!');
         setMM({ open: false, d: null }); refresh();
       } catch { toast.error('Failed'); }
@@ -137,6 +176,30 @@ export default function Modules() {
             <input type="number" className="input-field" value={f.sortOrder}
               onChange={e => setF({ ...f, sortOrder: Number(e.target.value) })}
               style={{ maxWidth: 100 }} />
+          </div>
+          <div>
+            <Lbl>Module Icon</Lbl>
+            {iconPreview && (
+              <div style={{ marginBottom: 8 }}>
+                <img src={iconPreview} alt="icon preview"
+                  onError={e => { e.currentTarget.style.display = 'none'; }}
+                  style={{
+                    height: 48, width: 48, objectFit: 'contain',
+                    borderRadius: 8, border: '1px solid var(--border-md)',
+                    background: 'var(--bg-subtle)', padding: 4, display: 'block'
+                  }} />
+              </div>
+            )}
+            <label style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              cursor: 'pointer', padding: '8px 14px', borderRadius: 10,
+              border: '1.5px dashed var(--border-md)', background: 'var(--bg-subtle)',
+              fontSize: 12, color: 'var(--tx-muted)', fontWeight: 600
+            }}>
+              <span>📎</span>
+              <span>{iconFile ? iconFile.name : (iconPreview ? 'Replace icon…' : 'Upload icon…')}</span>
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleIconChange} />
+            </label>
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
             <button className="btn-primary-green" onClick={save} style={{ flex: 1, justifyContent: 'center' }}>
@@ -616,15 +679,11 @@ export default function Modules() {
                     borderRadius: isOpen ? '16px 16px 0 0' : 16,
                     transition: 'background 0.18s'
                   }} onClick={() => setOpenMod(isOpen ? null : mod._id)}>
-                    <div style={{
-                      width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-                      background: 'linear-gradient(135deg,var(--g700),var(--g500))',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: 'white', fontSize: 13, fontWeight: 800,
-                      fontFamily: 'Montserrat,sans-serif', boxShadow: '0 2px 8px rgba(26,122,53,0.3)'
-                    }}>
-                      {mi + 1}
-                    </div>
+                    <IconImg
+                      src={mod.iconUrl ? `${SERVER_URL}${mod.iconUrl}` : ''}
+                      fallback={String(mi + 1)}
+                      size={40}
+                    />
                     <div style={{ flex: 1 }}>
                       <p style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 15, color: 'var(--tx)', margin: 0 }}>
                         {mod.title}

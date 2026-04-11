@@ -7,6 +7,30 @@ import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 
+const SERVER_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+
+function IconImg({ src, fallback, size = 36, radius = 10 }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) {
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: radius, flexShrink: 0,
+        background: 'var(--g50)', border: '1px solid var(--g200)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: Math.round(size * 0.45), color: 'var(--g500)',
+      }}>{fallback}</div>
+    );
+  }
+  return (
+    <img src={src} alt="" onError={() => setFailed(true)}
+      style={{
+        width: size, height: size, borderRadius: radius, flexShrink: 0,
+        objectFit: 'contain', background: 'var(--bg-subtle)', padding: 4,
+        border: '1px solid var(--border)',
+      }} />
+  );
+}
+
 // ── Points calculator — straight line equation ─────────────────
 function calcInputPoints(inp, value) {
   if (inp.inputType === 'number') {
@@ -164,6 +188,20 @@ export default function ProjectAssessment() {
   const [selectedSection, setSelectedSection] = useState(''); // for the section score dropdown
   // comment counts per inputId (pre-fetched for badges)
   const [commentCounts, setCommentCounts] = useState({});
+  // Mobile tab drawer
+  const [tabMenuOpen, setTabMenuOpen] = useState(false);
+  // Score card expand/collapse toggle
+  const [scoreOpen, setScoreOpen] = useState(true);
+  // Score card banner image from admin settings
+  const [scoreCardBanner, setScoreCardBanner] = useState('');
+
+  // Close mobile tab dropdown when clicking outside
+  useEffect(() => {
+    if (!tabMenuOpen) return;
+    const close = () => setTabMenuOpen(false);
+    document.addEventListener('click', close, true);
+    return () => document.removeEventListener('click', close, true);
+  }, [tabMenuOpen]);
 
   const loadProject = useCallback(async () => {
     try {
@@ -199,6 +237,9 @@ export default function ProjectAssessment() {
       .catch(() => { });
     ax.get('/settings/eval-rules')
       .then(r => setLeafRules(r.data.rules || []))
+      .catch(() => { });
+    ax.get('/settings')
+      .then(r => { if (r.data.settings?.scoreCardBanner) setScoreCardBanner(r.data.settings.scoreCardBanner); })
       .catch(() => { });
     ax.get(`/comments/by-project/${id}`)
       .then(r => {
@@ -376,18 +417,19 @@ export default function ProjectAssessment() {
         marginBottom: 20,
         boxShadow: '0 4px 24px rgba(34,168,75,0.12)',
         overflow: 'hidden',
+        transition: 'box-shadow 0.25s ease',
       }} className="fade-in-up">
 
-        {/* ── Top row: section dropdown + action buttons ── */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          padding: '10px 20px',
-          borderBottom: '1px solid rgba(34,168,75,0.15)',
+        {/* ── Top bar: always visible ── */}
+        <div className="pa-scorecard-toprow" style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 14px 10px 20px',
+          borderBottom: scoreOpen ? '1px solid rgba(34,168,75,0.15)' : 'none',
           background: 'rgba(255,255,255,0.5)',
           flexWrap: 'wrap',
         }}>
           {/* Section dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 200 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 160 }}>
             <span style={{
               fontSize: 10, fontWeight: 800, letterSpacing: '0.1em',
               textTransform: 'uppercase', color: 'var(--g700)',
@@ -409,8 +451,29 @@ export default function ProjectAssessment() {
             </select>
           </div>
 
+          {/* Collapsed mini-summary — shown only when card is closed */}
+          {!scoreOpen && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '5px 12px', borderRadius: 10,
+              background: 'rgba(34,168,75,0.1)',
+              border: '1px solid rgba(34,168,75,0.2)',
+              flexShrink: 0,
+            }}>
+              <span style={{
+                fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
+                fontSize: 16, color: 'var(--g700)',
+              }}>{displayPct}%</span>
+              <div style={{ width: 1, height: 14, background: 'var(--g300)' }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx-muted)' }}>
+                {displayPts.toFixed(1)} / {displayMax} pts
+              </span>
+              {displayLevel && <LeafBadge level={displayLevel} />}
+            </div>
+          )}
+
           {/* Buttons */}
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <div className="pa-scorecard-buttons" style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
             <Link to="/notes" style={{ textDecoration: 'none' }} className="btn-secondary">
               📝 Notes
             </Link>
@@ -425,144 +488,261 @@ export default function ProjectAssessment() {
                 padding: '8px 14px', borderRadius: 11, fontSize: 13, fontWeight: 700,
                 background: '#EDE9FE', border: '1.5px solid #C4B5FD', color: '#5B21B6',
                 fontFamily: 'Montserrat,sans-serif',
-              }}>🔒 Locked by Reviewer</span>
+              }}>🔒 Locked</span>
             )}
+
+            {/* ── Score card toggle button ── */}
+            <button
+              onClick={() => setScoreOpen(o => !o)}
+              title={scoreOpen ? 'Collapse score card' : 'Expand score card'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 13px', borderRadius: 10, cursor: 'pointer',
+                background: scoreOpen ? 'rgba(34,168,75,0.12)' : 'linear-gradient(135deg,var(--g700),var(--g500))',
+                border: `1.5px solid ${scoreOpen ? 'rgba(34,168,75,0.3)' : 'transparent'}`,
+                color: scoreOpen ? 'var(--g700)' : '#fff',
+                fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 12,
+                transition: 'all 0.2s ease', whiteSpace: 'nowrap',
+              }}>
+              <span style={{
+                display: 'inline-block',
+                transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
+                transform: scoreOpen ? 'rotate(0deg)' : 'rotate(180deg)',
+                fontSize: 14, lineHeight: 1,
+              }}>▲</span>
+              <span className="pa-toggle-label">{scoreOpen ? 'Hide' : 'Score'}</span>
+            </button>
           </div>
         </div>
 
-        {/* ── Main body ── */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 20,
-          padding: '18px 24px', flexWrap: 'wrap',
-        }}>
-          {/* Colored leaf — color driven by eval rule colorCode */}
-          <ColoredLeaf level={displayLevel} colorCode={displayColorCode} size={80} />
+        {/* ── Main body (collapsible) ── */}
+        {scoreOpen && (() => {
+          const sortedLeafRules = [...leafRules].sort((a, b) => a.minPercent - b.minPercent);
+          return (
+            <>
+              {/* body row: left info group + right banner */}
+              <div className="pa-score-body" style={{
+                display: 'flex', alignItems: 'stretch',
+              }}>
+                {/* ── Left group: leaf + score info — only as wide as content ── */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 22,
+                  padding: '20px 26px', flex: '0 0 auto', maxWidth: '58%',
+                  alignSelf: 'center',
+                }}>
+                  {/* Colored leaf — bigger */}
+                  <div className="pa-score-leaf" style={{ flexShrink: 0 }}>
+                    <ColoredLeaf level={displayLevel} colorCode={displayColorCode} size={96} />
+                  </div>
 
-          {/* Score info */}
-          <div style={{ flex: 1, minWidth: 180 }}>
-            {/* Editable title */}
-            {editingTitle ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <input
-                  ref={titleInputRef}
-                  value={editTitle}
-                  onChange={e => setEditTitle(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') saveTitleEdit();
-                    if (e.key === 'Escape') cancelTitleEdit();
-                  }}
-                  maxLength={120}
-                  disabled={savingTitle}
-                  style={{
-                    flex: 1, padding: '5px 10px', borderRadius: 8, fontSize: 16,
-                    fontFamily: 'Montserrat,sans-serif', fontWeight: 700,
-                    border: '1.5px solid var(--g300)', background: '#fff',
-                    color: 'var(--tx)', outline: 'none',
-                  }}
-                />
-                <button onClick={saveTitleEdit} disabled={savingTitle || !editTitle.trim()} style={{
-                  background: 'rgba(34,168,75,0.12)', border: '1px solid rgba(34,168,75,0.4)',
-                  color: 'var(--g700)', borderRadius: 7, padding: '4px 12px',
-                  fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
-                  opacity: savingTitle || !editTitle.trim() ? 0.5 : 1,
-                }}>
-                  {savingTitle ? '…' : 'Save'}
-                </button>
-                <button onClick={cancelTitleEdit} style={{
-                  background: 'rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.12)',
-                  color: 'var(--tx-muted)', borderRadius: 7, padding: '4px 12px',
-                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                }}>
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <h2 style={{
-                  fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
-                  fontSize: 20, color: 'var(--tx)', margin: 0,
-                }}>
-                  {project?.title}
-                </h2>
-                {project?.status !== 'submitted' && !isLocked && (
-                  <button onClick={startTitleEdit} title="Rename project" style={{
-                    background: 'transparent', border: 'none', cursor: 'pointer',
-                    color: 'var(--g500)', fontSize: 15, padding: '2px 5px',
-                    borderRadius: 6, lineHeight: 1, flexShrink: 0,
-                    transition: 'color 0.15s',
-                  }}
-                    onMouseEnter={e => e.currentTarget.style.color = 'var(--g700)'}
-                    onMouseLeave={e => e.currentTarget.style.color = 'var(--g500)'}
-                  >
-                    ✎
-                  </button>
+                  {/* Score info */}
+                  <div className="pa-score-info" style={{ minWidth: 0, maxWidth: 420 }}>
+                    {/* Editable title */}
+                    {editingTitle ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <input
+                          ref={titleInputRef}
+                          value={editTitle}
+                          onChange={e => setEditTitle(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveTitleEdit();
+                            if (e.key === 'Escape') cancelTitleEdit();
+                          }}
+                          maxLength={120}
+                          disabled={savingTitle}
+                          style={{
+                            flex: 1, padding: '5px 10px', borderRadius: 8, fontSize: 16,
+                            fontFamily: 'Montserrat,sans-serif', fontWeight: 700,
+                            border: '1.5px solid var(--g300)', background: '#fff',
+                            color: 'var(--tx)', outline: 'none',
+                          }}
+                        />
+                        <button onClick={saveTitleEdit} disabled={savingTitle || !editTitle.trim()} style={{
+                          background: 'rgba(34,168,75,0.12)', border: '1px solid rgba(34,168,75,0.4)',
+                          color: 'var(--g700)', borderRadius: 7, padding: '4px 12px',
+                          fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+                          opacity: savingTitle || !editTitle.trim() ? 0.5 : 1,
+                        }}>
+                          {savingTitle ? '…' : 'Save'}
+                        </button>
+                        <button onClick={cancelTitleEdit} style={{
+                          background: 'rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.12)',
+                          color: 'var(--tx-muted)', borderRadius: 7, padding: '4px 12px',
+                          fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                        }}>
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                        <h2 style={{
+                          fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
+                          fontSize: 20, color: 'var(--tx)', margin: 0,
+                        }}>
+                          {project?.title}
+                        </h2>
+                        {project?.status !== 'submitted' && !isLocked && (
+                          <button onClick={startTitleEdit} title="Rename project" style={{
+                            background: 'transparent', border: 'none', cursor: 'pointer',
+                            color: 'var(--g500)', fontSize: 15, padding: '2px 5px',
+                            borderRadius: 6, lineHeight: 1, flexShrink: 0,
+                            transition: 'color 0.15s',
+                          }}
+                            onMouseEnter={e => e.currentTarget.style.color = 'var(--g700)'}
+                            onMouseLeave={e => e.currentTarget.style.color = 'var(--g500)'}
+                          >
+                            ✎
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {displayMode && (
+                      <p style={{
+                        fontSize: 11, fontWeight: 700, color: 'var(--g700)',
+                        margin: '0 0 4px', fontFamily: 'Montserrat,sans-serif',
+                        letterSpacing: '0.04em',
+                      }}>
+                        ▦ {selectedSectionName}
+                      </p>
+                    )}
+
+                    {/* Score row */}
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                      <span className="pa-score-pct" style={{
+                        fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
+                        fontSize: 34, color: progressColor || 'var(--tx)', lineHeight: 1,
+                      }}>{displayPct}%</span>
+                      <span style={{ fontSize: 13, color: 'var(--tx-muted)', fontWeight: 600 }}>score</span>
+                      <span style={{
+                        fontSize: 13, color: 'var(--tx-muted)', fontWeight: 700,
+                        background: 'rgba(0,0,0,0.06)', borderRadius: 6,
+                        padding: '2px 8px',
+                      }}>
+                        {displayPts.toFixed(1)} / {displayMax} pts
+                      </span>
+                    </div>
+
+                    {/* Badges row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 10 }}>
+                      {displayLevel
+                        ? <LeafBadge level={displayLevel} />
+                        : <span style={{ fontSize: 11, color: 'var(--tx-faint)', fontWeight: 600 }}>No Level yet</span>}
+
+                      <span className={project?.status === 'submitted'
+                        ? 'status-chip status-completed' : 'status-chip status-progress'}>
+                        {project?.status === 'submitted' ? '✓ Submitted' : '● Draft'}
+                      </span>
+
+                      {reviewCfg && (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          padding: '3px 10px', borderRadius: 99,
+                          background: reviewCfg.bg, color: reviewCfg.color,
+                          border: `1px solid ${reviewCfg.border}`,
+                          fontSize: 12, fontWeight: 700,
+                          fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+                        }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: reviewCfg.dot, flexShrink: 0 }} />
+                          {reviewCfg.label}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* ── Leaf Level Progress Track ── */}
+                    {sortedLeafRules.length > 0 && (
+                      <div className="pa-level-track" style={{ minWidth: 260, maxWidth: 400 }}>
+                        {/* Segmented bar */}
+                        <div style={{ display: 'flex', gap: 3, height: 9 }}>
+                          {sortedLeafRules.map((rule, i) => {
+                            const segSpan = rule.maxPercent - rule.minPercent;
+                            const segFill =
+                              displayPct <= rule.minPercent ? 0
+                              : displayPct >= rule.maxPercent ? 100
+                              : ((displayPct - rule.minPercent) / segSpan) * 100;
+                            const isActive = displayLevel === rule.name;
+                            const color = rule.colorCode || '#94A3B8';
+                            return (
+                              <div key={i} style={{
+                                flex: segSpan,
+                                borderRadius: 99,
+                                background: 'rgba(0,0,0,0.10)',
+                                overflow: 'hidden',
+                                position: 'relative',
+                                boxShadow: isActive ? `0 0 0 1.5px ${color}88` : 'none',
+                                transition: 'box-shadow 0.3s',
+                              }}>
+                                <div style={{
+                                  position: 'absolute', left: 0, top: 0, bottom: 0,
+                                  width: `${segFill}%`,
+                                  background: color,
+                                  transition: 'width 0.9s cubic-bezier(0.4,0,0.2,1)',
+                                  borderRadius: 99,
+                                }} />
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Level labels */}
+                        <div style={{ display: 'flex', gap: 3, marginTop: 4 }}>
+                          {sortedLeafRules.map((rule, i) => {
+                            const segSpan = rule.maxPercent - rule.minPercent;
+                            const isActive = displayLevel === rule.name;
+                            const color = rule.colorCode || '#94A3B8';
+                            return (
+                              <div key={i} style={{
+                                flex: segSpan,
+                                textAlign: 'center',
+                                fontSize: 9,
+                                fontWeight: isActive ? 800 : 500,
+                                color: isActive ? color : 'var(--tx-faint)',
+                                fontFamily: 'Montserrat,sans-serif',
+                                letterSpacing: isActive ? '0.02em' : 0,
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                transition: 'color 0.3s, font-weight 0.3s',
+                              }}>
+                                {isActive && (
+                                  <span style={{ display: 'block', fontSize: 7, marginBottom: 1, opacity: 0.7 }}>▲</span>
+                                )}
+                                {rule.name}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Right banner: fills remaining space, shows full image height ── */}
+                {scoreCardBanner && (
+                  <div className="pa-score-banner rounded-xl" style={{
+                    flex: 1, minWidth: 260,
+                    overflow: 'hidden',
+                    borderLeft: '1px solid rgba(34,168,75,0.18)',
+                    display: 'flex', alignItems: 'stretch',
+                  }}>
+                    <img
+                      src={`${SERVER_URL}${scoreCardBanner}`}
+                      alt="Score card banner"
+                      style={{
+                        width: '100%',
+                        height: 'auto',
+                        display: 'block',
+                        objectFit: 'fill',
+                      }}
+                      onError={e => {
+                        const col = e.currentTarget.closest('.pa-score-banner');
+                        if (col) col.style.display = 'none';
+                      }}
+                    />
+                  </div>
                 )}
               </div>
-            )}
-            {displayMode && (
-              <p style={{
-                fontSize: 11, fontWeight: 700, color: 'var(--g700)',
-                margin: '0 0 6px', fontFamily: 'Montserrat,sans-serif',
-                letterSpacing: '0.04em',
-              }}>
-                ▦ {selectedSectionName}
-              </p>
-            )}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-              <span style={{
-                fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
-                fontSize: 32, color: 'var(--tx)', lineHeight: 1,
-              }}>{displayPct}%</span>
-              <span style={{ fontSize: 13, color: 'var(--tx-muted)', fontWeight: 600 }}>score</span>
-              <span style={{ fontSize: 14, color: 'var(--tx-muted)', fontWeight: 700 }}>
-                {displayPts.toFixed(1)} / {displayMax} pts
-              </span>
-            </div>
-
-            {/* Leaf level badge + status chip */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              {displayLevel
-                ? <LeafBadge level={displayLevel} />
-                : <span style={{ fontSize: 12, color: 'var(--tx-faint)', fontWeight: 600 }}>Not rated yet</span>}
-
-              {/* Draft/Submitted chip */}
-              <span className={project?.status === 'submitted'
-                ? 'status-chip status-completed' : 'status-chip status-progress'}>
-                {project?.status === 'submitted' ? '✓ Submitted' : '● Draft'}
-              </span>
-
-              {/* Admin review status */}
-              {reviewCfg && (
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  padding: '3px 10px', borderRadius: 99,
-                  background: reviewCfg.bg, color: reviewCfg.color,
-                  border: `1px solid ${reviewCfg.border}`,
-                  fontSize: 12, fontWeight: 700,
-                  fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
-                }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: reviewCfg.dot, flexShrink: 0 }} />
-                  {reviewCfg.label}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Progress bar ── */}
-        <div style={{ padding: '0 24px 14px' }}>
-          <div style={{
-            height: 6, borderRadius: 99,
-            background: 'rgba(255,255,255,0.5)', overflow: 'hidden',
-          }}>
-            <div style={{
-              height: '100%', borderRadius: 99,
-              background: progressColor,
-              width: `${Math.min(displayPct, 100)}%`,
-              transition: 'width 0.8s ease, background 0.5s ease',
-            }} />
-          </div>
-        </div>
+            </>
+          );
+        })()}
       </div>
 
       {/* ── No tabs ── */}
@@ -581,17 +761,117 @@ export default function ProjectAssessment() {
         </div>
       ) : (
         <>
-          {/* Tab bar */}
-          <div style={{ overflowX: 'auto', marginBottom: 20 }}>
+          {/* ── Tab bar — desktop horizontal ── */}
+          <div className="pa-tabs-desktop" style={{ overflowX: 'auto', marginBottom: 20 }}>
             <div className="tab-bar" style={{ minWidth: 'max-content' }}>
               {tabs.map((tab, i) => (
                 <button key={tab._id}
                   className={`tab-btn ${i === activeTab ? 'active' : ''}`}
-                  onClick={() => { setActiveTab(i); setOpenMod(null); }}>
+                  onClick={() => { setActiveTab(i); setOpenMod(null); }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                  {tab.iconUrl && (
+                    <img src={`${SERVER_URL}${tab.iconUrl}`} alt=""
+                      onError={e => { e.currentTarget.style.display = 'none'; }}
+                      style={{ width: 18, height: 18, objectFit: 'contain', borderRadius: 4, flexShrink: 0 }} />
+                  )}
                   {i + 1}. {tab.title}
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* ── Tab bar — mobile toggle dropdown ── */}
+          <div className="pa-tabs-mobile" style={{ marginBottom: 16, position: 'relative' }}>
+            {/* Current tab button */}
+            <button
+              onClick={() => setTabMenuOpen(o => !o)}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                padding: '13px 16px', borderRadius: 16,
+                background: 'linear-gradient(135deg,var(--g700),var(--g500))',
+                border: 'none', color: '#fff', cursor: 'pointer',
+                boxShadow: '0 4px 18px rgba(34,168,75,0.32)',
+              }}>
+              <div style={{
+                width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                background: 'rgba(255,255,255,0.18)',
+                border: '1px solid rgba(255,255,255,0.25)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 14,
+              }}>
+                {activeTab + 1}
+              </div>
+              <div style={{ flex: 1, textAlign: 'left' }}>
+                <div style={{
+                  fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
+                  textTransform: 'uppercase', opacity: 0.7,
+                  fontFamily: 'Montserrat,sans-serif', marginBottom: 2,
+                }}>
+                  Tab {activeTab + 1} of {tabs.length}
+                </div>
+                <div style={{
+                  fontSize: 14, fontWeight: 800,
+                  fontFamily: 'Montserrat,sans-serif', lineHeight: 1.2,
+                }}>
+                  {tabs[activeTab]?.title}
+                </div>
+              </div>
+              <div style={{
+                fontSize: 20, transition: 'transform 0.25s ease',
+                transform: tabMenuOpen ? 'rotate(180deg)' : 'none',
+              }}>▾</div>
+            </button>
+
+            {/* Dropdown list */}
+            {tabMenuOpen && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, zIndex: 50,
+                background: '#fff', borderRadius: 16, overflow: 'hidden',
+                border: '1.5px solid var(--g200)',
+                boxShadow: '0 12px 40px rgba(0,0,0,0.18)',
+              }}>
+                {tabs.map((tab, i) => {
+                  const isActive = i === activeTab;
+                  return (
+                    <button key={tab._id}
+                      onClick={() => { setActiveTab(i); setOpenMod(null); setTabMenuOpen(false); }}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '14px 16px', border: 'none', cursor: 'pointer', textAlign: 'left',
+                        background: isActive ? 'var(--g50)' : '#fff',
+                        borderBottom: i < tabs.length - 1 ? '1px solid var(--border)' : 'none',
+                        transition: 'background 0.15s',
+                      }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                        background: isActive ? 'linear-gradient(135deg,var(--g700),var(--g500))' : 'var(--bg-subtle)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 13, fontWeight: 900,
+                        color: isActive ? '#fff' : 'var(--tx-faint)',
+                        fontFamily: 'Montserrat,sans-serif',
+                        boxShadow: isActive ? '0 2px 8px rgba(34,168,75,0.3)' : 'none',
+                      }}>
+                        {i + 1}
+                      </div>
+                      <span style={{
+                        flex: 1, fontWeight: isActive ? 800 : 600, fontSize: 13.5,
+                        fontFamily: 'Montserrat,sans-serif',
+                        color: isActive ? 'var(--g700)' : 'var(--tx)',
+                      }}>
+                        {tab.title}
+                      </span>
+                      {isActive && (
+                        <span style={{
+                          fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 6,
+                          background: 'var(--g100)', color: 'var(--g700)',
+                          fontFamily: 'Montserrat,sans-serif',
+                        }}>Active</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Modules */}
@@ -653,12 +933,12 @@ export default function ProjectAssessment() {
                     borderRadius: isOpen ? '16px 16px 0 0' : 16
                   }}
                     onClick={() => setOpenMod(isOpen ? null : mod._id)}>
-                    <div style={{
-                      width: 38, height: 38, borderRadius: 11, flexShrink: 0,
-                      background: 'var(--g50)', border: '1px solid var(--g200)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 16
-                    }}>◈</div>
+                    <IconImg
+                      src={mod.iconUrl ? `${SERVER_URL}${mod.iconUrl}` : ''}
+                      fallback="◈"
+                      size={38}
+                      radius={11}
+                    />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{
                         fontFamily: 'Montserrat,sans-serif', fontWeight: 800,
@@ -705,7 +985,7 @@ export default function ProjectAssessment() {
                         </p>
                       )}
                     </div>
-                    <div style={{ textAlign: 'right', marginRight: 8 }}>
+                    <div className="pa-mod-pts" style={{ textAlign: 'right', marginRight: 8 }}>
                       <p style={{
                         fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
                         fontSize: 18, color: 'var(--g600)', margin: 0
@@ -873,7 +1153,7 @@ export default function ProjectAssessment() {
                               {/* Section inputs */}
                               {isSecOpen && (
                                 <div style={{ padding: 16 }}>
-                                  <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                                  <div className="pa-section-body" style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
 
                                     {/* Left: input fields */}
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1131,7 +1411,7 @@ export default function ProjectAssessment() {
             })
           )}
           {/* ── Prev / Next tab navigation ── */}
-          <div style={{
+          <div className="pa-tab-nav" style={{
             display: 'flex', justifyContent: 'space-between', gap: 12,
             marginTop: 24, paddingTop: 20,
             borderTop: '1px solid var(--border)',
@@ -1175,7 +1455,92 @@ export default function ProjectAssessment() {
           </div>
         </>
       )}
-      <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Desktop: hide mobile tab toggle ── */
+        @media (min-width: 769px) {
+          .pa-tabs-mobile { display: none !important; }
+        }
+
+        /* ═══════════════════════════════════════
+           MOBILE  ≤ 768px
+        ═══════════════════════════════════════ */
+        @media (max-width: 768px) {
+
+          /* Hide desktop tab bar, show mobile toggle */
+          .pa-tabs-desktop { display: none !important; }
+          .pa-tabs-mobile  { display: block !important; }
+
+          /* Score card: top row wraps nicely */
+          .pa-scorecard-toprow {
+            gap: 8px !important;
+            padding: 8px 12px !important;
+          }
+          .pa-scorecard-buttons {
+            justify-content: flex-start !important;
+          }
+
+          /* Toggle button — hide text label on mobile, icon only */
+          .pa-toggle-label { display: none !important; }
+
+          /* Score card body */
+          .pa-score-body {
+            gap: 12px !important;
+            padding: 14px 14px !important;
+          }
+          .pa-score-leaf    { display: none !important; }
+          /* Hide banner + level track on mobile — no space */
+          .pa-score-banner  { display: none !important; }
+          .pa-level-track   { display: none !important; }
+          .pa-score-info    { min-width: 0 !important; }
+          .pa-score-pct     { font-size: 26px !important; }
+
+          /* Section inputs: stack PointsBox below inputs */
+          .pa-section-body {
+            flex-direction: column-reverse !important;
+            gap: 10px !important;
+          }
+
+          /* PointsBox: horizontal bar when stacked */
+          .pa-section-body > div:last-child {
+            width: 100% !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            padding: 10px 16px !important;
+            position: static !important;
+          }
+
+          /* Module header: hide pts number */
+          .pa-mod-pts { display: none !important; }
+
+          /* Prev/Next nav: full width buttons */
+          .pa-tab-nav > button {
+            flex: 1 !important;
+            justify-content: center !important;
+            font-size: 12px !important;
+            padding: 10px 10px !important;
+          }
+          .pa-tab-nav > button > span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100px;
+          }
+        }
+
+        /* ═══════════════════════════════════════
+           SMALL  ≤ 480px — extra compact
+        ═══════════════════════════════════════ */
+        @media (max-width: 480px) {
+          .pa-score-pct  { font-size: 22px !important; }
+          .pa-scorecard-toprow { padding: 6px 10px !important; }
+          .pa-score-body { padding: 10px !important; }
+          .pa-scorecard-buttons > a,
+          .pa-scorecard-buttons > button { font-size: 12px !important; padding: 7px 12px !important; }
+        }
+      `}</style>
     </Layout>
   );
 }

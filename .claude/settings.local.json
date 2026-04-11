@@ -4,11 +4,14 @@
       "Read(//c/project/DESH-PROJECT-MAIN/desh-server/server/models//**)",
       "Read(//c/project/DESH-PROJECT-MAIN/desh-server/server/routes//**)",
       "Read(//c/project/DESH-PROJECT-MAIN/desh-server/server/controllers//**)",
-      "Read(//c/project/DESH-PROJECT-MAIN/desh-server/**)"
+      "Read(//c/project/DESH-PROJECT-MAIN/desh-server/**)",
+      "Bash(node -e ':*)"
     ],
     "additionalDirectories": [
       "c:\\project\\DESH-PROJECT-MAIN\\desh-server\\server\\routes",
-      "c:\\project\\DESH-PROJECT-MAIN\\desh-server\\server\\models"
+      "c:\\project\\DESH-PROJECT-MAIN\\desh-server\\server\\models",
+      "c:\\project\\DESH-PROJECT-MAIN\\desh-server\\server\\middleware",
+      "c:\\project\\DESH-PROJECT-MAIN\\desh-server\\server\\controllers"
     ]
   }
 }

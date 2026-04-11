@@ -3,13 +3,37 @@ import Layout from '../../components/shared/Layout.jsx';
 import toast from 'react-hot-toast';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 
+const SERVER_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+
+function IconImg({ src, fallback, size = 32 }) {
+  const [failed, setFailed] = useState(false);
+  const r = Math.round(size * 0.2);
+  if (!src || failed) {
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: r, flexShrink: 0,
+        background: 'linear-gradient(135deg,var(--g700),var(--g500))',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: 'white', fontSize: Math.round(size * 0.4), fontWeight: 800,
+        fontFamily: 'Montserrat,sans-serif',
+      }}>{fallback}</div>
+    );
+  }
+  return (
+    <img src={src} alt="" onError={() => setFailed(true)}
+      style={{ width: size, height: size, objectFit: 'contain', borderRadius: r, background: 'var(--bg-subtle)', padding: 4, flexShrink: 0 }} />
+  );
+}
+
 export default function Sections() {
   const ax = useAxiosSecure();
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
-  const [form, setForm] = useState({ title: '', sortOrder: '' });
+  const [form, setForm] = useState({ title: '' });
+  const [iconFile, setIconFile] = useState(null);
+  const [iconPreview, setIconPreview] = useState('');
 
   const fetchSections = () => {
     setLoading(true);
@@ -23,24 +47,44 @@ export default function Sections() {
 
   const openNew = () => {
     setEditItem(null);
-    setForm({ title: '', sortOrder: sections.length + 1 });
+    setForm({ title: '' });
+    setIconFile(null);
+    setIconPreview('');
     setShowForm(true);
   };
 
   const openEdit = (s) => {
     setEditItem(s);
-    setForm({ title: s.title, sortOrder: s.sortOrder });
+    setForm({ title: s.title });
+    setIconFile(null);
+    setIconPreview(s.iconUrl ? `${SERVER_URL}${s.iconUrl}` : '');
     setShowForm(true);
+  };
+
+  const handleIconChange = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setIconFile(f);
+    setIconPreview(URL.createObjectURL(f));
   };
 
   const save = async () => {
     if (!form.title.trim()) { toast.error('Title required'); return; }
     try {
+      const fd = new FormData();
+      fd.append('title', form.title);
       if (editItem) {
-        await ax.put(`/sections/${editItem._id}`, { title: form.title, sortOrder: Number(form.sortOrder) });
+        fd.append('sortOrder', editItem.sortOrder ?? 0);
+      } else {
+        fd.append('sortOrder', sections.length + 1);
+      }
+      if (iconFile) fd.append('icon', iconFile);
+
+      if (editItem) {
+        await ax.put(`/sections/${editItem._id}`, fd);
         toast.success('Section updated!');
       } else {
-        await ax.post('/sections', { title: form.title, sortOrder: Number(form.sortOrder) });
+        await ax.post('/sections', fd);
         toast.success('Section created!');
       }
       setShowForm(false);
@@ -116,10 +160,28 @@ export default function Sections() {
                   display: 'block', fontSize: 11, fontWeight: 800, letterSpacing: '0.09em',
                   textTransform: 'uppercase', color: 'var(--tx-muted)', marginBottom: 6,
                   fontFamily: 'Montserrat,sans-serif'
-                }}>Sort Order</label>
-                <input type="number" className="input-field" value={form.sortOrder}
-                  onChange={e => setForm({ ...form, sortOrder: e.target.value })}
-                  style={{ maxWidth: 110 }} />
+                }}>Section Icon</label>
+                {iconPreview && (
+                  <div style={{ marginBottom: 8 }}>
+                    <img src={iconPreview} alt="icon preview"
+                      onError={e => { e.currentTarget.style.display = 'none'; }}
+                      style={{
+                        height: 48, width: 48, objectFit: 'contain',
+                        borderRadius: 8, border: '1px solid var(--border-md)',
+                        background: 'var(--bg-subtle)', padding: 4, display: 'block'
+                      }} />
+                  </div>
+                )}
+                <label style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  cursor: 'pointer', padding: '8px 14px', borderRadius: 10,
+                  border: '1.5px dashed var(--border-md)', background: 'var(--bg-subtle)',
+                  fontSize: 12, color: 'var(--tx-muted)', fontWeight: 600
+                }}>
+                  <span>📎</span>
+                  <span>{iconFile ? iconFile.name : (iconPreview ? 'Replace icon…' : 'Upload icon…')}</span>
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleIconChange} />
+                </label>
               </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                 <button className="btn-primary-green" onClick={save} style={{ flex: 1, justifyContent: 'center' }}>
@@ -160,6 +222,7 @@ export default function Sections() {
             <thead>
               <tr>
                 <th style={{ width: 60 }}>Order</th>
+                <th style={{ width: 64 }}>Icon</th>
                 <th>Section Name</th>
                 <th style={{ width: 140 }}>Actions</th>
               </tr>
@@ -174,16 +237,14 @@ export default function Sections() {
                     }}>#{s.sortOrder}</span>
                   </td>
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{
-                        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                        background: 'linear-gradient(135deg,var(--g700),var(--g500))',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: 'white', fontSize: 11, fontWeight: 800,
-                        fontFamily: 'Montserrat,sans-serif'
-                      }}>{i + 1}</div>
-                      <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--tx)' }}>{s.title}</span>
-                    </div>
+                    <IconImg
+                      src={s.iconUrl ? `${SERVER_URL}${s.iconUrl}` : ''}
+                      fallback={s.title?.[0]?.toUpperCase() || String(i + 1)}
+                      size={32}
+                    />
+                  </td>
+                  <td>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--tx)' }}>{s.title}</span>
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: 6 }}>

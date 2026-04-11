@@ -3,12 +3,36 @@ import Layout from '../../components/shared/Layout.jsx';
 import toast from 'react-hot-toast';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 
+const SERVER_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+
+function IconImg({ src, fallback, size = 32 }) {
+    const [failed, setFailed] = useState(false);
+    const r = Math.round(size * 0.2);
+    if (!src || failed) {
+        return (
+            <div style={{
+                width: size, height: size, borderRadius: r, flexShrink: 0,
+                background: 'linear-gradient(135deg,var(--g700),var(--g500))',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'white', fontSize: Math.round(size * 0.4), fontWeight: 800,
+                fontFamily: 'Montserrat,sans-serif',
+            }}>{fallback}</div>
+        );
+    }
+    return (
+        <img src={src} alt="" onError={() => setFailed(true)}
+            style={{ width: size, height: size, objectFit: 'contain', borderRadius: r, background: 'var(--bg-subtle)', padding: 4, flexShrink: 0 }} />
+    );
+}
+
 export default function Tabs() {
     const axiosSecure = useAxiosSecure();
     const [tabs, setTabs] = useState([]);
     const [showForm, setShowForm] = useState(false);
     const [editItem, setEditItem] = useState(null);
     const [form, setForm] = useState({ title: '', sortOrder: '' });
+    const [iconFile, setIconFile] = useState(null);
+    const [iconPreview, setIconPreview] = useState('');
     const [loading, setLoading] = useState(true);
 
     const fetchTabs = () => {
@@ -20,17 +44,42 @@ export default function Tabs() {
 
     useEffect(() => { fetchTabs(); }, []);
 
-    const openNew = () => { setEditItem(null); setForm({ title: '', sortOrder: tabs.length + 1 }); setShowForm(true); };
-    const openEdit = (t) => { setEditItem(t); setForm({ title: t.title, sortOrder: t.sortOrder }); setShowForm(true); };
+    const openNew = () => {
+        setEditItem(null);
+        setForm({ title: '', sortOrder: tabs.length + 1 });
+        setIconFile(null);
+        setIconPreview('');
+        setShowForm(true);
+    };
+
+    const openEdit = (t) => {
+        setEditItem(t);
+        setForm({ title: t.title, sortOrder: t.sortOrder });
+        setIconFile(null);
+        setIconPreview(t.iconUrl ? `${SERVER_URL}${t.iconUrl}` : '');
+        setShowForm(true);
+    };
+
+    const handleIconChange = (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        setIconFile(f);
+        setIconPreview(URL.createObjectURL(f));
+    };
 
     const save = async () => {
         if (!form.title.trim()) { toast.error('Title required'); return; }
         try {
+            const fd = new FormData();
+            fd.append('title', form.title);
+            fd.append('sortOrder', Number(form.sortOrder));
+            if (iconFile) fd.append('icon', iconFile);
+
             if (editItem) {
-                await axiosSecure.put(`/tabs/${editItem._id}`, { title: form.title, sortOrder: Number(form.sortOrder) });
+                await axiosSecure.put(`/tabs/${editItem._id}`, fd);
                 toast.success('Tab updated!');
             } else {
-                await axiosSecure.post('/tabs', { title: form.title, sortOrder: Number(form.sortOrder) });
+                await axiosSecure.post('/tabs', fd);
                 toast.success('Tab created!');
             }
             setShowForm(false);
@@ -83,6 +132,30 @@ export default function Tabs() {
                                 <input type="number" value={form.sortOrder} onChange={e => setForm({ ...form, sortOrder: e.target.value })}
                                     className="input-dark w-full px-4 py-3 text-sm" />
                             </div>
+                            <div>
+                                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>TAB ICON</label>
+                                {iconPreview && (
+                                    <div style={{ marginBottom: 8 }}>
+                                        <img src={iconPreview} alt="icon preview"
+                                            onError={e => { e.currentTarget.style.display = 'none'; }}
+                                            style={{
+                                                height: 48, width: 48, objectFit: 'contain',
+                                                borderRadius: 8, border: '1px solid var(--border-md)',
+                                                background: 'var(--bg-subtle)', padding: 4, display: 'block'
+                                            }} />
+                                    </div>
+                                )}
+                                <label style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                                    cursor: 'pointer', padding: '8px 14px', borderRadius: 10,
+                                    border: '1.5px dashed var(--border-md)', background: 'var(--bg-subtle)',
+                                    fontSize: 12, color: 'var(--tx-muted)', fontWeight: 600
+                                }}>
+                                    <span>📎</span>
+                                    <span>{iconFile ? iconFile.name : (iconPreview ? 'Replace icon…' : 'Upload icon…')}</span>
+                                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleIconChange} />
+                                </label>
+                            </div>
                             <div className="flex gap-3 pt-2">
                                 <button onClick={save} className="btn-primary-green flex-1 justify-center text-sm">
                                     {editItem ? 'Save Changes' : 'Create Tab'}
@@ -99,7 +172,7 @@ export default function Tabs() {
             <div className="glass-card overflow-hidden">
                 {loading ? <p className="text-center py-8">Loading...</p> : (
                     <table className="premium-table">
-                        <thead><tr><th>Order</th><th>Tab Title</th><th>Status</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>Order</th><th>Icon</th><th>Tab Title</th><th>Status</th><th>Actions</th></tr></thead>
                         <tbody>
                             {tabs.sort((a, b) => a.sortOrder - b.sortOrder).map(t => (
                                 <tr key={t._id}>
@@ -107,6 +180,13 @@ export default function Tabs() {
                                         style={{ background: 'var(--bg-subtle)', color: 'var(--tx-muted)' }}>
                                         #{t.sortOrder}
                                     </span></td>
+                                    <td>
+                                        <IconImg
+                                            src={t.iconUrl ? `${SERVER_URL}${t.iconUrl}` : ''}
+                                            fallback={t.title?.[0]?.toUpperCase() || '?'}
+                                            size={32}
+                                        />
+                                    </td>
                                     <td className="font-semibold">{t.title}</td>
                                     <td>
                                         <button onClick={() => toggleActive(t)}

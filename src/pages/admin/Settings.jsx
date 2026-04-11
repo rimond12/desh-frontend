@@ -1,21 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Layout from '../../components/shared/Layout.jsx';
 import toast from 'react-hot-toast';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { auth } from '../../services/firebase';
 
+const SERVER_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+
 export default function Settings() {
     const axiosSecure = useAxiosSecure();
     const [site, setSite] = useState({ siteName: 'DESH Project', maxFileSize: 10, allowedTypes: 'pdf,jpg,jpeg,png' });
     const [pass, setPass] = useState({ current: '', newPass: '', confirm: '' });
     const [saving, setSaving] = useState(false);
+    const [bannerUrl, setBannerUrl] = useState('');
+    const [bannerPreview, setBannerPreview] = useState(null);
+    const [bannerFile, setBannerFile] = useState(null);
+    const [uploadingBanner, setUploadingBanner] = useState(false);
+    const bannerInputRef = useRef(null);
 
     useEffect(() => {
         axiosSecure.get('/settings')
             .then(res => {
                 const s = res.data.settings;
                 setSite({ siteName: s.siteName, maxFileSize: s.maxFileSize || 10, allowedTypes: s.allowedTypes || 'pdf,jpg,jpeg,png' });
+                if (s.scoreCardBanner) setBannerUrl(s.scoreCardBanner);
             }).catch(console.error);
     }, []);
 
@@ -26,6 +34,34 @@ export default function Settings() {
             toast.success('Settings saved!');
         } catch { toast.error('Failed to save'); }
         finally { setSaving(false); }
+    };
+
+    const handleBannerFileChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setBannerFile(file);
+        setBannerPreview(URL.createObjectURL(file));
+    };
+
+    const uploadBanner = async () => {
+        if (!bannerFile) return;
+        setUploadingBanner(true);
+        try {
+            const formData = new FormData();
+            formData.append('banner', bannerFile);
+            const res = await axiosSecure.post('/settings/banner', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            setBannerUrl(res.data.scoreCardBanner);
+            setBannerFile(null);
+            setBannerPreview(null);
+            if (bannerInputRef.current) bannerInputRef.current.value = '';
+            toast.success('Banner uploaded!');
+        } catch {
+            toast.error('Failed to upload banner');
+        } finally {
+            setUploadingBanner(false);
+        }
     };
 
     const changePass = async () => {
@@ -75,6 +111,71 @@ export default function Settings() {
                             {saving ? 'Saving...' : '💾 Save Settings'}
                         </button>
                     </div>
+                </div>
+
+                {/* Score Card Banner */}
+                <div className="glass-card p-6">
+                    <h2 className="font-bold text-lg mb-1">🖼 Score Card Banner</h2>
+                    <p className="text-xs mb-5" style={{ color: 'var(--tx-muted)' }}>
+                        Image displayed on the right side of the Leaf Score Card for all users.
+                    </p>
+
+                    {/* Current banner preview */}
+                    {(bannerPreview || bannerUrl) && (
+                        <div style={{ marginBottom: 16 }}>
+                            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>
+                                {bannerPreview ? 'NEW PREVIEW' : 'CURRENT BANNER'}
+                            </p>
+                            <div style={{
+                                borderRadius: 12, overflow: 'hidden', border: '1.5px solid var(--border)',
+                                maxHeight: 180, background: 'var(--bg-subtle)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                <img
+                                    src={bannerPreview || `${SERVER_URL}${bannerUrl}`}
+                                    alt="Score card banner"
+                                    style={{ width: '100%', maxHeight: 180, objectFit: 'cover' }}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Drop zone / file picker */}
+                    <div
+                        onClick={() => bannerInputRef.current?.click()}
+                        style={{
+                            border: '2px dashed var(--border)', borderRadius: 12,
+                            padding: '28px 20px', textAlign: 'center', cursor: 'pointer',
+                            background: 'rgba(0,0,0,0.02)', marginBottom: 14,
+                            transition: 'border-color 0.2s, background 0.2s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--g500)'; e.currentTarget.style.background = 'rgba(34,168,75,0.04)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'rgba(0,0,0,0.02)'; }}
+                    >
+                        <div style={{ fontSize: 28, marginBottom: 8 }}>🖼</div>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--tx)', margin: '0 0 4px' }}>
+                            {bannerFile ? bannerFile.name : 'Click to select an image'}
+                        </p>
+                        <p style={{ fontSize: 11, color: 'var(--tx-muted)', margin: 0 }}>
+                            PNG, JPG, WEBP — max 5 MB · Recommended: 1400×250 px
+                        </p>
+                        <input
+                            ref={bannerInputRef}
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={handleBannerFileChange}
+                        />
+                    </div>
+
+                    <button
+                        onClick={uploadBanner}
+                        disabled={!bannerFile || uploadingBanner}
+                        className="btn-primary-green text-sm"
+                        style={{ opacity: (!bannerFile || uploadingBanner) ? 0.5 : 1 }}
+                    >
+                        {uploadingBanner ? 'Uploading…' : '⬆ Upload Banner'}
+                    </button>
                 </div>
 
                 <div className="glass-card p-6">
