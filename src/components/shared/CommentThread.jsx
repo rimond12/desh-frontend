@@ -141,11 +141,11 @@ export default function CommentThread({
   const [sending, setSending]   = useState(false);
   const [replyTo, setReplyTo]   = useState(null); // parentId
 
-  // Reviewers/admins can always comment; users can comment once their project is submitted
+  // Reviewers/admins can always comment; users can comment on their own project anytime
   const canComment =
     currentRole === 'reviewer' ||
     currentRole === 'admin' ||
-    (currentRole === 'user' && isLocked && String(projectOwnerId) === String(currentUserId));
+    (currentRole === 'user' && String(projectOwnerId) === String(currentUserId));
 
   const loadComments = useCallback(async () => {
     if (loaded) return;
@@ -313,10 +313,10 @@ export default function CommentThread({
             </div>
           )}
 
-          {/* User pre-submit message */}
-          {currentRole === 'user' && !isLocked && (
+          {/* Message when user is not the project owner */}
+          {currentRole === 'user' && String(projectOwnerId) !== String(currentUserId) && (
             <p style={{ fontSize: 11, color: 'var(--tx-faint)', marginTop: 6, fontStyle: 'italic' }}>
-              Comments will be available after you submit your project for review.
+              You can only comment on your own project.
             </p>
           )}
         </div>
