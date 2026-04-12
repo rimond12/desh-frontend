@@ -246,8 +246,8 @@ export default function SubmissionDetail() {
   const sectionData    = selectedSection ? calcSectionData(selectedSection, tabs) : null;
 
   const displayPct    = sectionData ? sectionData.pct    : (project?.scorePercent || 0);
-  const displayEarned = sectionData ? sectionData.earned : (project?.totalPoints  || 0);
-  const displayMax    = sectionData ? sectionData.max    : (project?.maxPoints    || 0);
+  const displayEarned = Math.round(sectionData ? sectionData.earned : (project?.totalPoints  || 0));
+  const displayMax    = Math.round(sectionData ? sectionData.max    : (project?.maxPoints    || 0));
 
   const overallRule   = leafRules.find(r => r.name === project?.leafLevel) || null;
   const sectionRule   = sectionData ? getLeafLevel(sectionData.pct, leafRules) : null;
@@ -387,7 +387,7 @@ export default function SubmissionDetail() {
               </span>
               <span style={{ fontSize: 13, color: 'var(--tx-muted)', fontWeight: 600 }}>score</span>
               <span style={{ fontSize: 14, color: 'var(--tx-muted)', fontWeight: 700 }}>
-                {typeof displayEarned === 'number' ? displayEarned.toFixed(1) : '0.0'} / {displayMax} pts
+                {displayEarned} / {displayMax} pts
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>

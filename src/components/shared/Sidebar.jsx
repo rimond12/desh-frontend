@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 const userNav = [
   {
     section: 'MAIN', items: [
-      { icon: '⊞', label: 'Dashboard', path: '/dashboard' },
+      { icon: '⊞', label: 'Deshboard', path: '/dashboard' },
       { icon: '◫', label: 'My Projects', path: '/projects' },
       { icon: '+', label: 'New Project', path: '/projects/new' },
     ]
@@ -21,7 +21,7 @@ const userNav = [
 const adminNav = [
   {
     section: 'OVERVIEW', items: [
-      { icon: '⊞', label: 'Dashboard', path: '/admin' },
+      { icon: '⊞', label: 'Deshboard', path: '/admin' },
     ]
   },
   {

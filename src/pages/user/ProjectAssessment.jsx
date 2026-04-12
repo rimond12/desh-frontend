@@ -135,7 +135,7 @@ function PointsBox({ earned, max }) {
         fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
         fontSize: 24, color, margin: 0, lineHeight: 1
       }}>
-        {earned.toFixed(1)}
+        {Math.round(earned)}
       </p>
       {max > 0 && (
         <>
@@ -385,8 +385,8 @@ export default function ProjectAssessment() {
   // Displayed values — section mode or overall mode
   const displayMode = !!selectedSection;
   const displayPct = displayMode ? (sectionScore?.pct ?? 0) : pct;
-  const displayPts = displayMode ? (sectionScore?.earned ?? 0) : (project?.totalPoints || 0);
-  const displayMax = displayMode ? (sectionScore?.max ?? 0) : (project?.maxPoints || 0);
+  const displayPts = Math.round(displayMode ? (sectionScore?.earned ?? 0) : (project?.totalPoints || 0));
+  const displayMax = Math.round(displayMode ? (sectionScore?.max ?? 0) : (project?.maxPoints || 0));
   const displayLevel = displayMode ? (sectionLeaf?.name || null) : displayLeaf;
   const displayColorCode = displayMode ? (sectionLeaf?.colorCode || null) : (overallLeafRule?.colorCode || null);
   const progressColor = displayColorCode || '#94A3B8';
@@ -1004,7 +1004,7 @@ export default function ProjectAssessment() {
                         fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
                         fontSize: 18, color: 'var(--g600)', margin: 0
                       }}>
-                        {modPts.toFixed(1)}
+                        {Math.round(modPts)}
                       </p>
                       <p style={{
                         fontSize: 10.5, color: 'var(--tx-faint)',
