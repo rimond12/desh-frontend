@@ -374,8 +374,8 @@ export default function ProjectAssessment() {
   // Per-section admin status — only shown when user has selected a specific section
   const reviewStatusConfig = {
     under_review: { label: 'Under Review', bg: '#FEF9C3', color: '#92400E', border: '#FDE68A', dot: '#D97706' },
-    verified:     { label: 'Verified',     bg: '#D6F5E3', color: '#145C28', border: '#A8EFC0', dot: '#22A84B' },
-    cancelled:    { label: 'Cancelled',    bg: '#FEE2E2', color: '#991B1B', border: '#FECACA', dot: '#EF4444' },
+    verified: { label: 'Verified', bg: '#D6F5E3', color: '#145C28', border: '#A8EFC0', dot: '#22A84B' },
+    cancelled: { label: 'Cancelled', bg: '#FEE2E2', color: '#991B1B', border: '#FECACA', dot: '#EF4444' },
   };
   const activeSectionStatus = selectedSection && project?.sectionStatuses
     ? (project.sectionStatuses.find(s => String(s.sectionId) === selectedSection)?.status || null)
@@ -391,8 +391,8 @@ export default function ProjectAssessment() {
   const displayColorCode = displayMode ? (sectionLeaf?.colorCode || null) : (overallLeafRule?.colorCode || null);
   const progressColor = displayColorCode || '#94A3B8';
 
-  const isLocked  = project?.isLocked || false;
-  const ownerId   = project?.userId || dbUser?._id;
+  const isLocked = project?.isLocked || false;
+  const ownerId = project?.userId || dbUser?._id;
 
   // Per-question lock set (populated as reviewer adds comments)
   const lockedInputIds = new Set((project?.lockedInputs || []).map(String));
@@ -465,8 +465,15 @@ export default function ProjectAssessment() {
                 fontSize: 16, color: 'var(--g700)',
               }}>{displayPct}%</span>
               <div style={{ width: 1, height: 14, background: 'var(--g300)' }} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx-muted)' }}>
+              {/* <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx-muted)' }}>
                 {displayPts.toFixed(1)} / {displayMax} pts
+              </span> */}
+              <span style={{
+                fontSize: 13, color: 'var(--tx-muted)', fontWeight: 700,
+                background: 'rgba(0,0,0,0.06)', borderRadius: 6,
+                padding: '2px 8px',
+              }}>
+                {Math.round(displayPts)} / {displayMax} pts
               </span>
               {displayLevel && <LeafBadge level={displayLevel} />}
             </div>
@@ -658,8 +665,8 @@ export default function ProjectAssessment() {
                             const segSpan = rule.maxPercent - rule.minPercent;
                             const segFill =
                               displayPct <= rule.minPercent ? 0
-                              : displayPct >= rule.maxPercent ? 100
-                              : ((displayPct - rule.minPercent) / segSpan) * 100;
+                                : displayPct >= rule.maxPercent ? 100
+                                  : ((displayPct - rule.minPercent) / segSpan) * 100;
                             const isActive = displayLevel === rule.name;
                             const color = rule.colorCode || '#94A3B8';
                             return (
@@ -1160,276 +1167,276 @@ export default function ProjectAssessment() {
                                       {group.inputs.map(inp => {
                                         const inputLocked = lockedInputIds.has(String(inp._id));
                                         return (
-                                        <div key={inp._id} style={{
-                                          background: inputLocked ? '#FAFAFA' : '#fff',
-                                          border: `1px solid ${inputLocked ? '#E5E7EB' : 'var(--border)'}`,
-                                          borderRadius: 12, padding: '14px',
-                                          opacity: inputLocked ? 0.85 : 1,
-                                        }}>
-                                          {/* Question label */}
-                                          <div style={{
-                                            display: 'flex', alignItems: 'flex-start',
-                                            justifyContent: 'space-between', gap: 8, marginBottom: 6
+                                          <div key={inp._id} style={{
+                                            background: inputLocked ? '#FAFAFA' : '#fff',
+                                            border: `1px solid ${inputLocked ? '#E5E7EB' : 'var(--border)'}`,
+                                            borderRadius: 12, padding: '14px',
+                                            opacity: inputLocked ? 0.85 : 1,
                                           }}>
-                                            <p style={{
-                                              fontWeight: 700, fontSize: 14,
-                                              color: 'var(--tx)', margin: 0, lineHeight: 1.4, flex: 1
+                                            {/* Question label */}
+                                            <div style={{
+                                              display: 'flex', alignItems: 'flex-start',
+                                              justifyContent: 'space-between', gap: 8, marginBottom: 6
                                             }}>
-                                              {inp.label}
-                                              {inp.isRequired && (
-                                                <span style={{ color: '#EF4444', marginLeft: 4 }}>*</span>
-                                              )}
-                                            </p>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-                                              {showLockBadges && (
-                                                lockedInputIds.has(String(inp._id)) ? (
-                                                  <span style={{
-                                                    fontSize: 10, fontWeight: 800, padding: '2px 8px',
-                                                    borderRadius: 6, background: '#FEF9C3',
-                                                    color: '#92400E', border: '1px solid #FDE68A',
-                                                    fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
-                                                  }}>🔒 Locked</span>
-                                                ) : (
-                                                  <span style={{
-                                                    fontSize: 10, fontWeight: 800, padding: '2px 8px',
-                                                    borderRadius: 6, background: '#D6F5E3',
-                                                    color: '#145C28', border: '1px solid #A8EFC0',
-                                                    fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
-                                                  }}>✏️ Editable</span>
-                                                )
-                                              )}
-                                              <span style={{
-                                                fontSize: 10, fontWeight: 800,
-                                                padding: '2px 8px', borderRadius: 6,
-                                                background: {
-                                                  number: '#EFF6FF', text: 'var(--g50)',
-                                                  checkbox: '#FEF9C3', file: '#F5F0E8'
-                                                }[inp.inputType],
-                                                color: {
-                                                  number: '#1D4ED8', text: 'var(--g700)',
-                                                  checkbox: '#92400E', file: '#78350F'
-                                                }[inp.inputType],
-                                                letterSpacing: '0.06em', textTransform: 'uppercase',
-                                                fontFamily: 'Montserrat,sans-serif'
+                                              <p style={{
+                                                fontWeight: 700, fontSize: 14,
+                                                color: 'var(--tx)', margin: 0, lineHeight: 1.4, flex: 1
                                               }}>
-                                                {inp.inputType}
-                                              </span>
-                                            </div>
-                                          </div>
-
-                                          {/* Instruction */}
-                                          {inp.instruction && (
-                                            <p style={{
-                                              fontSize: 12.5, color: 'var(--tx-muted)',
-                                              fontStyle: 'italic', margin: '0 0 10px',
-                                              padding: '6px 10px', background: 'var(--bg-subtle)',
-                                              borderRadius: 8, borderLeft: '3px solid var(--g300)'
-                                            }}>
-                                              {inp.instruction}
-                                            </p>
-                                          )}
-
-                                          {/* Number */}
-                                          {inp.inputType === 'number' && (() => {
-                                            const sMin     = inp.sliderMin != null ? Number(inp.sliderMin) : (inp.line?.x1 ?? 0);
-                                            const sMax     = inp.sliderMax != null ? Number(inp.sliderMax) : (inp.line?.x2 ?? 100);
-                                            const rawVal   = answers[inp._id];
-                                            const hasVal   = rawVal !== '' && rawVal !== undefined && rawVal !== null;
-                                            const numVal   = hasVal ? Math.min(Math.max(Number(rawVal), sMin), sMax) : sMin;
-                                            const pct      = sMax > sMin ? ((numVal - sMin) / (sMax - sMin)) * 100 : 0;
-                                            const editable = isInputEditable(inp);
-                                            return (
-                                              <div>
-                                                {/* Number input + calculate button */}
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                                                  <input type="number" className="input-field"
-                                                    value={rawVal ?? ''}
-                                                    onChange={e => handleChange(inp._id, e.target.value, 'number')}
-                                                    placeholder="Enter value"
-                                                    disabled={!editable}
-                                                    style={{ maxWidth: 200 }} />
-                                                  <a href="https://www.carbonfootprint.com/calculator.aspx" target='blank'>
-                                                    <button className='p-1 border-2 text-white bg-green-500 rounded-lg'>calculate</button>
-                                                  </a>
-                                                </div>
-
-                                                {/* ── Slider ── */}
-                                                <div style={{ marginBottom: 10, maxWidth: 360 }}>
-                                                  <div style={{ position: 'relative', paddingTop: hasVal ? 24 : 6 }}>
-                                                    {/* Bubble — only when value exists */}
-                                                    {hasVal && (
-                                                      <div style={{
-                                                        position: 'absolute', top: 0,
-                                                        left: `clamp(0px, calc(${pct}% - 18px), calc(100% - 36px))`,
-                                                        background: 'var(--g600)', color: '#fff',
-                                                        fontSize: 11, fontWeight: 700,
-                                                        padding: '2px 7px', borderRadius: 6,
-                                                        pointerEvents: 'none',
-                                                        boxShadow: '0 2px 6px rgba(34,168,75,0.3)',
-                                                      }}>
-                                                        {rawVal}
-                                                      </div>
-                                                    )}
-
-                                                    {/* Range slider */}
-                                                    <input
-                                                      type="range"
-                                                      min={sMin} max={sMax} step={1}
-                                                      value={numVal}
-                                                      onChange={e => handleChange(inp._id, e.target.value, 'number')}
-                                                      disabled={!editable}
-                                                      style={{
-                                                        width: '100%',
-                                                        accentColor: 'var(--g600)',
-                                                        cursor: editable ? 'pointer' : 'default',
-                                                        opacity: editable ? 1 : 0.6,
-                                                      }}
-                                                    />
-                                                  </div>
-
-                                                  {/* Min / Max labels */}
-                                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
-                                                    <span style={{ fontSize: 10, color: 'var(--tx-faint)', fontWeight: 600 }}>{sMin}</span>
-                                                    <span style={{ fontSize: 10, color: 'var(--tx-faint)', fontWeight: 600 }}>{sMax}</span>
-                                                  </div>
-                                                </div>
-
-                                                {/* Points info */}
-                                                {inp.line && (
-                                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 4 }}>
-                                                    <span style={{
-                                                      fontSize: 11, fontWeight: 600,
-                                                      padding: '3px 9px', borderRadius: 7,
-                                                      background: '#EFF6FF', color: '#1D4ED8',
-                                                    }}>
-                                                      ({inp.line.x1}, {inp.line.y1}pts) → ({inp.line.x2}, {inp.line.y2}pts)
-                                                    </span>
-                                                    {hasVal && (
-                                                      <span style={{
-                                                        fontSize: 11, fontWeight: 700,
-                                                        padding: '3px 9px', borderRadius: 7,
-                                                        background: 'var(--g100)', color: 'var(--g800)',
-                                                        border: '1px solid var(--g300)',
-                                                      }}>
-                                                        = {calcInputPoints(inp, rawVal).toFixed(1)} pts ✓
-                                                      </span>
-                                                    )}
-                                                  </div>
+                                                {inp.label}
+                                                {inp.isRequired && (
+                                                  <span style={{ color: '#EF4444', marginLeft: 4 }}>*</span>
                                                 )}
+                                              </p>
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                                                {showLockBadges && (
+                                                  lockedInputIds.has(String(inp._id)) ? (
+                                                    <span style={{
+                                                      fontSize: 10, fontWeight: 800, padding: '2px 8px',
+                                                      borderRadius: 6, background: '#FEF9C3',
+                                                      color: '#92400E', border: '1px solid #FDE68A',
+                                                      fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+                                                    }}>🔒 Locked</span>
+                                                  ) : (
+                                                    <span style={{
+                                                      fontSize: 10, fontWeight: 800, padding: '2px 8px',
+                                                      borderRadius: 6, background: '#D6F5E3',
+                                                      color: '#145C28', border: '1px solid #A8EFC0',
+                                                      fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+                                                    }}>✏️ Editable</span>
+                                                  )
+                                                )}
+                                                <span style={{
+                                                  fontSize: 10, fontWeight: 800,
+                                                  padding: '2px 8px', borderRadius: 6,
+                                                  background: {
+                                                    number: '#EFF6FF', text: 'var(--g50)',
+                                                    checkbox: '#FEF9C3', file: '#F5F0E8'
+                                                  }[inp.inputType],
+                                                  color: {
+                                                    number: '#1D4ED8', text: 'var(--g700)',
+                                                    checkbox: '#92400E', file: '#78350F'
+                                                  }[inp.inputType],
+                                                  letterSpacing: '0.06em', textTransform: 'uppercase',
+                                                  fontFamily: 'Montserrat,sans-serif'
+                                                }}>
+                                                  {inp.inputType}
+                                                </span>
                                               </div>
-                                            );
-                                          })()}
+                                            </div>
 
-                                          {/* Text */}
-                                          {inp.inputType === 'text' && (
-                                            <textarea className="input-field" rows={2}
-                                              value={answers[inp._id] || ''}
-                                              onChange={e => handleChange(inp._id, e.target.value, 'text')}
-                                              placeholder="Enter your answer"
-                                              disabled={!isInputEditable(inp)}
-                                              style={{ resize: 'vertical' }} />
-                                          )}
+                                            {/* Instruction */}
+                                            {inp.instruction && (
+                                              <p style={{
+                                                fontSize: 12.5, color: 'var(--tx-muted)',
+                                                fontStyle: 'italic', margin: '0 0 10px',
+                                                padding: '6px 10px', background: 'var(--bg-subtle)',
+                                                borderRadius: 8, borderLeft: '3px solid var(--g300)'
+                                              }}>
+                                                {inp.instruction}
+                                              </p>
+                                            )}
 
-                                          {/* Checkbox */}
-                                          {inp.inputType === 'checkbox' && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                              {inp.options?.map((opt, oi) => {
-                                                const checked = (answers[inp._id] || []).includes(opt.label);
-                                                return (
-                                                  <label key={oi} style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center', gap: 10, cursor: !isInputEditable(inp) ? 'default' : 'pointer',
-                                                    padding: '9px 12px', borderRadius: 10,
-                                                    background: checked ? 'var(--g50)' : 'var(--bg-soft)',
-                                                    border: `1px solid ${checked ? 'var(--g300)' : 'var(--border)'}`,
-                                                    transition: 'all 0.15s'
-                                                  }}>
-                                                    <input type="checkbox" checked={checked}
-                                                      onChange={() => isInputEditable(inp) && handleChange(inp._id, opt.label, 'checkbox')}
-                                                      disabled={!isInputEditable(inp)}
-                                                      style={{
-                                                        width: 16, height: 16,
-                                                        accentColor: 'var(--g600)', cursor: 'pointer', flexShrink: 0
-                                                      }} />
-                                                    <span style={{
-                                                      fontSize: 13.5, flex: 1,
-                                                      fontWeight: checked ? 700 : 500,
-                                                      color: checked ? 'var(--g800)' : 'var(--tx)'
-                                                    }}>
-                                                      {opt.label}
-                                                    </span>
-                                                    <span style={{
-                                                      fontSize: 11.5, fontWeight: 700,
-                                                      padding: '2px 8px', borderRadius: 6, flexShrink: 0,
-                                                      background: checked ? 'var(--g100)' : 'var(--bg-muted)',
-                                                      color: checked ? 'var(--g600)' : 'var(--tx-faint)',
+                                            {/* Number */}
+                                            {inp.inputType === 'number' && (() => {
+                                              const sMin = inp.sliderMin != null ? Number(inp.sliderMin) : (inp.line?.x1 ?? 0);
+                                              const sMax = inp.sliderMax != null ? Number(inp.sliderMax) : (inp.line?.x2 ?? 100);
+                                              const rawVal = answers[inp._id];
+                                              const hasVal = rawVal !== '' && rawVal !== undefined && rawVal !== null;
+                                              const numVal = hasVal ? Math.min(Math.max(Number(rawVal), sMin), sMax) : sMin;
+                                              const pct = sMax > sMin ? ((numVal - sMin) / (sMax - sMin)) * 100 : 0;
+                                              const editable = isInputEditable(inp);
+                                              return (
+                                                <div>
+                                                  {/* Number input + calculate button */}
+                                                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                                                    <input type="number" className="input-field"
+                                                      value={rawVal ?? ''}
+                                                      onChange={e => handleChange(inp._id, e.target.value, 'number')}
+                                                      placeholder="Enter value"
+                                                      disabled={!editable}
+                                                      style={{ maxWidth: 200 }} />
+                                                    <a href="https://www.carbonfootprint.com/calculator.aspx" target='blank'>
+                                                      <button className='p-1 border-2 text-white bg-green-500 rounded-lg'>calculate</button>
+                                                    </a>
+                                                  </div>
+
+                                                  {/* ── Slider ── */}
+                                                  <div style={{ marginBottom: 10, maxWidth: 360 }}>
+                                                    <div style={{ position: 'relative', paddingTop: hasVal ? 24 : 6 }}>
+                                                      {/* Bubble — only when value exists */}
+                                                      {hasVal && (
+                                                        <div style={{
+                                                          position: 'absolute', top: 0,
+                                                          left: `clamp(0px, calc(${pct}% - 18px), calc(100% - 36px))`,
+                                                          background: 'var(--g600)', color: '#fff',
+                                                          fontSize: 11, fontWeight: 700,
+                                                          padding: '2px 7px', borderRadius: 6,
+                                                          pointerEvents: 'none',
+                                                          boxShadow: '0 2px 6px rgba(34,168,75,0.3)',
+                                                        }}>
+                                                          {rawVal}
+                                                        </div>
+                                                      )}
+
+                                                      {/* Range slider */}
+                                                      <input
+                                                        type="range"
+                                                        min={sMin} max={sMax} step={1}
+                                                        value={numVal}
+                                                        onChange={e => handleChange(inp._id, e.target.value, 'number')}
+                                                        disabled={!editable}
+                                                        style={{
+                                                          width: '100%',
+                                                          accentColor: 'var(--g600)',
+                                                          cursor: editable ? 'pointer' : 'default',
+                                                          opacity: editable ? 1 : 0.6,
+                                                        }}
+                                                      />
+                                                    </div>
+
+                                                    {/* Min / Max labels */}
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+                                                      <span style={{ fontSize: 10, color: 'var(--tx-faint)', fontWeight: 600 }}>{sMin}</span>
+                                                      <span style={{ fontSize: 10, color: 'var(--tx-faint)', fontWeight: 600 }}>{sMax}</span>
+                                                    </div>
+                                                  </div>
+
+                                                  {/* Points info */}
+                                                  {inp.line && (
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 4 }}>
+                                                      <span style={{
+                                                        fontSize: 11, fontWeight: 600,
+                                                        padding: '3px 9px', borderRadius: 7,
+                                                        background: '#EFF6FF', color: '#1D4ED8',
+                                                      }}>
+                                                        ({inp.line.x1}, {inp.line.y1}pts) → ({inp.line.x2}, {inp.line.y2}pts)
+                                                      </span>
+                                                      {hasVal && (
+                                                        <span style={{
+                                                          fontSize: 11, fontWeight: 700,
+                                                          padding: '3px 9px', borderRadius: 7,
+                                                          background: 'var(--g100)', color: 'var(--g800)',
+                                                          border: '1px solid var(--g300)',
+                                                        }}>
+                                                          = {calcInputPoints(inp, rawVal).toFixed(1)} pts ✓
+                                                        </span>
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              );
+                                            })()}
+
+                                            {/* Text */}
+                                            {inp.inputType === 'text' && (
+                                              <textarea className="input-field" rows={2}
+                                                value={answers[inp._id] || ''}
+                                                onChange={e => handleChange(inp._id, e.target.value, 'text')}
+                                                placeholder="Enter your answer"
+                                                disabled={!isInputEditable(inp)}
+                                                style={{ resize: 'vertical' }} />
+                                            )}
+
+                                            {/* Checkbox */}
+                                            {inp.inputType === 'checkbox' && (
+                                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                {inp.options?.map((opt, oi) => {
+                                                  const checked = (answers[inp._id] || []).includes(opt.label);
+                                                  return (
+                                                    <label key={oi} style={{
+                                                      display: 'flex',
+                                                      alignItems: 'center', gap: 10, cursor: !isInputEditable(inp) ? 'default' : 'pointer',
+                                                      padding: '9px 12px', borderRadius: 10,
+                                                      background: checked ? 'var(--g50)' : 'var(--bg-soft)',
+                                                      border: `1px solid ${checked ? 'var(--g300)' : 'var(--border)'}`,
                                                       transition: 'all 0.15s'
                                                     }}>
-                                                      {opt.points}pts
-                                                    </span>
-                                                  </label>
-                                                );
-                                              })}
-                                            </div>
-                                          )}
+                                                      <input type="checkbox" checked={checked}
+                                                        onChange={() => isInputEditable(inp) && handleChange(inp._id, opt.label, 'checkbox')}
+                                                        disabled={!isInputEditable(inp)}
+                                                        style={{
+                                                          width: 16, height: 16,
+                                                          accentColor: 'var(--g600)', cursor: 'pointer', flexShrink: 0
+                                                        }} />
+                                                      <span style={{
+                                                        fontSize: 13.5, flex: 1,
+                                                        fontWeight: checked ? 700 : 500,
+                                                        color: checked ? 'var(--g800)' : 'var(--tx)'
+                                                      }}>
+                                                        {opt.label}
+                                                      </span>
+                                                      <span style={{
+                                                        fontSize: 11.5, fontWeight: 700,
+                                                        padding: '2px 8px', borderRadius: 6, flexShrink: 0,
+                                                        background: checked ? 'var(--g100)' : 'var(--bg-muted)',
+                                                        color: checked ? 'var(--g600)' : 'var(--tx-faint)',
+                                                        transition: 'all 0.15s'
+                                                      }}>
+                                                        {opt.points}pts
+                                                      </span>
+                                                    </label>
+                                                  );
+                                                })}
+                                              </div>
+                                            )}
 
-                                          {/* File */}
-                                          {inp.inputType === 'file' && (
-                                            <div>
-                                              {inp.uploaded && (
-                                                <div style={{
-                                                  display: 'flex', alignItems: 'center', gap: 8,
-                                                  padding: '8px 12px', background: 'var(--g50)',
-                                                  border: '1px solid var(--g200)', borderRadius: 9,
-                                                  marginBottom: 8
-                                                }}>
-                                                  <span style={{ color: 'var(--g600)' }}>✓</span>
-                                                  <span style={{
-                                                    fontSize: 12.5, fontWeight: 600,
-                                                    color: 'var(--g700)', flex: 1, overflow: 'hidden',
-                                                    textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                                            {/* File */}
+                                            {inp.inputType === 'file' && (
+                                              <div>
+                                                {inp.uploaded && (
+                                                  <div style={{
+                                                    display: 'flex', alignItems: 'center', gap: 8,
+                                                    padding: '8px 12px', background: 'var(--g50)',
+                                                    border: '1px solid var(--g200)', borderRadius: 9,
+                                                    marginBottom: 8
                                                   }}>
-                                                    {inp.originalName || 'File uploaded'}
-                                                  </span>
-                                                </div>
-                                              )}
-                                              {isInputEditable(inp) && (
-                                                <label style={{
-                                                  display: 'flex', alignItems: 'center',
-                                                  justifyContent: 'center', gap: 10, padding: '14px',
-                                                  border: '1.5px dashed var(--border-md)', borderRadius: 10,
-                                                  cursor: 'pointer', background: 'var(--bg-soft)',
-                                                  transition: 'all 0.2s'
-                                                }}
-                                                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--g400)'}
-                                                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-md)'}>
-                                                  <span style={{ fontSize: 20 }}>📎</span>
-                                                  <span style={{
-                                                    fontSize: 13, fontWeight: 600,
-                                                    color: 'var(--tx-muted)'
-                                                  }}>
-                                                    {inp.uploaded ? 'Replace file' : 'Upload document'}
-                                                  </span>
-                                                  <input type="file" style={{ display: 'none' }}
-                                                    accept=".pdf,.jpg,.jpeg,.png"
-                                                    onChange={e => handleFile(inp._id, e.target.files[0])} />
-                                                </label>
-                                              )}
-                                            </div>
-                                          )}
-                                          {/* Comment thread — visible to user; replies after full lock */}
-                                          {dbUser && (
-                                            <CommentThread
-                                              projectId={project._id}
-                                              inputId={inp._id}
-                                              currentUserId={dbUser._id}
-                                              currentRole={dbUser.role}
-                                              isLocked={project?.status === 'submitted'}
-                                              projectOwnerId={ownerId}
-                                              initialCount={commentCounts[String(inp._id)] || 0}
-                                            />
-                                          )}
-                                        </div>
+                                                    <span style={{ color: 'var(--g600)' }}>✓</span>
+                                                    <span style={{
+                                                      fontSize: 12.5, fontWeight: 600,
+                                                      color: 'var(--g700)', flex: 1, overflow: 'hidden',
+                                                      textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                                                    }}>
+                                                      {inp.originalName || 'File uploaded'}
+                                                    </span>
+                                                  </div>
+                                                )}
+                                                {isInputEditable(inp) && (
+                                                  <label style={{
+                                                    display: 'flex', alignItems: 'center',
+                                                    justifyContent: 'center', gap: 10, padding: '14px',
+                                                    border: '1.5px dashed var(--border-md)', borderRadius: 10,
+                                                    cursor: 'pointer', background: 'var(--bg-soft)',
+                                                    transition: 'all 0.2s'
+                                                  }}
+                                                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--g400)'}
+                                                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-md)'}>
+                                                    <span style={{ fontSize: 20 }}>📎</span>
+                                                    <span style={{
+                                                      fontSize: 13, fontWeight: 600,
+                                                      color: 'var(--tx-muted)'
+                                                    }}>
+                                                      {inp.uploaded ? 'Replace file' : 'Upload document'}
+                                                    </span>
+                                                    <input type="file" style={{ display: 'none' }}
+                                                      accept=".pdf,.jpg,.jpeg,.png"
+                                                      onChange={e => handleFile(inp._id, e.target.files[0])} />
+                                                  </label>
+                                                )}
+                                              </div>
+                                            )}
+                                            {/* Comment thread — visible to user; replies after full lock */}
+                                            {dbUser && (
+                                              <CommentThread
+                                                projectId={project._id}
+                                                inputId={inp._id}
+                                                currentUserId={dbUser._id}
+                                                currentRole={dbUser.role}
+                                                isLocked={project?.status === 'submitted'}
+                                                projectOwnerId={ownerId}
+                                                initialCount={commentCounts[String(inp._id)] || 0}
+                                              />
+                                            )}
+                                          </div>
                                         );
                                       })}
                                     </div>
