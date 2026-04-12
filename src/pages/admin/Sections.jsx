@@ -29,9 +29,10 @@ export default function Sections() {
   const ax = useAxiosSecure();
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [reordering, setReordering] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
-  const [form, setForm] = useState({ title: '' });
+  const [form, setForm] = useState({ title: '', sortOrder: '' });
   const [iconFile, setIconFile] = useState(null);
   const [iconPreview, setIconPreview] = useState('');
 
@@ -47,7 +48,7 @@ export default function Sections() {
 
   const openNew = () => {
     setEditItem(null);
-    setForm({ title: '' });
+    setForm({ title: '', sortOrder: sections.length + 1 });
     setIconFile(null);
     setIconPreview('');
     setShowForm(true);
@@ -55,7 +56,7 @@ export default function Sections() {
 
   const openEdit = (s) => {
     setEditItem(s);
-    setForm({ title: s.title });
+    setForm({ title: s.title, sortOrder: s.sortOrder ?? 0 });
     setIconFile(null);
     setIconPreview(s.iconUrl ? `${SERVER_URL}${s.iconUrl}` : '');
     setShowForm(true);
@@ -73,11 +74,7 @@ export default function Sections() {
     try {
       const fd = new FormData();
       fd.append('title', form.title);
-      if (editItem) {
-        fd.append('sortOrder', editItem.sortOrder ?? 0);
-      } else {
-        fd.append('sortOrder', sections.length + 1);
-      }
+      fd.append('sortOrder', form.sortOrder);
       if (iconFile) fd.append('icon', iconFile);
 
       if (editItem) {
@@ -99,6 +96,32 @@ export default function Sections() {
       toast.success('Section deleted!');
       fetchSections();
     } catch { toast.error('Failed to delete'); }
+  };
+
+  const moveSection = async (idx, dir) => {
+    if (reordering) return;
+    const arr = [...sections].sort((a, b) => a.sortOrder - b.sortOrder);
+    const targetIdx = idx + dir;
+    if (targetIdx < 0 || targetIdx >= arr.length) return;
+    const a = arr[idx];
+    const b = arr[targetIdx];
+    // Optimistic swap
+    setSections(prev => prev.map(s => {
+      if (s._id === a._id) return { ...s, sortOrder: b.sortOrder };
+      if (s._id === b._id) return { ...s, sortOrder: a.sortOrder };
+      return s;
+    }));
+    setReordering(true);
+    try {
+      const fdA = new FormData(); fdA.append('title', a.title); fdA.append('sortOrder', b.sortOrder);
+      const fdB = new FormData(); fdB.append('title', b.title); fdB.append('sortOrder', a.sortOrder);
+      await Promise.all([ax.put(`/sections/${a._id}`, fdA), ax.put(`/sections/${b._id}`, fdB)]);
+    } catch {
+      toast.error('Failed to reorder');
+      fetchSections();
+    } finally {
+      setReordering(false);
+    }
   };
 
   const sorted = [...sections].sort((a, b) => a.sortOrder - b.sortOrder);
@@ -154,6 +177,21 @@ export default function Sections() {
                   onChange={e => setForm({ ...form, title: e.target.value })}
                   placeholder="e.g. Site & Environment, Before Construction"
                   autoFocus />
+              </div>
+              <div>
+                <label style={{
+                  display: 'block', fontSize: 11, fontWeight: 800, letterSpacing: '0.09em',
+                  textTransform: 'uppercase', color: 'var(--tx-muted)', marginBottom: 6,
+                  fontFamily: 'Montserrat,sans-serif'
+                }}>Sort Order</label>
+                <input
+                  type="number" min="1"
+                  className="input-field"
+                  value={form.sortOrder}
+                  onChange={e => setForm({ ...form, sortOrder: Number(e.target.value) })}
+                  placeholder="e.g. 1, 2, 3…"
+                  style={{ width: 120 }}
+                />
               </div>
               <div>
                 <label style={{
@@ -221,7 +259,7 @@ export default function Sections() {
           <table className="premium-table">
             <thead>
               <tr>
-                <th style={{ width: 60 }}>Order</th>
+                <th style={{ width: 80 }}>Order</th>
                 <th style={{ width: 64 }}>Icon</th>
                 <th>Section Name</th>
                 <th style={{ width: 140 }}>Actions</th>
@@ -231,10 +269,46 @@ export default function Sections() {
               {sorted.map((s, i) => (
                 <tr key={s._id}>
                   <td>
-                    <span style={{
-                      fontSize: 11, fontFamily: 'monospace', padding: '2px 8px',
-                      borderRadius: 6, background: 'var(--bg-subtle)', color: 'var(--tx-muted)'
-                    }}>#{s.sortOrder}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {/* <button
+                          onClick={() => moveSection(i, -1)}
+                          disabled={i === 0 || reordering}
+                          title="Move up"
+                          style={{
+                            width: 22, height: 20, padding: 0, border: 'none', borderRadius: 5,
+                            background: i === 0 ? 'transparent' : 'var(--bg-subtle)',
+                            color: i === 0 ? 'var(--border-md)' : 'var(--tx-muted)',
+                            cursor: i === 0 ? 'default' : 'pointer',
+                            fontSize: 11, lineHeight: 1, display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                            transition: 'background 0.15s, color 0.15s',
+                          }}
+                          onMouseEnter={e => { if (i !== 0) { e.currentTarget.style.background = 'var(--g100)'; e.currentTarget.style.color = 'var(--g700)'; } }}
+                          onMouseLeave={e => { e.currentTarget.style.background = i === 0 ? 'transparent' : 'var(--bg-subtle)'; e.currentTarget.style.color = i === 0 ? 'var(--border-md)' : 'var(--tx-muted)'; }}
+                        >▲</button>
+                        <button
+                          onClick={() => moveSection(i, 1)}
+                          disabled={i === sorted.length - 1 || reordering}
+                          title="Move down"
+                          style={{
+                            width: 22, height: 20, padding: 0, border: 'none', borderRadius: 5,
+                            background: i === sorted.length - 1 ? 'transparent' : 'var(--bg-subtle)',
+                            color: i === sorted.length - 1 ? 'var(--border-md)' : 'var(--tx-muted)',
+                            cursor: i === sorted.length - 1 ? 'default' : 'pointer',
+                            fontSize: 11, lineHeight: 1, display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                            transition: 'background 0.15s, color 0.15s',
+                          }}
+                          onMouseEnter={e => { if (i !== sorted.length - 1) { e.currentTarget.style.background = 'var(--g100)'; e.currentTarget.style.color = 'var(--g700)'; } }}
+                          onMouseLeave={e => { e.currentTarget.style.background = i === sorted.length - 1 ? 'transparent' : 'var(--bg-subtle)'; e.currentTarget.style.color = i === sorted.length - 1 ? 'var(--border-md)' : 'var(--tx-muted)'; }}
+                        >▼</button> */}
+                      </div>
+                      <span style={{
+                        fontSize: 11, fontFamily: 'monospace', padding: '2px 6px',
+                        borderRadius: 6, background: 'var(--bg-subtle)', color: 'var(--tx-muted)'
+                      }}>#{i + 1}</span>
+                    </div>
                   </td>
                   <td>
                     <IconImg
