@@ -1,5 +1,5 @@
-const PARTNER_IMGS = ['0_HBRI_Picture3.png', '1_UNOPS_Picture4.png', 'bdLogo.jpg',
-  , '4_UNEP_Picture6.png', '5_GABC_Picture7.png', 'federal-ministry.png'];
+const PARTNER_IMGS = ['1_UNOPS_Picture4.png', '3_UN_HABITAT_Picture8.png', '0_HBRI_Picture3.png', 'bdLogo.jpg',
+              , '4_UNEP_Picture6.png', '5_GABC_Picture7.png', 'federal-ministry.png'];
 
 export default function PartnerFooter() {
   return (
