@@ -621,12 +621,19 @@ export default function ProjectAssessment() {
                         fontSize: 34, color: progressColor || 'var(--tx)', lineHeight: 1,
                       }}>{displayPct}%</span>
                       <span style={{ fontSize: 13, color: 'var(--tx-muted)', fontWeight: 600 }}>score</span>
-                      <span style={{
+                      {/* <span style={{
                         fontSize: 13, color: 'var(--tx-muted)', fontWeight: 700,
                         background: 'rgba(0,0,0,0.06)', borderRadius: 6,
                         padding: '2px 8px',
                       }}>
                         {displayPts.toFixed(1)} / {displayMax} pts
+                      </span> */}
+                      <span style={{
+                        fontSize: 13, color: 'var(--tx-muted)', fontWeight: 700,
+                        background: 'rgba(0,0,0,0.06)', borderRadius: 6,
+                        padding: '2px 8px',
+                      }}>
+                        {Math.round(displayPts)} / {displayMax} pts
                       </span>
                     </div>
 
