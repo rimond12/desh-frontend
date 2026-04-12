@@ -125,7 +125,7 @@ export default function Register() {
           margin-bottom: 32px;
         }
         .desh-logo-wrap img {
-          height: 110px;
+         
           object-fit: contain;
           filter: drop-shadow(0 4px 16px rgba(34,139,60,0.18));
         }
@@ -245,7 +245,7 @@ export default function Register() {
         }
         .partner-logos { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 28px; }
         .partner-logos img {
-          height: 80px; object-fit: contain; 
+          height: 50px; object-fit: contain; 
           transition: opacity 0.2s, filter 0.2s;
         }
         .partner-logos img:hover { opacity: 0.75; filter: grayscale(40%); }
@@ -279,10 +279,11 @@ export default function Register() {
 
             {/* Card */}
             <div className="card-box">
-              <div className="desh-logo-wrap flex flex-col mx-auto">
-                <img src="/images/logo (1).png" alt="DESH" />
-                <span className="system-label">Green Building Assessment System</span>
+              <div className="desh-logo-wrap flex justify-center mx-auto">
+                <img src="/images/0_HBRI_Picture3-removebg-preview.png" alt="DESH" className='h-12' />
+                <img src="/images/logo (1).png" alt="DESH" className='h-14 mr-5' />
               </div>
+              <span className="system-label card-subheading -mt-8 text-xs flex justify-center mx-auto text-center">Green Building Assessment System</span>
               <h2 className="card-heading text-center">Create Account</h2>
               <p className="card-subheading text-center">Join the green building community</p>
 
@@ -363,7 +364,7 @@ export default function Register() {
         <footer className="partner-footer">
           <p className="partner-label">Institutional Partners &amp; Supporters</p>
           <div className="partner-logos">
-            {['0_HBRI_Picture3.png', '1_UNOPS_Picture4.png', 'bdLogo.jpg',
+            {['1_UNOPS_Picture4.png', '3_UN_HABITAT_Picture8.png', '0_HBRI_Picture3.png', 'bdLogo.jpg',
               , '4_UNEP_Picture6.png', '5_GABC_Picture7.png', 'federal-ministry.png'].map((img, i) => (
                 <img key={i} src={`/images/${img}`} alt="" />
               ))}

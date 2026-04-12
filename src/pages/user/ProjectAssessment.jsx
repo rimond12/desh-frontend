@@ -1230,39 +1230,95 @@ export default function ProjectAssessment() {
                                           )}
 
                                           {/* Number */}
-                                          {inp.inputType === 'number' && (
-                                            <div>
-                                              <input type="number" className="input-field"
-                                                value={answers[inp._id] || ''}
-                                                onChange={e => handleChange(inp._id, e.target.value, 'number')}
-                                                placeholder="Enter value"
-                                                disabled={!isInputEditable(inp)}
-                                                style={{ maxWidth: 200, marginBottom: 8 }} />
-                                              <a href="https://www.carbonfootprint.com/calculator.aspx" target='blank'>  <button className='p-1 border-2 text-white bg-green-500 rounded-lg'>calculate</button></a>
-                                              {inp.line && (
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                                                  <span style={{
-                                                    fontSize: 11, fontWeight: 600,
-                                                    padding: '3px 9px', borderRadius: 7,
-                                                    background: '#EFF6FF', color: '#1D4ED8',
-                                                  }}>
-
-                                                    ({inp.line.x1}, {inp.line.y1}pts) → ({inp.line.x2}, {inp.line.y2}pts)
-                                                  </span>
-                                                  {answers[inp._id] !== '' && answers[inp._id] !== undefined && (
-                                                    <span style={{
-                                                      fontSize: 11, fontWeight: 700,
-                                                      padding: '3px 9px', borderRadius: 7,
-                                                      background: 'var(--g100)', color: 'var(--g800)',
-                                                      border: '1px solid var(--g300)',
-                                                    }}>
-                                                      = {calcInputPoints(inp, answers[inp._id]).toFixed(1)} pts ✓
-                                                    </span>
-                                                  )}
+                                          {inp.inputType === 'number' && (() => {
+                                            const sMin     = inp.sliderMin != null ? Number(inp.sliderMin) : (inp.line?.x1 ?? 0);
+                                            const sMax     = inp.sliderMax != null ? Number(inp.sliderMax) : (inp.line?.x2 ?? 100);
+                                            const rawVal   = answers[inp._id];
+                                            const hasVal   = rawVal !== '' && rawVal !== undefined && rawVal !== null;
+                                            const numVal   = hasVal ? Math.min(Math.max(Number(rawVal), sMin), sMax) : sMin;
+                                            const pct      = sMax > sMin ? ((numVal - sMin) / (sMax - sMin)) * 100 : 0;
+                                            const editable = isInputEditable(inp);
+                                            return (
+                                              <div>
+                                                {/* Number input + calculate button */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                                                  <input type="number" className="input-field"
+                                                    value={rawVal ?? ''}
+                                                    onChange={e => handleChange(inp._id, e.target.value, 'number')}
+                                                    placeholder="Enter value"
+                                                    disabled={!editable}
+                                                    style={{ maxWidth: 200 }} />
+                                                  <a href="https://www.carbonfootprint.com/calculator.aspx" target='blank'>
+                                                    <button className='p-1 border-2 text-white bg-green-500 rounded-lg'>calculate</button>
+                                                  </a>
                                                 </div>
-                                              )}
-                                            </div>
-                                          )}
+
+                                                {/* ── Slider ── */}
+                                                <div style={{ marginBottom: 10, maxWidth: 360 }}>
+                                                  <div style={{ position: 'relative', paddingTop: hasVal ? 24 : 6 }}>
+                                                    {/* Bubble — only when value exists */}
+                                                    {hasVal && (
+                                                      <div style={{
+                                                        position: 'absolute', top: 0,
+                                                        left: `clamp(0px, calc(${pct}% - 18px), calc(100% - 36px))`,
+                                                        background: 'var(--g600)', color: '#fff',
+                                                        fontSize: 11, fontWeight: 700,
+                                                        padding: '2px 7px', borderRadius: 6,
+                                                        pointerEvents: 'none',
+                                                        boxShadow: '0 2px 6px rgba(34,168,75,0.3)',
+                                                      }}>
+                                                        {rawVal}
+                                                      </div>
+                                                    )}
+
+                                                    {/* Range slider */}
+                                                    <input
+                                                      type="range"
+                                                      min={sMin} max={sMax} step={1}
+                                                      value={numVal}
+                                                      onChange={e => handleChange(inp._id, e.target.value, 'number')}
+                                                      disabled={!editable}
+                                                      style={{
+                                                        width: '100%',
+                                                        accentColor: 'var(--g600)',
+                                                        cursor: editable ? 'pointer' : 'default',
+                                                        opacity: editable ? 1 : 0.6,
+                                                      }}
+                                                    />
+                                                  </div>
+
+                                                  {/* Min / Max labels */}
+                                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+                                                    <span style={{ fontSize: 10, color: 'var(--tx-faint)', fontWeight: 600 }}>{sMin}</span>
+                                                    <span style={{ fontSize: 10, color: 'var(--tx-faint)', fontWeight: 600 }}>{sMax}</span>
+                                                  </div>
+                                                </div>
+
+                                                {/* Points info */}
+                                                {inp.line && (
+                                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 4 }}>
+                                                    <span style={{
+                                                      fontSize: 11, fontWeight: 600,
+                                                      padding: '3px 9px', borderRadius: 7,
+                                                      background: '#EFF6FF', color: '#1D4ED8',
+                                                    }}>
+                                                      ({inp.line.x1}, {inp.line.y1}pts) → ({inp.line.x2}, {inp.line.y2}pts)
+                                                    </span>
+                                                    {hasVal && (
+                                                      <span style={{
+                                                        fontSize: 11, fontWeight: 700,
+                                                        padding: '3px 9px', borderRadius: 7,
+                                                        background: 'var(--g100)', color: 'var(--g800)',
+                                                        border: '1px solid var(--g300)',
+                                                      }}>
+                                                        = {calcInputPoints(inp, rawVal).toFixed(1)} pts ✓
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+                                          })()}
 
                                           {/* Text */}
                                           {inp.inputType === 'text' && (

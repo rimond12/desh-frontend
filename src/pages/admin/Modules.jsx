@@ -226,6 +226,9 @@ export default function Modules() {
       sortOrder: IM.d?.sortOrder ?? 0,
       options: IM.d?.options || [{ label: '', points: 0 }],
       line: IM.d?.line || { x1: 0, y1: 0, x2: 100, y2: 10 },
+      showSlider: IM.d?.showSlider ?? false,
+      sliderMin: IM.d?.sliderMin != null ? String(IM.d.sliderMin) : '',
+      sliderMax: IM.d?.sliderMax != null ? String(IM.d.sliderMax) : '',
     });
 
     const addOpt = () => setF({ ...f, options: [...f.options, { label: '', points: 0 }] });
@@ -251,6 +254,8 @@ export default function Modules() {
           x1: Number(f.line.x1), y1: Number(f.line.y1),
           x2: Number(f.line.x2), y2: Number(f.line.y2),
         } : undefined,
+        sliderMin: f.inputType === 'number' && f.sliderMin !== '' && f.sliderMin !== null ? Number(f.sliderMin) : null,
+        sliderMax: f.inputType === 'number' && f.sliderMax !== '' && f.sliderMax !== null ? Number(f.sliderMax) : null,
       };
 
       try {
@@ -423,6 +428,69 @@ export default function Modules() {
                   &nbsp;|&nbsp; max: {Math.max(Number(f.line.y1), Number(f.line.y2))} pts
                 </div>
               )}
+
+              {/* ── Slider Config ── */}
+              <div style={{
+                marginTop: 14, padding: '14px 16px',
+                background: 'var(--bg-soft)', border: '1.5px solid var(--border)',
+                borderRadius: 12,
+              }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--g700)', marginBottom: 12 }}>
+                  🎚 Slider Range <span style={{ color: 'var(--tx-faint)', fontWeight: 500, fontSize: 11 }}>(shown below number input for users)</span>
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--tx-muted)', marginBottom: 4 }}>
+                      Min Value <span style={{ color: 'var(--tx-faint)', fontWeight: 500 }}>(default: x1 = {f.line.x1})</span>
+                    </p>
+                    <input type="number" className="input-field"
+                      value={f.sliderMin}
+                      onChange={e => setF({ ...f, sliderMin: e.target.value })}
+                      placeholder={`${f.line.x1}`}
+                      style={{ padding: '8px 10px' }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--tx-muted)', marginBottom: 4 }}>
+                      Max Value <span style={{ color: 'var(--tx-faint)', fontWeight: 500 }}>(default: x2 = {f.line.x2})</span>
+                    </p>
+                    <input type="number" className="input-field"
+                      value={f.sliderMax}
+                      onChange={e => setF({ ...f, sliderMax: e.target.value })}
+                      placeholder={`${f.line.x2}`}
+                      style={{ padding: '8px 10px' }} />
+                  </div>
+                </div>
+
+                {/* Live preview */}
+                {(() => {
+                  const sMin = f.sliderMin !== '' ? Number(f.sliderMin) : Number(f.line.x1);
+                  const sMax = f.sliderMax !== '' ? Number(f.sliderMax) : Number(f.line.x2);
+                  const mid  = Math.round((sMin + sMax) / 2);
+                  const pct  = sMax > sMin ? ((mid - sMin) / (sMax - sMin)) * 100 : 0;
+                  return (
+                    <div>
+                      <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-faint)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Preview</p>
+                      <div style={{ position: 'relative', paddingTop: 22 }}>
+                        <div style={{
+                          position: 'absolute', top: 0,
+                          left: `calc(${pct}% - 16px)`,
+                          background: 'var(--g600)', color: '#fff',
+                          fontSize: 10, fontWeight: 700,
+                          padding: '2px 6px', borderRadius: 5,
+                          whiteSpace: 'nowrap', pointerEvents: 'none',
+                        }}>{mid}</div>
+                        <input type="range" readOnly value={mid} min={sMin} max={sMax}
+                          style={{ width: '100%', accentColor: 'var(--g600)', cursor: 'default' }} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+                        <span style={{ fontSize: 10, color: 'var(--tx-faint)', fontWeight: 600 }}>{sMin}</span>
+                        <span style={{ fontSize: 10, color: 'var(--tx-faint)', fontWeight: 600 }}>{sMax}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           )}
 
