@@ -200,6 +200,11 @@ export default function SubmissionDetail() {
   const [showEdit, setShowEdit]             = useState(false);
   // comment counts per inputId (pre-fetched for badges)
   const [commentCounts, setCommentCounts]   = useState({});
+  // per-question locked inputs
+  const [lockedInputsSet, setLockedInputsSet] = useState(new Set());
+  const [togglingInput, setTogglingInput]   = useState(null);
+  // score card collapse
+  const [scoreOpen, setScoreOpen]           = useState(true);
 
   useEffect(() => {
     Promise.all([
@@ -213,6 +218,7 @@ export default function SubmissionDetail() {
         setTabs(detailRes.data.tabs || []);
         setGlobalSections(secRes.data.sections || []);
         setLeafRules(rulesRes.data.rules || []);
+        setLockedInputsSet(new Set((detailRes.data.project.lockedInputs || []).map(String)));
         // Build a count map: { inputId: count }
         const counts = {};
         (commentsRes.data.comments || []).forEach(c => {
@@ -273,6 +279,15 @@ export default function SubmissionDetail() {
     unlocked_for_edit: { label: '🔓 Unlocked for Edit', bg: '#FEF9C3', border: '#FDE68A', color: '#92400E' },
   };
 
+  const lockSubmission = async () => {
+    if (!window.confirm('Lock this submission? The user will no longer be able to edit it.')) return;
+    try {
+      const res = await axiosSecure.post(`/submissions/${id}/lock`);
+      setProject(res.data.project);
+      toast.success('Submission locked');
+    } catch (e) { toast.error(e.response?.data?.message || 'Failed to lock'); }
+  };
+
   const unlockSubmission = async () => {
     if (!window.confirm('Unlock this submission? The user will be able to edit it again.')) return;
     try {
@@ -280,6 +295,17 @@ export default function SubmissionDetail() {
       setProject(res.data.project);
       toast.success('Submission unlocked');
     } catch { toast.error('Failed to unlock'); }
+  };
+
+  const toggleInputLock = async (inputId, currentlyLocked) => {
+    setTogglingInput(String(inputId));
+    const endpoint = currentlyLocked ? 'unlock-input' : 'lock-input';
+    try {
+      const res = await axiosSecure.post(`/submissions/${id}/${endpoint}`, { inputId });
+      setLockedInputsSet(new Set((res.data.lockedInputs || []).map(String)));
+      toast.success(currentlyLocked ? 'Question unlocked.' : 'Question locked.');
+    } catch (e) { toast.error(e.response?.data?.message || 'Failed to update lock'); }
+    finally { setTogglingInput(null); }
   };
 
   return (
@@ -316,12 +342,18 @@ export default function SubmissionDetail() {
               }}>{cfg.label}</span>
             );
           })()}
-          {isLocked && (
+          {isLocked ? (
             <button onClick={unlockSubmission} style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 12,
-              border: '1.5px solid #E0E0E0', background: '#fff', color: '#555',
+              border: '1.5px solid #FDE68A', background: '#FEF9C3', color: '#92400E',
               fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif',
-            }}>🔓 Unlock</button>
+            }}>🔓 Unlock Submission</button>
+          ) : (
+            <button onClick={lockSubmission} style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 12,
+              border: '1.5px solid #C4B5FD', background: '#EDE9FE', color: '#5B21B6',
+              fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif',
+            }}>🔒 Lock Submission</button>
           )}
           <button onClick={() => setShowEdit(true)} style={{
             display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 12,
@@ -340,10 +372,10 @@ export default function SubmissionDetail() {
         boxShadow: '0 4px 24px rgba(34,168,75,0.12)', overflow: 'hidden',
       }} className="fade-in-up">
 
-        {/* Section dropdown strip */}
+        {/* Section dropdown strip + toggle */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-          padding: '10px 20px', borderBottom: '1px solid rgba(34,168,75,0.15)',
+          padding: '10px 20px', borderBottom: scoreOpen ? '1px solid rgba(34,168,75,0.15)' : 'none',
           background: 'rgba(255,255,255,0.5)',
         }}>
           <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--g700)', fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap' }}>
@@ -370,44 +402,64 @@ export default function SubmissionDetail() {
               </span>
             );
           })}
+
+          {/* Collapsed summary */}
+          {!scoreOpen && (
+            <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--g700)', fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap' }}>
+              {displayPct}% · {displayEarned}/{displayMax} pts
+            </span>
+          )}
+
+          {/* Toggle button */}
+          <button onClick={() => setScoreOpen(o => !o)} style={{
+            marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
+            padding: '4px 10px', borderRadius: 8, border: '1.5px solid var(--g300)',
+            background: 'rgba(255,255,255,0.7)', color: 'var(--g700)',
+            fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif',
+            transition: 'all 0.15s',
+          }}>
+            {scoreOpen ? '▲ Hide' : '▼ Show'}
+          </button>
         </div>
 
-        {/* Score body */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '18px 24px', flexWrap: 'wrap' }}>
-          <ColoredLeaf level={displayLevel} colorCode={displayColorCode} size={82} />
-          <div style={{ flex: 1, minWidth: 180 }}>
-            {selectedSection && (
-              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--g700)', margin: '0 0 4px', fontFamily: 'Montserrat,sans-serif', letterSpacing: '0.04em' }}>
-                ▦ {selectedSectionName}
-              </p>
-            )}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-              <span style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 34, color: 'var(--tx)', lineHeight: 1 }}>
-                {displayPct}%
-              </span>
-              <span style={{ fontSize: 13, color: 'var(--tx-muted)', fontWeight: 600 }}>score</span>
-              <span style={{ fontSize: 14, color: 'var(--tx-muted)', fontWeight: 700 }}>
-                {displayEarned} / {displayMax} pts
-              </span>
+        {/* Score body — collapsible */}
+        {scoreOpen && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '18px 24px', flexWrap: 'wrap' }}>
+              <ColoredLeaf level={displayLevel} colorCode={displayColorCode} size={82} />
+              <div style={{ flex: 1, minWidth: 180 }}>
+                {selectedSection && (
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--g700)', margin: '0 0 4px', fontFamily: 'Montserrat,sans-serif', letterSpacing: '0.04em' }}>
+                    ▦ {selectedSectionName}
+                  </p>
+                )}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                  <span style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 34, color: 'var(--tx)', lineHeight: 1 }}>
+                    {displayPct}%
+                  </span>
+                  <span style={{ fontSize: 13, color: 'var(--tx-muted)', fontWeight: 600 }}>score</span>
+                  <span style={{ fontSize: 14, color: 'var(--tx-muted)', fontWeight: 700 }}>
+                    {displayEarned} / {displayMax} pts
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  {displayLevel
+                    ? <LeafBadge level={displayLevel} />
+                    : <span style={{ fontSize: 12, color: 'var(--tx-faint)', fontWeight: 600 }}>Not rated yet</span>}
+                  <span className={project?.status === 'submitted' ? 'status-chip status-completed' : 'status-chip status-progress'}>
+                    {project?.status === 'submitted' ? '✓ Submitted' : '● Draft'}
+                  </span>
+                  {activeSectionStatus && <StatusBadge status={activeSectionStatus} large />}
+                </div>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              {displayLevel
-                ? <LeafBadge level={displayLevel} />
-                : <span style={{ fontSize: 12, color: 'var(--tx-faint)', fontWeight: 600 }}>Not rated yet</span>}
-              <span className={project?.status === 'submitted' ? 'status-chip status-completed' : 'status-chip status-progress'}>
-                {project?.status === 'submitted' ? '✓ Submitted' : '● Draft'}
-              </span>
-              {activeSectionStatus && <StatusBadge status={activeSectionStatus} large />}
+            <div style={{ padding: '0 24px 14px' }}>
+              <div style={{ height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.5)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', borderRadius: 99, background: progressColor, width: `${Math.min(displayPct, 100)}%`, transition: 'width 0.8s ease, background 0.5s ease' }} />
+              </div>
             </div>
-          </div>
-        </div>
-
-        {/* Progress bar */}
-        <div style={{ padding: '0 24px 14px' }}>
-          <div style={{ height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.5)', overflow: 'hidden' }}>
-            <div style={{ height: '100%', borderRadius: 99, background: progressColor, width: `${Math.min(displayPct, 100)}%`, transition: 'width 0.8s ease, background 0.5s ease' }} />
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {/* ── Documents ── */}
@@ -515,24 +567,26 @@ export default function SubmissionDetail() {
                   {/* Input rows */}
                   <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {mod.visibleInputs.map(inp => {
+                      const isInputLocked = lockedInputsSet.has(String(inp._id));
+                      const isToggling    = togglingInput === String(inp._id);
                       const isEmpty = inp.inputType === 'file' ? !inp.uploaded
                         : Array.isArray(inp.value) ? inp.value.length === 0
                         : inp.value === '' || inp.value === undefined;
 
-                      // Find the matching uploaded document for file inputs
-                      const linkedDoc = inp.inputType === 'file'
-                        ? docs.find(d => String(d.inputId) === String(inp._id))
-                        : null;
-                      const linkedUrl = linkedDoc ? getDownloadUrl(linkedDoc) : null;
+                      // Find all uploaded documents for file inputs
+                      const linkedDocs = inp.inputType === 'file'
+                        ? docs.filter(d => String(d.inputId) === String(inp._id))
+                        : [];
 
                       return (
                         <div key={inp._id} style={{
                           padding: '10px 12px', borderRadius: 10,
-                          background: isEmpty ? 'var(--bg-subtle)' : '#FAFFFE',
-                          border: `1px solid ${isEmpty ? 'var(--border)' : 'var(--g100)'}`,
-                          opacity: isEmpty ? 0.55 : 1,
+                          background: isInputLocked ? '#FFFBEB' : isEmpty ? 'var(--bg-subtle)' : '#FAFFFE',
+                          border: `1px solid ${isInputLocked ? '#FDE68A' : isEmpty ? 'var(--border)' : 'var(--g100)'}`,
+                          opacity: isEmpty && !isInputLocked ? 0.55 : 1,
+                          transition: 'border-color 0.2s, background 0.2s',
                         }}>
-                          {/* Top row: label + value + points badge */}
+                          {/* Top row: label + value + points badge + lock button */}
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx)', margin: '0 0 3px', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -543,36 +597,63 @@ export default function SubmissionDetail() {
                                   background: { number: '#EFF6FF', text: 'var(--g50)', checkbox: '#FEF9C3', file: '#F5F0E8' }[inp.inputType],
                                   color: { number: '#1D4ED8', text: 'var(--g700)', checkbox: '#92400E', file: '#78350F' }[inp.inputType],
                                 }}>{inp.inputType}</span>
+                                {isInputLocked && (
+                                  <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 4, background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', letterSpacing: '0.05em', textTransform: 'uppercase', fontFamily: 'Montserrat,sans-serif' }}>
+                                    🔒 locked
+                                  </span>
+                                )}
                               </p>
                               <div style={{ fontSize: 13, color: isEmpty ? 'var(--tx-faint)' : 'var(--tx)', wordBreak: 'break-word' }}>
                                 {inp.inputType === 'file'
-                                  ? (linkedDoc
+                                  ? (linkedDocs.length > 0
                                     ? (
-                                      <div>
-                                        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', margin: '0 0 5px', letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'Montserrat,sans-serif' }}>
-                                          Document for this question
-                                        </p>
-                                        <a href={linkedUrl} download={linkedDoc.originalName || 'document'} target="_blank" rel="noopener noreferrer"
-                                          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px', borderRadius: 8, background: 'var(--g50)', border: '1px solid var(--g200)', color: 'var(--g800)', fontWeight: 600, fontSize: 12, textDecoration: 'none' }}>
-                                          <span>📎</span>
-                                          <span style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {linkedDoc.originalName || 'Download File'}
-                                          </span>
-                                          <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: 'var(--g200)', color: 'var(--g800)', flexShrink: 0 }}>↓</span>
-                                        </a>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                        {linkedDocs.map((doc, di) => (
+                                          <a key={di} href={getDownloadUrl(doc)} download={doc.originalName || 'document'} target="_blank" rel="noopener noreferrer"
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 8, background: 'var(--g50)', border: '1px solid var(--g200)', color: 'var(--g800)', fontWeight: 600, fontSize: 12, textDecoration: 'none' }}>
+                                            <span>📎</span>
+                                            <span style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                              {doc.originalName || 'Download File'}
+                                            </span>
+                                            <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: 'var(--g200)', color: 'var(--g800)', flexShrink: 0 }}>↓</span>
+                                          </a>
+                                        ))}
                                       </div>
                                     )
                                     : <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>No file uploaded</span>)
                                   : inp.inputType === 'checkbox'
-                                    ? (Array.isArray(inp.value) && inp.value.length > 0 ? inp.value.join(', ') : <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)
+                                    ? (Array.isArray(inp.value) && inp.value.length > 0
+                                      ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 2 }}>
+                                          {inp.value.map((v, vi) => (
+                                            <span key={vi} style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#FEF9C3', color: '#92400E', border: '1px solid #FDE68A' }}>{v}</span>
+                                          ))}
+                                        </div>
+                                      : <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)
                                     : (inp.value || <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)}
                               </div>
                             </div>
-                            {inp.points > 0 && (
-                              <span style={{ fontSize: 11, fontWeight: 800, flexShrink: 0, padding: '3px 9px', borderRadius: 7, background: 'var(--g100)', color: 'var(--g700)', border: '1px solid var(--g200)', whiteSpace: 'nowrap' }}>
-                                {inp.points.toFixed(1)} pts
-                              </span>
-                            )}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                              {inp.points > 0 && (
+                                <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 7, background: 'var(--g100)', color: 'var(--g700)', border: '1px solid var(--g200)', whiteSpace: 'nowrap' }}>
+                                  {inp.points.toFixed(1)} pts
+                                </span>
+                              )}
+                              <button
+                                onClick={() => toggleInputLock(inp._id, isInputLocked)}
+                                disabled={isToggling}
+                                style={{
+                                  fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 7,
+                                  border: `1px solid ${isInputLocked ? '#FDE68A' : 'var(--g200)'}`,
+                                  background: isInputLocked ? '#FEF9C3' : 'var(--g50)',
+                                  color: isInputLocked ? '#92400E' : 'var(--g700)',
+                                  cursor: isToggling ? 'wait' : 'pointer',
+                                  whiteSpace: 'nowrap', opacity: isToggling ? 0.6 : 1,
+                                  transition: 'all 0.2s',
+                                }}
+                              >
+                                {isToggling ? '...' : isInputLocked ? '🔓 Unlock' : '🔒 Lock'}
+                              </button>
+                            </div>
                           </div>
                           {/* Comment thread — admin can view + edit any comment */}
                           {dbUser && (

@@ -12,6 +12,7 @@ import NewProject       from './pages/user/NewProject.jsx';
 import ProjectAssessment from './pages/user/ProjectAssessment.jsx';
 import Notes            from './pages/user/Notes.jsx';
 import Manual           from './pages/user/Manual.jsx';
+import CreateProfile    from './pages/user/CreateProfile.jsx';
 
 import ReviewerSubmissions     from './pages/reviewer/Submissions.jsx';
 import ReviewerSubmissionDetail from './pages/reviewer/SubmissionDetail.jsx';
@@ -30,9 +31,28 @@ import ImportExport     from './pages/admin/ImportExport.jsx';
 
 // ── Route guards — role checked from dbUser (MongoDB), not email lists ──
 
+// Returns true if user needs to complete profile setup
+function needsProfile(dbUser) {
+  if (!dbUser) return false;
+  if (dbUser.role === 'admin' || dbUser.role === 'reviewer') return false;
+  return !dbUser.userType;
+}
+
 function PrivateRoute({ children }) {
-  const { user } = useAuth();
-  return user ? children : <Navigate to="/login" replace />;
+  const { user, dbUser } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (needsProfile(dbUser)) return <Navigate to="/create-profile" replace />;
+  return children;
+}
+
+// Route for /create-profile — redirect away if already completed
+function ProfileSetupRoute({ children }) {
+  const { user, dbUser } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (dbUser?.role === 'admin')    return <Navigate to="/admin" replace />;
+  if (dbUser?.role === 'reviewer') return <Navigate to="/reviewer/submissions" replace />;
+  if (dbUser?.userType)            return <Navigate to="/dashboard" replace />;
+  return children;
 }
 
 function GuestRoute({ children }) {
@@ -40,6 +60,7 @@ function GuestRoute({ children }) {
   if (!user) return children;
   if (dbUser?.role === 'admin')    return <Navigate to="/admin" replace />;
   if (dbUser?.role === 'reviewer') return <Navigate to="/reviewer/submissions" replace />;
+  if (needsProfile(dbUser))        return <Navigate to="/create-profile" replace />;
   return <Navigate to="/dashboard" replace />;
 }
 
@@ -72,6 +93,9 @@ function AppRoutes() {
       <Route path="/login"       element={<GuestRoute><Login/></GuestRoute>} />
       <Route path="/register"    element={<GuestRoute><Register/></GuestRoute>} />
       <Route path="/admin/login" element={<AdminGuestRoute><AdminLogin/></AdminGuestRoute>} />
+
+      {/* Profile setup */}
+      <Route path="/create-profile" element={<ProfileSetupRoute><CreateProfile/></ProfileSetupRoute>} />
 
       {/* User routes */}
       <Route path="/dashboard"    element={<PrivateRoute><UserDashboard/></PrivateRoute>} />

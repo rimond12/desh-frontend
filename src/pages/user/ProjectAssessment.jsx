@@ -286,18 +286,45 @@ export default function ProjectAssessment() {
     finally { setSaving(null); }
   };
 
-  const handleFile = async (inputId, file) => {
-    if (!file) return;
+  // Surgical update: update one input's documents inside tabs without full reload
+  const patchInputDocs = (inputId, updater) => {
+    setTabs(prev => prev.map(tab => ({
+      ...tab,
+      modules: tab.modules.map(mod => ({
+        ...mod,
+        inputs: mod.inputs.map(inp => {
+          if (String(inp._id) !== String(inputId)) return inp;
+          const newDocs = updater(inp.documents || []);
+          return { ...inp, documents: newDocs, uploaded: newDocs.length > 0 };
+        }),
+      })),
+    })));
+  };
+
+  const handleFile = async (inputId, files) => {
+    if (!files || files.length === 0) return;
     const fd = new FormData();
-    fd.append('file', file);
+    for (const file of files) fd.append('files', file);
     fd.append('inputId', inputId);
     try {
-      await ax.post(`/projects/${id}/documents`, fd, {
+      const res = await ax.post(`/projects/${id}/documents`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      toast.success('Uploaded!');
-      loadProject();
+      // Surgically append new docs — no full reload, no scroll jump
+      const newFiles = res.data.files || [];
+      patchInputDocs(inputId, existing => [...existing, ...newFiles]);
+      toast.success(files.length > 1 ? `${files.length} files uploaded!` : 'File uploaded!');
     } catch { toast.error('Upload failed'); }
+  };
+
+  const handleDeleteFile = async (inputId, filename) => {
+    if (!window.confirm('Remove this file?')) return;
+    try {
+      await ax.delete(`/projects/${id}/documents/${encodeURIComponent(filename)}`);
+      // Surgically remove the doc — no scroll jump
+      patchInputDocs(inputId, existing => existing.filter(d => d.filename !== filename));
+      toast.success('File removed.');
+    } catch (e) { toast.error(e.response?.data?.message || 'Failed to remove file'); }
   };
 
   const submitProject = async () => {
@@ -397,8 +424,8 @@ export default function ProjectAssessment() {
   // Per-question lock set (populated as reviewer adds comments)
   const lockedInputIds = new Set((project?.lockedInputs || []).map(String));
 
-  // A question is editable unless it has been individually locked by a reviewer/admin
-  const isInputEditable = (inp) => !lockedInputIds.has(String(inp._id));
+  // A question is editable only when project is not globally locked AND not individually locked
+  const isInputEditable = (inp) => !isLocked && !lockedInputIds.has(String(inp._id));
 
   // Show lock/editable status badges once the project is submitted (in review phase)
   const showLockBadges = project?.status === 'submitted' || lockedInputIds.size > 0;
@@ -1390,21 +1417,40 @@ export default function ProjectAssessment() {
                                             {/* File */}
                                             {inp.inputType === 'file' && (
                                               <div>
-                                                {inp.uploaded && (
-                                                  <div style={{
-                                                    display: 'flex', alignItems: 'center', gap: 8,
-                                                    padding: '8px 12px', background: 'var(--g50)',
-                                                    border: '1px solid var(--g200)', borderRadius: 9,
-                                                    marginBottom: 8
-                                                  }}>
-                                                    <span style={{ color: 'var(--g600)' }}>✓</span>
-                                                    <span style={{
-                                                      fontSize: 12.5, fontWeight: 600,
-                                                      color: 'var(--g700)', flex: 1, overflow: 'hidden',
-                                                      textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                                                    }}>
-                                                      {inp.originalName || 'File uploaded'}
-                                                    </span>
+                                                {inp.documents && inp.documents.length > 0 && (
+                                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 8 }}>
+                                                    {inp.documents.map((doc, di) => (
+                                                      <div key={doc.filename || di} style={{
+                                                        display: 'flex', alignItems: 'center', gap: 8,
+                                                        padding: '7px 12px', background: 'var(--g50)',
+                                                        border: '1px solid var(--g200)', borderRadius: 9,
+                                                      }}>
+                                                        <span style={{ color: 'var(--g600)', fontSize: 14, flexShrink: 0 }}>📎</span>
+                                                        <span style={{
+                                                          fontSize: 12.5, fontWeight: 600,
+                                                          color: 'var(--g700)', flex: 1, overflow: 'hidden',
+                                                          textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                                                        }}>
+                                                          {doc.originalName || 'Uploaded file'}
+                                                        </span>
+                                                        <span style={{ fontSize: 10, color: 'var(--g500)', flexShrink: 0 }}>#{di + 1}</span>
+                                                        {isInputEditable(inp) && (
+                                                          <button
+                                                            onClick={() => handleDeleteFile(inp._id, doc.filename)}
+                                                            title="Remove this file"
+                                                            style={{
+                                                              flexShrink: 0, width: 20, height: 20,
+                                                              borderRadius: '50%', border: 'none',
+                                                              background: 'rgba(239,68,68,0.1)',
+                                                              color: '#EF4444', fontSize: 13, fontWeight: 700,
+                                                              cursor: 'pointer', display: 'flex',
+                                                              alignItems: 'center', justifyContent: 'center',
+                                                              lineHeight: 1, padding: 0,
+                                                            }}
+                                                          >×</button>
+                                                        )}
+                                                      </div>
+                                                    ))}
                                                   </div>
                                                 )}
                                                 {isInputEditable(inp) && (
@@ -1418,15 +1464,13 @@ export default function ProjectAssessment() {
                                                     onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--g400)'}
                                                     onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-md)'}>
                                                     <span style={{ fontSize: 20 }}>📎</span>
-                                                    <span style={{
-                                                      fontSize: 13, fontWeight: 600,
-                                                      color: 'var(--tx-muted)'
-                                                    }}>
-                                                      {inp.uploaded ? 'Replace file' : 'Upload document'}
+                                                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--tx-muted)' }}>
+                                                      {inp.uploaded ? 'Add more files' : 'Upload documents'}
                                                     </span>
                                                     <input type="file" style={{ display: 'none' }}
                                                       accept=".pdf,.jpg,.jpeg,.png"
-                                                      onChange={e => handleFile(inp._id, e.target.files[0])} />
+                                                      multiple
+                                                      onChange={e => handleFile(inp._id, Array.from(e.target.files))} />
                                                   </label>
                                                 )}
                                               </div>

@@ -70,6 +70,8 @@ export default function ReviewerSubmissionDetail() {
   const [loading, setLoading]               = useState(true);
   const [selectedSection, setSelectedSection] = useState('');
   const [locking, setLocking]               = useState(false);
+  // score card collapse
+  const [scoreOpen, setScoreOpen]           = useState(true);
   // comment counts per inputId (pre-fetched for badges)
   const [commentCounts, setCommentCounts]   = useState({});
   // per-question locked inputs (updated live when reviewer posts a comment)
@@ -240,9 +242,10 @@ export default function ReviewerSubmissionDetail() {
         boxShadow: '0 4px 24px rgba(34,168,75,0.12)', overflow: 'hidden',
       }} className="fade-in-up">
 
+        {/* Section strip + toggle */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
-          padding: '10px 20px', borderBottom: '1px solid rgba(34,168,75,0.15)',
+          padding: '10px 20px', borderBottom: scoreOpen ? '1px solid rgba(34,168,75,0.15)' : 'none',
           background: 'rgba(255,255,255,0.5)', flexWrap: 'wrap',
         }}>
           <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--g700)', fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap' }}>
@@ -268,34 +271,56 @@ export default function ReviewerSubmissionDetail() {
               </span>
             );
           })}
+
+          {/* Collapsed summary */}
+          {!scoreOpen && (
+            <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--g700)', fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap' }}>
+              {displayPct}% · {displayEarned}/{displayMax} pts
+            </span>
+          )}
+
+          {/* Toggle button */}
+          <button onClick={() => setScoreOpen(o => !o)} style={{
+            marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
+            padding: '4px 10px', borderRadius: 8, border: '1.5px solid var(--g300)',
+            background: 'rgba(255,255,255,0.7)', color: 'var(--g700)',
+            fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif',
+            transition: 'all 0.15s',
+          }}>
+            {scoreOpen ? '▲ Hide' : '▼ Show'}
+          </button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '18px 24px', flexWrap: 'wrap' }}>
-          <ColoredLeaf level={displayLevel} colorCode={displayColor} size={82} />
-          <div style={{ flex: 1, minWidth: 180 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-              <span style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 34, color: 'var(--tx)', lineHeight: 1 }}>
-                {displayPct}%
-              </span>
-              <span style={{ fontSize: 13, color: 'var(--tx-muted)', fontWeight: 600 }}>score</span>
-              <span style={{ fontSize: 14, color: 'var(--tx-muted)', fontWeight: 700 }}>
-                {displayEarned} / {displayMax} pts
-              </span>
+        {/* Score body — collapsible */}
+        {scoreOpen && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '18px 24px', flexWrap: 'wrap' }}>
+              <ColoredLeaf level={displayLevel} colorCode={displayColor} size={82} />
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                  <span style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 34, color: 'var(--tx)', lineHeight: 1 }}>
+                    {displayPct}%
+                  </span>
+                  <span style={{ fontSize: 13, color: 'var(--tx-muted)', fontWeight: 600 }}>score</span>
+                  <span style={{ fontSize: 14, color: 'var(--tx-muted)', fontWeight: 700 }}>
+                    {displayEarned} / {displayMax} pts
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  {displayLevel ? <LeafBadge level={displayLevel} /> : <span style={{ fontSize: 12, color: 'var(--tx-faint)' }}>Not rated</span>}
+                  <span className={project?.status === 'submitted' ? 'status-chip status-completed' : 'status-chip status-progress'}>
+                    {project?.status === 'submitted' ? '✓ Submitted' : '● Draft'}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              {displayLevel ? <LeafBadge level={displayLevel} /> : <span style={{ fontSize: 12, color: 'var(--tx-faint)' }}>Not rated</span>}
-              <span className={project?.status === 'submitted' ? 'status-chip status-completed' : 'status-chip status-progress'}>
-                {project?.status === 'submitted' ? '✓ Submitted' : '● Draft'}
-              </span>
+            <div style={{ padding: '0 24px 14px' }}>
+              <div style={{ height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.5)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', borderRadius: 99, background: progressColor, width: `${Math.min(displayPct, 100)}%`, transition: 'width 0.8s ease' }} />
+              </div>
             </div>
-          </div>
-        </div>
-
-        <div style={{ padding: '0 24px 14px' }}>
-          <div style={{ height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.5)', overflow: 'hidden' }}>
-            <div style={{ height: '100%', borderRadius: 99, background: progressColor, width: `${Math.min(displayPct, 100)}%`, transition: 'width 0.8s ease' }} />
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {/* ── Tabs → Modules → Inputs + Comment threads ── */}
@@ -355,10 +380,9 @@ export default function ReviewerSubmissionDetail() {
                           : Array.isArray(inp.value) ? inp.value.length === 0
                           : inp.value === '' || inp.value === undefined;
                         const ts = TYPE_STYLE[inp.inputType] || {};
-                        const linkedDoc = inp.inputType === 'file'
-                          ? docs.find(d => String(d.inputId) === String(inp._id))
-                          : null;
-                        const linkedUrl = linkedDoc ? getDownloadUrl(linkedDoc) : null;
+                        const linkedDocs = inp.inputType === 'file'
+                          ? docs.filter(d => String(d.inputId) === String(inp._id))
+                          : [];
 
                         const isInputLocked = lockedInputsSet.has(String(inp._id));
                         const isToggling    = togglingInput === String(inp._id);
@@ -389,14 +413,24 @@ export default function ReviewerSubmissionDetail() {
                                 {/* Answer */}
                                 <div style={{ fontSize: 13, color: isEmpty ? 'var(--tx-faint)' : 'var(--tx)', wordBreak: 'break-word', marginBottom: 6 }}>
                                   {inp.inputType === 'file'
-                                    ? (linkedDoc
-                                      ? <a href={linkedUrl} download={linkedDoc.originalName} target="_blank" rel="noopener noreferrer"
-                                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 7, background: 'var(--g50)', border: '1px solid var(--g200)', color: 'var(--g800)', fontWeight: 600, fontSize: 12, textDecoration: 'none' }}>
-                                          📎 {linkedDoc.originalName || 'Download'} <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, background: 'var(--g200)', color: 'var(--g800)' }}>↓</span>
-                                        </a>
+                                    ? (linkedDocs.length > 0
+                                      ? <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                          {linkedDocs.map((doc, di) => (
+                                            <a key={di} href={getDownloadUrl(doc)} download={doc.originalName} target="_blank" rel="noopener noreferrer"
+                                              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 7, background: 'var(--g50)', border: '1px solid var(--g200)', color: 'var(--g800)', fontWeight: 600, fontSize: 12, textDecoration: 'none' }}>
+                                              📎 {doc.originalName || 'Download'} <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, background: 'var(--g200)', color: 'var(--g800)' }}>↓</span>
+                                            </a>
+                                          ))}
+                                        </div>
                                       : <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>No file uploaded</span>)
                                     : inp.inputType === 'checkbox'
-                                      ? (Array.isArray(inp.value) && inp.value.length > 0 ? inp.value.join(', ') : <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)
+                                      ? (Array.isArray(inp.value) && inp.value.length > 0
+                                        ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 2 }}>
+                                            {inp.value.map((v, vi) => (
+                                              <span key={vi} style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#FEF9C3', color: '#92400E', border: '1px solid #FDE68A' }}>{v}</span>
+                                            ))}
+                                          </div>
+                                        : <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)
                                       : (inp.value || <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)}
                                 </div>
                               </div>

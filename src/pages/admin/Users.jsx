@@ -3,12 +3,53 @@ import Layout from '../../components/shared/Layout.jsx';
 import toast from 'react-hot-toast';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 
+const ROLE_CFG = {
+    admin:    { label: 'Admin',    bg: 'rgba(249,115,22,0.12)', color: '#C2410C', border: 'rgba(249,115,22,0.25)' },
+    reviewer: { label: 'Reviewer', bg: 'rgba(139,92,246,0.12)', color: '#6D28D9', border: 'rgba(139,92,246,0.25)' },
+    user:     { label: 'User',     bg: 'rgba(34,168,75,0.12)',  color: '#145C28', border: 'rgba(34,168,75,0.25)'  },
+};
+
+const TYPE_CFG = {
+    student:      { label: 'Student',       bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
+    professional: { label: 'Professional',  bg: '#F0FDF4', color: '#15803D', border: '#BBF7D0' },
+    owner:        { label: 'Building Owner',bg: '#FEF9C3', color: '#92400E', border: '#FDE68A' },
+    architect:    { label: 'Architect',     bg: '#FDF4FF', color: '#7E22CE', border: '#E9D5FF' },
+    engineer:     { label: 'Engineer',      bg: '#FFF7ED', color: '#C2410C', border: '#FED7AA' },
+    researcher:   { label: 'Researcher',    bg: '#F0F9FF', color: '#0369A1', border: '#BAE6FD' },
+    other:        { label: 'Other',         bg: '#F9FAFB', color: '#6B7280', border: '#E5E7EB' },
+};
+
+function RoleBadge({ role }) {
+    const cfg = ROLE_CFG[role] || ROLE_CFG.user;
+    return (
+        <span style={{
+            display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 99,
+            fontSize: 11, fontWeight: 700, background: cfg.bg, color: cfg.color,
+            border: `1px solid ${cfg.border}`, fontFamily: 'Montserrat,sans-serif',
+        }}>{cfg.label}</span>
+    );
+}
+
+function TypeBadge({ userType }) {
+    if (!userType) return <span style={{ fontSize: 11, color: 'var(--tx-faint)' }}>—</span>;
+    const cfg = TYPE_CFG[userType] || TYPE_CFG.other;
+    return (
+        <span style={{
+            display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 99,
+            fontSize: 11, fontWeight: 700, background: cfg.bg, color: cfg.color,
+            border: `1px solid ${cfg.border}`,
+        }}>{cfg.label}</span>
+    );
+}
+
 export default function Users() {
     const axiosSecure = useAxiosSecure();
-    const [users, setUsers] = useState([]);
-    const [search, setSearch] = useState('');
+    const [users, setUsers]       = useState([]);
+    const [search, setSearch]     = useState('');
+    const [roleFilter, setRoleFilter]     = useState('all');
+    const [typeFilter, setTypeFilter]     = useState('all');
     const [selected, setSelected] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading]   = useState(true);
 
     const fetchUsers = () => {
         axiosSecure.get('/users')
@@ -19,10 +60,14 @@ export default function Users() {
 
     useEffect(() => { fetchUsers(); }, []);
 
-    const filtered = users.filter(u =>
-        u.name?.toLowerCase().includes(search.toLowerCase()) ||
-        u.email?.toLowerCase().includes(search.toLowerCase())
-    );
+    const filtered = users.filter(u => {
+        const matchSearch = !search ||
+            u.name?.toLowerCase().includes(search.toLowerCase()) ||
+            u.email?.toLowerCase().includes(search.toLowerCase());
+        const matchRole = roleFilter === 'all' || u.role === roleFilter;
+        const matchType = typeFilter === 'all' || u.userType === typeFilter;
+        return matchSearch && matchRole && matchType;
+    });
 
     const deleteUser = async (id, name) => {
         if (!window.confirm(`Delete ${name}?`)) return;
@@ -38,87 +83,207 @@ export default function Users() {
             await axiosSecure.patch(`/users/${id}/role`, { role });
             toast.success(`Role updated to ${role}`);
             fetchUsers();
-            setSelected(null);
+            setSelected(prev => prev ? { ...prev, role } : null);
         } catch { toast.error('Failed to update role'); }
     };
 
     const exportCSV = () => {
-        const rows = [['Name', 'Email', 'Role', 'Joined']];
-        filtered.forEach(u => rows.push([u.name, u.email, u.role, new Date(u.createdAt).toLocaleDateString()]));
+        const rows = [['#', 'Name', 'Email', 'System Role', 'User Type', 'Joined']];
+        filtered.forEach((u, i) => rows.push([
+            i + 1,
+            `"${u.name}"`,
+            u.email,
+            u.role,
+            u.userType || '',
+            new Date(u.createdAt).toLocaleDateString(),
+        ]));
         const csv = rows.map(r => r.join(',')).join('\n');
+        const label = [
+            roleFilter !== 'all' ? roleFilter : '',
+            typeFilter !== 'all' ? typeFilter : '',
+        ].filter(Boolean).join('_') || 'all';
         const a = document.createElement('a');
-        a.href = 'data:text/csv,' + encodeURIComponent(csv);
-        a.download = 'users.csv'; a.click();
-        toast.success('CSV exported!');
+        a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+        a.download = `users_${label}.csv`;
+        a.click();
+        toast.success(`Exported ${filtered.length} users`);
     };
+
+    // Count helpers for filter badges
+    const countByRole = (r) => users.filter(u => u.role === r).length;
+    const countByType = (t) => users.filter(u => u.userType === t).length;
+
+    const ROLE_FILTERS = [
+        { key: 'all',      label: 'All',      count: users.length },
+        { key: 'user',     label: 'User',     count: countByRole('user') },
+        { key: 'reviewer', label: 'Reviewer', count: countByRole('reviewer') },
+        { key: 'admin',    label: 'Admin',    count: countByRole('admin') },
+    ];
+
+    const TYPE_FILTERS = [
+        { key: 'all',         label: 'All Types',      count: users.length },
+        { key: 'student',     label: 'Student',        count: countByType('student') },
+        { key: 'professional',label: 'Professional',   count: countByType('professional') },
+        { key: 'owner',       label: 'Building Owner', count: countByType('owner') },
+        { key: 'architect',   label: 'Architect',      count: countByType('architect') },
+        { key: 'engineer',    label: 'Engineer',       count: countByType('engineer') },
+        { key: 'researcher',  label: 'Researcher',     count: countByType('researcher') },
+        { key: 'other',       label: 'Other',          count: countByType('other') },
+    ];
 
     return (
         <Layout isAdmin>
-            <div className="flex items-start justify-between mb-8 fade-in-up">
+            {/* ── Header ── */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }} className="fade-in-up">
                 <div>
-                    <h1 className="text-3xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>Users</h1>
-                    <p className="text-sm mt-1" style={{ color: 'var(--tx-muted)' }}>
+                    <h1 style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 26, color: 'var(--tx)', margin: 0 }}>Users</h1>
+                    <p style={{ fontSize: 13, color: 'var(--tx-muted)', marginTop: 4 }}>
                         {filtered.length} of {users.length} registered users
                     </p>
                 </div>
-                <button onClick={exportCSV}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold"
-                    style={{ borderColor: 'var(--border-md)', color: 'var(--g600)', background: 'var(--g50)' }}>
+                <button onClick={exportCSV} style={{
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 12,
+                    border: '1.5px solid var(--g200)', background: 'var(--g50)', color: 'var(--g700)',
+                    fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif',
+                }}>
                     ↓ Export CSV
+                    {(roleFilter !== 'all' || typeFilter !== 'all') && (
+                        <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, background: 'var(--g200)', color: 'var(--g800)' }}>
+                            filtered
+                        </span>
+                    )}
                 </button>
             </div>
 
-            <div className="relative mb-6 max-w-sm">
+            {/* ── Search ── */}
+            <div style={{ marginBottom: 16, maxWidth: 380 }}>
                 <input value={search} onChange={e => setSearch(e.target.value)}
                     placeholder="Search by name or email..."
-                    className="input-dark w-full pl-4 pr-4 py-2.5 text-sm" />
+                    className="input-dark"
+                    style={{ width: '100%', padding: '9px 14px', borderRadius: 10, fontSize: 13 }} />
             </div>
 
+            {/* ── Role filter ── */}
+            <div style={{ marginBottom: 10 }}>
+                <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--tx-muted)', marginBottom: 6, fontFamily: 'Montserrat,sans-serif' }}>
+                    Filter by System Role
+                </p>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {ROLE_FILTERS.map(f => (
+                        <button key={f.key} onClick={() => setRoleFilter(f.key)} style={{
+                            display: 'flex', alignItems: 'center', gap: 5,
+                            padding: '5px 12px', borderRadius: 99, fontSize: 12, fontWeight: 700,
+                            cursor: 'pointer', transition: 'all 0.15s',
+                            border: roleFilter === f.key ? '1.5px solid var(--g500)' : '1.5px solid var(--border)',
+                            background: roleFilter === f.key ? 'var(--g700)' : '#fff',
+                            color: roleFilter === f.key ? '#fff' : 'var(--tx-muted)',
+                            fontFamily: 'Montserrat,sans-serif',
+                        }}>
+                            {f.label}
+                            <span style={{
+                                fontSize: 10, padding: '0px 5px', borderRadius: 99,
+                                background: roleFilter === f.key ? 'rgba(255,255,255,0.2)' : 'var(--g100)',
+                                color: roleFilter === f.key ? '#fff' : 'var(--tx-muted)',
+                                fontWeight: 800,
+                            }}>{f.count}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* ── User Type filter ── */}
+            <div style={{ marginBottom: 20 }}>
+                <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--tx-muted)', marginBottom: 6, fontFamily: 'Montserrat,sans-serif' }}>
+                    Filter by User Type
+                </p>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {TYPE_FILTERS.map(f => {
+                        const tCfg = TYPE_CFG[f.key];
+                        const isActive = typeFilter === f.key;
+                        return (
+                            <button key={f.key} onClick={() => setTypeFilter(f.key)} style={{
+                                display: 'flex', alignItems: 'center', gap: 5,
+                                padding: '5px 12px', borderRadius: 99, fontSize: 12, fontWeight: 700,
+                                cursor: 'pointer', transition: 'all 0.15s',
+                                border: isActive
+                                    ? `1.5px solid ${tCfg ? tCfg.color : 'var(--g500)'}`
+                                    : '1.5px solid var(--border)',
+                                background: isActive ? (tCfg ? tCfg.bg : 'var(--g700)') : '#fff',
+                                color: isActive ? (tCfg ? tCfg.color : '#fff') : 'var(--tx-muted)',
+                            }}>
+                                {f.label}
+                                <span style={{
+                                    fontSize: 10, padding: '0px 5px', borderRadius: 99,
+                                    background: isActive ? (tCfg ? tCfg.border : 'rgba(255,255,255,0.2)') : 'var(--g100)',
+                                    color: isActive ? (tCfg ? tCfg.color : '#fff') : 'var(--tx-muted)',
+                                    fontWeight: 800,
+                                }}>{f.count}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* ── Table ── */}
             <div className="glass-card overflow-hidden">
-                {loading ? <p className="text-center py-8">Loading...</p> : (
-                    <table className="premium-table">
+                {loading ? (
+                    <p style={{ textAlign: 'center', padding: 32, color: 'var(--tx-muted)' }}>Loading...</p>
+                ) : filtered.length === 0 ? (
+                    <p style={{ textAlign: 'center', padding: 32, color: 'var(--tx-muted)', fontSize: 13 }}>No users match the current filters.</p>
+                ) : (
+                    <table className="premium-table" style={{ width: '100%' }}>
                         <thead>
-                            <tr><th>#</th><th>User</th><th>Role</th><th>Joined</th><th>Actions</th></tr>
+                            <tr>
+                                <th style={{ width: 40 }}>#</th>
+                                <th>User</th>
+                                <th>System Role</th>
+                                <th>User Type</th>
+                                <th>Joined</th>
+                                <th>Actions</th>
+                            </tr>
                         </thead>
                         <tbody>
                             {filtered.map((u, i) => (
                                 <tr key={u._id}>
-                                    <td><span className="text-xs font-mono px-2 py-0.5 rounded"
-                                        style={{ background: 'var(--bg-subtle)', color: 'var(--tx-muted)' }}>
-                                        #{i + 1}
-                                    </span></td>
                                     <td>
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
-                                                style={{ background: 'linear-gradient(135deg,#16520A,#22C55E)' }}>
-                                                {u.name?.[0] || '?'}
+                                        <span style={{ fontSize: 11, fontFamily: 'monospace', padding: '2px 6px', borderRadius: 5, background: 'var(--bg-subtle)', color: 'var(--tx-muted)' }}>
+                                            #{i + 1}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <div style={{
+                                                width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontSize: 13, fontWeight: 700, color: '#fff',
+                                                background: 'linear-gradient(135deg,#16520A,#22C55E)',
+                                            }}>
+                                                {u.name?.[0]?.toUpperCase() || '?'}
                                             </div>
                                             <div>
-                                                <p className="font-semibold text-sm" style={{ color: "var(--tx)" }}>{u.name}</p>
-                                                <p className="text-xs" style={{ color: 'var(--tx-muted)' }}>{u.email}</p>
+                                                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--tx)', margin: 0 }}>{u.name}</p>
+                                                <p style={{ fontSize: 11, color: 'var(--tx-muted)', margin: 0 }}>{u.email}</p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td>
-                                        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${u.role === 'admin' ? 'bg-orange-500/15 text-orange-400' :
-                                            u.role === 'reviewer' ? 'bg-purple-500/15 text-purple-400' :
-                                                u.role === 'student' ? 'bg-blue-500/15 text-blue-400' :
-                                                    'status-completed'
-                                            }`}>{u.role}</span>
+                                    <td><RoleBadge role={u.role} /></td>
+                                    <td><TypeBadge userType={u.userType} /></td>
+                                    <td style={{ fontSize: 12, color: 'var(--tx-muted)' }}>
+                                        {new Date(u.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                                     </td>
-                                    <td className="text-sm">{new Date(u.createdAt).toLocaleDateString()}</td>
                                     <td>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => setSelected(u)}
-                                                className="text-xs px-3 py-1.5 rounded-lg border"
-                                                style={{ borderColor: 'var(--border-md)', color: 'var(--tx-muted)', background: 'var(--g50)' }}>
-                                                Manage
-                                            </button>
-                                            <button onClick={() => deleteUser(u._id, u.name)}
-                                                className="text-xs px-3 py-1.5 rounded-lg border"
-                                                style={{ borderColor: 'rgba(226,103,12,0.15)', color: 'rgba(226,103,12,0.6)', background: 'rgba(226,103,12,0.05)' }}>
-                                                Delete
-                                            </button>
+                                        <div style={{ display: 'flex', gap: 6 }}>
+                                            <button onClick={() => setSelected(u)} style={{
+                                                fontSize: 11, padding: '4px 12px', borderRadius: 8,
+                                                border: '1px solid var(--border-md)', background: 'var(--g50)',
+                                                color: 'var(--tx-muted)', cursor: 'pointer', fontWeight: 600,
+                                            }}>Manage</button>
+                                            <button onClick={() => deleteUser(u._id, u.name)} style={{
+                                                fontSize: 11, padding: '4px 12px', borderRadius: 8,
+                                                border: '1px solid rgba(226,103,12,0.2)',
+                                                background: 'rgba(226,103,12,0.06)',
+                                                color: 'rgba(200,80,0,0.8)', cursor: 'pointer', fontWeight: 600,
+                                            }}>Delete</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -128,54 +293,56 @@ export default function Users() {
                 )}
             </div>
 
-            {/* Modal */}
+            {/* ── Manage Modal ── */}
             {selected && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-                    <div className="fade-in-up" style={{ width: '100%', maxWidth: 400, padding: '28px 24px', background: '#fff', borderRadius: 18, boxShadow: '0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.06)' }}>
-                        <div className="flex items-start justify-between mb-5">
-                            <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold"
-                                    style={{ background: 'linear-gradient(135deg,#16520A,#22C55E)', color: '#fff' }}>
-                                    {selected.name?.[0]}
+                <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+                    <div className="fade-in-up" style={{ width: '100%', maxWidth: 420, padding: '28px 24px', background: '#fff', borderRadius: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.2)', border: '1px solid rgba(0,0,0,0.06)' }}>
+                        {/* User info */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg,#16520A,#22C55E)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700, color: '#fff' }}>
+                                    {selected.name?.[0]?.toUpperCase()}
                                 </div>
                                 <div>
-                                    <p className="font-bold" style={{ color: '#111' }}>{selected.name}</p>
-                                    <p className="text-xs" style={{ color: '#888' }}>{selected.email}</p>
+                                    <p style={{ fontWeight: 700, fontSize: 14, color: '#111', margin: 0 }}>{selected.name}</p>
+                                    <p style={{ fontSize: 12, color: '#888', margin: 0 }}>{selected.email}</p>
+                                    <div style={{ display: 'flex', gap: 5, marginTop: 4 }}>
+                                        <RoleBadge role={selected.role} />
+                                        <TypeBadge userType={selected.userType} />
+                                    </div>
                                 </div>
                             </div>
-                            <button onClick={() => setSelected(null)} style={{ color: '#aaa', fontSize: 18, background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>✕</button>
+                            <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', fontSize: 18, color: '#aaa', cursor: 'pointer', padding: 4 }}>✕</button>
                         </div>
 
-                        <div className="mb-5">
-                            <p className="text-xs font-semibold mb-2" style={{ color: '#888', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'Montserrat,sans-serif' }}>
-                                Change Role
+                        {/* Change system role */}
+                        <div style={{ marginBottom: 20 }}>
+                            <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#888', marginBottom: 8, fontFamily: 'Montserrat,sans-serif' }}>
+                                Change System Role
                             </p>
-                            <div className="flex gap-2 flex-wrap">
-                                <button onClick={() => changeRole(selected._id, 'user')}
-                                    className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition-all ${selected.role === 'user' ? 'bg-green-500/15 text-green-600 border-green-500/30' : 'border-gray-200 text-gray-400'
-                                        }`}>
-                                    User
-                                </button>
-                                <button onClick={() => changeRole(selected._id, 'student')}
-                                    className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition-all ${selected.role === 'student' ? 'bg-blue-500/15 text-blue-600 border-blue-500/30' : 'border-gray-200 text-gray-400'
-                                        }`}>
-                                    Student
-                                </button>
-                                <button onClick={() => changeRole(selected._id, 'reviewer')}
-                                    className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition-all ${selected.role === 'reviewer' ? 'bg-purple-500/15 text-purple-600 border-purple-500/30' : 'border-gray-200 text-gray-400'
-                                        }`}>
-                                    Reviewer
-                                </button>
-                                <button onClick={() => changeRole(selected._id, 'admin')}
-                                    className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition-all ${selected.role === 'admin' ? 'bg-orange-500/15 text-orange-600 border-orange-500/30' : 'border-gray-200 text-gray-400'
-                                        }`}>
-                                    Admin
-                                </button>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                {['user', 'reviewer', 'admin'].map(r => {
+                                    const cfg = ROLE_CFG[r];
+                                    const isActive = selected.role === r;
+                                    return (
+                                        <button key={r} onClick={() => changeRole(selected._id, r)} style={{
+                                            flex: 1, padding: '8px 0', borderRadius: 12, fontSize: 12, fontWeight: 700,
+                                            cursor: 'pointer', transition: 'all 0.15s', textTransform: 'capitalize',
+                                            border: `1.5px solid ${isActive ? cfg.border : '#E5E7EB'}`,
+                                            background: isActive ? cfg.bg : '#fff',
+                                            color: isActive ? cfg.color : '#9CA3AF',
+                                        }}>{cfg.label}</button>
+                                    );
+                                })}
                             </div>
                         </div>
 
-                        <button onClick={() => setSelected(null)} className="btn-primary-green w-full justify-center text-sm">
-                            Close
+                        <button onClick={() => setSelected(null)} style={{
+                            width: '100%', padding: '10px', borderRadius: 12, fontSize: 13, fontWeight: 700,
+                            background: 'linear-gradient(135deg,var(--g700),var(--g500))', color: '#fff',
+                            border: 'none', cursor: 'pointer',
+                        }}>
+                            Done
                         </button>
                     </div>
                 </div>
