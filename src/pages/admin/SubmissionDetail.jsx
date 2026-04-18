@@ -64,11 +64,25 @@ function StatusBadge({ status, large }) {
   );
 }
 
-// ── Download URL ──────────────────────────────────────────────────
+// ── File helpers ──────────────────────────────────────────────────
 function getDownloadUrl(doc) {
   if (doc.filename) return `${SERVER_BASE}/uploads/documents/${doc.filename}`;
   if (doc.path)     return `${SERVER_BASE}/${doc.path.replace(/\\/g, '/')}`;
   return null;
+}
+function getFileType(name) {
+  const ext = (name || '').split('.').pop().toLowerCase();
+  if (ext === 'pdf') return 'pdf';
+  if (['jpg','jpeg','png','gif','webp','svg','bmp','ico'].includes(ext)) return 'image';
+  return 'other';
+}
+function fileIcon(name) {
+  const t = getFileType(name);
+  return t === 'pdf' ? '📄' : t === 'image' ? '🖼️' : '📎';
+}
+function fileActionLabel(name) {
+  const t = getFileType(name);
+  return t === 'pdf' ? 'View' : t === 'image' ? 'View' : '↓';
 }
 
 // ── Edit Modal ────────────────────────────────────────────────────
@@ -308,6 +322,117 @@ export default function SubmissionDetail() {
     finally { setTogglingInput(null); }
   };
 
+  const exportPdf = () => {
+    const win = window.open('', '_blank', 'width=960,height=800');
+    if (!win) { toast.error('Please allow popups to export PDF'); return; }
+    const esc = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    let body = '';
+
+    body += `<div class="rpt-header">
+      <div class="rpt-logo">DESH Submission Report</div>
+      <h1>${esc(project?.title)}</h1>
+      <p class="meta">by <strong>${esc(project?.userId?.name)}</strong> &bull; ${esc(project?.userId?.email)}</p>
+      <p class="meta">Date: ${new Date(project?.updatedAt).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</p>
+    </div>`;
+
+    body += `<div class="score-card">
+      <div class="score-big">${project?.scorePercent || 0}<span class="pct">%</span></div>
+      <div class="score-info">
+        <div class="score-pts">${Math.round(project?.totalPoints || 0)} / ${Math.round(project?.maxPoints || 0)} pts</div>
+        <div class="score-level">${esc(project?.leafLevel || 'Not rated')}</div>
+        <div class="score-status">${project?.status === 'submitted' ? '✓ Submitted' : 'Draft'}</div>
+      </div>
+    </div>`;
+
+    (tabs || []).forEach((tab, ti) => {
+      const mods = (tab.modules || []).filter(m => (m.inputs || []).length > 0);
+      if (!mods.length) return;
+      body += `<div class="tab-section"><div class="tab-heading">${esc(ti+1 + '. ' + tab.title)}</div>`;
+      mods.forEach((mod, mi) => {
+        const inputs = mod.inputs || [];
+        const modEarned = inputs.reduce((s,i) => s + (i.points||0), 0);
+        const modMax    = inputs.reduce((s,i) => s + calcInputMax(i), 0);
+        body += `<div class="module">
+          <div class="module-header">
+            <span class="module-title">${esc((ti+1)+'.'+(mi+1)+' '+mod.title)}</span>
+            <span class="module-score">${modEarned.toFixed(1)} / ${modMax} pts</span>
+          </div><div class="module-body">`;
+        inputs.forEach(inp => {
+          let val = '';
+          if (inp.inputType === 'file') {
+            const linked = (docs||[]).filter(d => String(d.inputId) === String(inp._id));
+            val = linked.length > 0
+              ? linked.map(doc => {
+                  const url = getDownloadUrl(doc);
+                  const name = doc.originalName || doc.filename || 'file';
+                  return `<a href="${url}" target="_blank" class="file-link">${fileIcon(name)} ${esc(name)}</a>`;
+                }).join('<br>')
+              : '<span class="empty">No file uploaded</span>';
+          } else if (inp.inputType === 'checkbox') {
+            const sel = Array.isArray(inp.value) ? inp.value : [];
+            const opts = inp.options || [];
+            val = opts.length > 0
+              ? opts.map(o => {
+                  const on = sel.includes(o.label);
+                  return `<span class="cb-chip ${on?'cb-sel':'cb-unsel'}">${on?'✓ ':''}${esc(o.label)}${o.points?` (${o.points}pts)`:''}</span>`;
+                }).join(' ')
+              : (sel.length > 0 ? sel.map(v=>`<span class="cb-chip cb-sel">✓ ${esc(v)}</span>`).join(' ') : '<span class="empty">—</span>');
+          } else {
+            val = inp.value ? esc(String(inp.value)) : '<span class="empty">—</span>';
+          }
+          body += `<div class="inp-row">
+            <div class="inp-label">${esc(inp.label)}${inp.isRequired?'<span class="req"> *</span>':''}${inp.points>0?`<span class="pts-badge">${inp.points.toFixed(1)} pts</span>`:''}</div>
+            <div class="inp-value">${val}</div>
+          </div>`;
+        });
+        body += `</div></div>`;
+      });
+      body += `</div>`;
+    });
+
+    const css = `*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.55;padding:28px;background:#fff}
+.rpt-header{margin-bottom:22px;padding-bottom:16px;border-bottom:3px solid #22A84B}
+.rpt-logo{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#22A84B;margin-bottom:6px}
+.rpt-header h1{font-size:22px;font-weight:900;color:#111;margin-bottom:5px}
+.meta{font-size:12px;color:#555;margin-top:3px}
+.score-card{display:flex;align-items:center;gap:20px;background:#F0FDF4;border:1.5px solid #A8EFC0;border-radius:10px;padding:14px 20px;margin-bottom:24px}
+.score-big{font-size:44px;font-weight:900;color:#145C28;line-height:1}
+.pct{font-size:22px}
+.score-pts{font-size:14px;font-weight:700;color:#145C28}
+.score-level{font-size:13px;font-weight:800;color:#145C28;margin-top:4px}
+.score-status{font-size:11px;color:#555;margin-top:3px}
+.tab-section{margin-bottom:26px;page-break-before:always}
+.tab-heading{font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#145C28;padding:7px 0;border-bottom:2px solid #A8EFC0;margin-bottom:10px}
+.module{border:1px solid #E5E7EB;border-radius:10px;margin-bottom:12px;overflow:hidden;page-break-inside:avoid}
+.module-header{background:#F9FAFB;padding:9px 14px;border-bottom:1px solid #E5E7EB;display:flex;justify-content:space-between;align-items:center}
+.module-title{font-size:12px;font-weight:800;color:#111}
+.module-score{font-size:11px;font-weight:700;color:#145C28;background:#D6F5E3;padding:2px 8px;border-radius:12px}
+.module-body{}
+.inp-row{padding:9px 14px;border-bottom:1px solid #F3F4F6}
+.inp-row:last-child{border-bottom:none}
+.inp-label{font-size:12px;font-weight:700;color:#111;margin-bottom:4px;display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap}
+.req{color:#EF4444}
+.pts-badge{margin-left:auto;font-size:10px;font-weight:800;padding:1px 7px;border-radius:4px;background:#D6F5E3;color:#145C28;white-space:nowrap;flex-shrink:0}
+.inp-value{font-size:12px;color:#444}
+.empty{color:#aaa;font-style:italic}
+.file-link{display:inline-block;margin:2px 0;color:#1D4ED8;text-decoration:underline;word-break:break-all}
+.cb-chip{display:inline-block;margin:2px 3px;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600;border:1px solid}
+.cb-sel{background:#FEF3C7;color:#92400E;border-color:#FDE68A}
+.cb-unsel{background:#F9FAFB;color:#9CA3AF;border-color:#E5E7EB}
+.no-print{margin-top:28px;text-align:center;padding:20px;border-top:2px dashed #E5E7EB}
+.no-print button{padding:11px 28px;background:#22A84B;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer}
+.no-print p{font-size:11px;color:#888;margin-top:8px}
+@media print{.no-print{display:none}body{padding:14px}}`;
+
+    win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<title>${esc(project?.title)} — Submission Report</title>
+<style>${css}</style></head><body>${body}
+<div class="no-print"><button onclick="window.print()">🖨️ Print / Save as PDF</button><p>In the print dialog choose "Save as PDF" to export.</p></div>
+<script>setTimeout(()=>window.print(),500)<\/script></body></html>`);
+    win.document.close();
+  };
+
   return (
     <Layout isAdmin>
       {/* ── Page header ── */}
@@ -355,6 +480,11 @@ export default function SubmissionDetail() {
               fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif',
             }}>🔒 Lock Submission</button>
           )}
+          <button onClick={exportPdf} style={{
+            display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 12,
+            border: '1.5px solid #BFDBFE', background: '#EFF6FF', color: '#1D4ED8',
+            fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif',
+          }}>⬇ Export PDF</button>
           <button onClick={() => setShowEdit(true)} style={{
             display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 12,
             background: 'linear-gradient(135deg,var(--g700),var(--g500))',
@@ -426,7 +556,7 @@ export default function SubmissionDetail() {
         {scoreOpen && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '18px 24px', flexWrap: 'wrap' }}>
-              <ColoredLeaf level={displayLevel} colorCode={displayColorCode} size={82} />
+              <ColoredLeaf level={displayLevel} colorCode={displayColorCode} imageUrl={activeRule?.imageUrl ? `${SERVER_BASE}${activeRule.imageUrl}` : null} size={82} />
               <div style={{ flex: 1, minWidth: 180 }}>
                 {selectedSection && (
                   <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--g700)', margin: '0 0 4px', fontFamily: 'Montserrat,sans-serif', letterSpacing: '0.04em' }}>
@@ -470,22 +600,28 @@ export default function SubmissionDetail() {
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             {docs.map((doc, i) => {
-              const url = getDownloadUrl(doc);
+              const url  = getDownloadUrl(doc);
+              const name = doc.originalName || doc.filename || 'file';
+              const type = getFileType(name);
+              const viewable = type === 'pdf' || type === 'image';
               return (
-                <a key={i} href={url} download={doc.originalName || 'document'} target="_blank" rel="noopener noreferrer"
+                <a key={i} href={url}
+                  target="_blank" rel="noopener noreferrer"
+                  {...(!viewable ? { download: name } : {})}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 8,
                     padding: '8px 14px', borderRadius: 10,
-                    background: 'linear-gradient(135deg,var(--g50),#EFF9F4)',
-                    border: '1.5px solid var(--g200)', color: 'var(--g800)',
+                    background: type === 'pdf' ? 'linear-gradient(135deg,#FEF2F2,#FEE2E2)' : type === 'image' ? 'linear-gradient(135deg,#F0FDF4,#DCFCE7)' : 'linear-gradient(135deg,var(--g50),#EFF9F4)',
+                    border: `1.5px solid ${type === 'pdf' ? '#FECACA' : type === 'image' ? 'var(--g200)' : 'var(--g200)'}`,
+                    color: type === 'pdf' ? '#991B1B' : 'var(--g800)',
                     fontWeight: 600, fontSize: 13, textDecoration: 'none',
                     boxShadow: 'var(--sh-xs)', transition: 'all 0.15s',
                   }}>
-                  <span style={{ fontSize: 16 }}>📎</span>
-                  <span style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {doc.originalName || doc.filename || 'Download File'}
+                  <span style={{ fontSize: 16 }}>{fileIcon(name)}</span>
+                  <span style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                  <span style={{ fontSize: 11, fontWeight: 800, padding: '1px 7px', borderRadius: 5, background: 'rgba(0,0,0,0.06)', color: 'inherit', flexShrink: 0 }}>
+                    {fileActionLabel(name)}
                   </span>
-                  <span style={{ fontSize: 11, fontWeight: 800, padding: '1px 7px', borderRadius: 5, background: 'var(--g200)', color: 'var(--g800)', flexShrink: 0 }}>↓</span>
                 </a>
               );
             })}
@@ -608,27 +744,53 @@ export default function SubmissionDetail() {
                                   ? (linkedDocs.length > 0
                                     ? (
                                       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                                        {linkedDocs.map((doc, di) => (
-                                          <a key={di} href={getDownloadUrl(doc)} download={doc.originalName || 'document'} target="_blank" rel="noopener noreferrer"
-                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 8, background: 'var(--g50)', border: '1px solid var(--g200)', color: 'var(--g800)', fontWeight: 600, fontSize: 12, textDecoration: 'none' }}>
-                                            <span>📎</span>
-                                            <span style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                              {doc.originalName || 'Download File'}
-                                            </span>
-                                            <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: 'var(--g200)', color: 'var(--g800)', flexShrink: 0 }}>↓</span>
-                                          </a>
-                                        ))}
+                                        {linkedDocs.map((doc, di) => {
+                                          const url  = getDownloadUrl(doc);
+                                          const name = doc.originalName || doc.filename || 'file';
+                                          const type = getFileType(name);
+                                          const viewable = type === 'pdf' || type === 'image';
+                                          return (
+                                            <a key={di} href={url}
+                                              target="_blank" rel="noopener noreferrer"
+                                              {...(!viewable ? { download: name } : {})}
+                                              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 8, background: 'var(--g50)', border: '1px solid var(--g200)', color: 'var(--g800)', fontWeight: 600, fontSize: 12, textDecoration: 'none' }}>
+                                              <span>{fileIcon(name)}</span>
+                                              <span style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                                              <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: 'var(--g200)', color: 'var(--g800)', flexShrink: 0 }}>{fileActionLabel(name)}</span>
+                                            </a>
+                                          );
+                                        })}
                                       </div>
                                     )
                                     : <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>No file uploaded</span>)
                                   : inp.inputType === 'checkbox'
-                                    ? (Array.isArray(inp.value) && inp.value.length > 0
-                                      ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 2 }}>
-                                          {inp.value.map((v, vi) => (
-                                            <span key={vi} style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#FEF9C3', color: '#92400E', border: '1px solid #FDE68A' }}>{v}</span>
-                                          ))}
-                                        </div>
-                                      : <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)
+                                    ? (() => {
+                                        const selected = Array.isArray(inp.value) ? inp.value : [];
+                                        const allOpts  = inp.options || [];
+                                        if (allOpts.length === 0 && selected.length === 0)
+                                          return <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>;
+                                        const list = allOpts.length > 0 ? allOpts.map(o => ({ label: o.label, pts: o.points || 0 })) : selected.map(v => ({ label: v, pts: 0 }));
+                                        return (
+                                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 4 }}>
+                                            {list.map((o, oi) => {
+                                              const on = selected.includes(o.label);
+                                              return (
+                                                <span key={oi} style={{
+                                                  fontSize: 11, fontWeight: on ? 700 : 500,
+                                                  padding: '3px 9px', borderRadius: 20,
+                                                  background: on ? '#FEF9C3' : 'var(--bg-subtle)',
+                                                  color: on ? '#92400E' : 'var(--tx-faint)',
+                                                  border: `1px solid ${on ? '#FDE68A' : 'var(--border)'}`,
+                                                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                }}>
+                                                  {on ? '✓' : '○'} {o.label}
+                                                  {o.pts > 0 && <span style={{ fontSize: 9, opacity: 0.7 }}>({o.pts}pts)</span>}
+                                                </span>
+                                              );
+                                            })}
+                                          </div>
+                                        );
+                                      })()
                                     : (inp.value || <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)}
                               </div>
                             </div>

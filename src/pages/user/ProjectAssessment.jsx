@@ -192,15 +192,17 @@ export default function ProjectAssessment() {
   const [tabMenuOpen, setTabMenuOpen] = useState(false);
   // Score card expand/collapse toggle
   const [scoreOpen, setScoreOpen] = useState(true);
+  // Instruction popup modal
+  const [instrModal, setInstrModal] = useState({ open: false, label: '', html: '' });
   // Score card banner image from admin settings
   const [scoreCardBanner, setScoreCardBanner] = useState('');
 
-  // Close mobile tab dropdown when clicking outside
+  // Close tab dropdown when clicking outside (bubble phase so item clicks fire first)
   useEffect(() => {
     if (!tabMenuOpen) return;
     const close = () => setTabMenuOpen(false);
-    document.addEventListener('click', close, true);
-    return () => document.removeEventListener('click', close, true);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
   }, [tabMenuOpen]);
 
   const loadProject = useCallback(async () => {
@@ -414,6 +416,7 @@ export default function ProjectAssessment() {
   const displayPct = displayMode ? (sectionScore?.pct ?? 0) : pct;
   const displayPts = Math.round(displayMode ? (sectionScore?.earned ?? 0) : (project?.totalPoints || 0));
   const displayMax = Math.round(displayMode ? (sectionScore?.max ?? 0) : (project?.maxPoints || 0));
+  const activeRule   = displayMode ? sectionLeaf : overallLeafRule;
   const displayLevel = displayMode ? (sectionLeaf?.name || null) : displayLeaf;
   const displayColorCode = displayMode ? (sectionLeaf?.colorCode || null) : (overallLeafRule?.colorCode || null);
   const progressColor = displayColorCode || '#94A3B8';
@@ -435,6 +438,61 @@ export default function ProjectAssessment() {
 
   return (
     <Layout>
+      {/* ── Instruction Popup Modal ── */}
+      {instrModal.open && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.60)', backdropFilter: 'blur(5px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => setInstrModal({ open: false, label: '', html: '' })}
+        >
+          <div
+            style={{
+              background: '#fff', borderRadius: 20, width: '100%', maxWidth: 660,
+              maxHeight: '82vh', display: 'flex', flexDirection: 'column',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.22)',
+              overflow: 'hidden',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '18px 22px', borderBottom: '1px solid var(--border)',
+              background: 'linear-gradient(135deg,#F0FDF4,#DCFCE7)',
+              flexShrink: 0,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{
+                  width: 32, height: 32, borderRadius: 10, background: '#22A84B',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 16, flexShrink: 0,
+                }}>📋</span>
+                <div>
+                  <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#22A84B', margin: 0, fontFamily: 'Montserrat,sans-serif' }}>Instruction</p>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--tx)', margin: 0, lineHeight: 1.3 }}>{instrModal.label}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setInstrModal({ open: false, label: '', html: '' })}
+                style={{
+                  width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)',
+                  background: 'var(--bg-soft)', color: 'var(--tx-muted)',
+                  cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0,
+                }}>✕</button>
+            </div>
+            {/* Body */}
+            <div style={{ overflowY: 'auto', padding: '20px 24px', flex: 1 }}>
+              <div className="instruction-html-body" dangerouslySetInnerHTML={{ __html: instrModal.html }} />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Unified Sticky Score Card ── */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 20,
@@ -566,7 +624,7 @@ export default function ProjectAssessment() {
                 }}>
                   {/* Colored leaf — bigger */}
                   <div className="pa-score-leaf" style={{ flexShrink: 0 }}>
-                    <ColoredLeaf level={displayLevel} colorCode={displayColorCode} size={96} />
+                    <ColoredLeaf level={displayLevel} colorCode={displayColorCode} imageUrl={activeRule?.imageUrl ? `${SERVER_URL}${activeRule.imageUrl}` : null} size={96} />
                   </div>
 
                   {/* Score info */}
@@ -802,74 +860,94 @@ export default function ProjectAssessment() {
         </div>
       ) : (
         <>
-          {/* ── Tab bar — desktop horizontal ── */}
-          <div className="pa-tabs-desktop" style={{ overflowX: 'auto', marginBottom: 20 }}>
-            <div className="tab-bar" style={{ minWidth: 'max-content' }}>
-              {tabs.map((tab, i) => (
-                <button key={tab._id}
-                  className={`tab-btn ${i === activeTab ? 'active' : ''}`}
-                  onClick={() => { setActiveTab(i); setOpenMod(null); }}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-                  {tab.iconUrl && (
-                    <img src={`${SERVER_URL}${tab.iconUrl}`} alt=""
-                      onError={e => { e.currentTarget.style.display = 'none'; }}
-                      style={{ width: 18, height: 18, objectFit: 'contain', borderRadius: 4, flexShrink: 0 }} />
-                  )}
-                  {i + 1}. {tab.title}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* ── Tab selector — dropdown (all screen sizes, no scrollbar) ── */}
+          <div style={{ marginBottom: 16, position: 'relative' }}>
 
-          {/* ── Tab bar — mobile toggle dropdown ── */}
-          <div className="pa-tabs-mobile" style={{ marginBottom: 16, position: 'relative' }}>
-            {/* Current tab button */}
+            {/* Trigger button */}
             <button
-              onClick={() => setTabMenuOpen(o => !o)}
+              onClick={e => { e.stopPropagation(); setTabMenuOpen(o => !o); }}
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 12,
                 padding: '13px 16px', borderRadius: 16,
                 background: 'linear-gradient(135deg,var(--g700),var(--g500))',
                 border: 'none', color: '#fff', cursor: 'pointer',
-                boxShadow: '0 4px 18px rgba(34,168,75,0.32)',
+                boxShadow: '0 4px 18px rgba(34,168,75,0.28)',
               }}>
+
+              {/* Tab icon or number badge */}
               <div style={{
-                width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                width: 36, height: 36, borderRadius: 10, flexShrink: 0,
                 background: 'rgba(255,255,255,0.18)',
-                border: '1px solid rgba(255,255,255,0.25)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 14,
+                border: '1px solid rgba(255,255,255,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
               }}>
-                {activeTab + 1}
+                {tabs[activeTab]?.iconUrl ? (
+                  <img src={`${SERVER_URL}${tabs[activeTab].iconUrl}`} alt=""
+                    onError={e => { e.currentTarget.style.display = 'none'; }}
+                    style={{ width: 22, height: 22, objectFit: 'contain' }} />
+                ) : (
+                  <span style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 14 }}>
+                    {activeTab + 1}
+                  </span>
+                )}
               </div>
-              <div style={{ flex: 1, textAlign: 'left' }}>
+
+              {/* Tab title + counter */}
+              <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
                 <div style={{
                   fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
-                  textTransform: 'uppercase', opacity: 0.7,
+                  textTransform: 'uppercase', opacity: 0.72,
                   fontFamily: 'Montserrat,sans-serif', marginBottom: 2,
                 }}>
                   Tab {activeTab + 1} of {tabs.length}
                 </div>
                 <div style={{
-                  fontSize: 14, fontWeight: 800,
-                  fontFamily: 'Montserrat,sans-serif', lineHeight: 1.2,
+                  fontSize: 14, fontWeight: 800, fontFamily: 'Montserrat,sans-serif',
+                  lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
                   {tabs[activeTab]?.title}
                 </div>
               </div>
+
+              {/* Prev / Next arrows */}
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                <button
+                  onClick={e => { e.stopPropagation(); if (activeTab > 0) { setActiveTab(activeTab - 1); setOpenMod(null); } }}
+                  disabled={activeTab === 0}
+                  style={{
+                    width: 28, height: 28, borderRadius: 8, border: '1px solid rgba(255,255,255,0.3)',
+                    background: 'rgba(255,255,255,0.15)', color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: activeTab === 0 ? 'default' : 'pointer',
+                    opacity: activeTab === 0 ? 0.4 : 1, fontSize: 14,
+                  }}>‹</button>
+                <button
+                  onClick={e => { e.stopPropagation(); if (activeTab < tabs.length - 1) { setActiveTab(activeTab + 1); setOpenMod(null); } }}
+                  disabled={activeTab === tabs.length - 1}
+                  style={{
+                    width: 28, height: 28, borderRadius: 8, border: '1px solid rgba(255,255,255,0.3)',
+                    background: 'rgba(255,255,255,0.15)', color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: activeTab === tabs.length - 1 ? 'default' : 'pointer',
+                    opacity: activeTab === tabs.length - 1 ? 0.4 : 1, fontSize: 14,
+                  }}>›</button>
+              </div>
+
+              {/* Chevron */}
               <div style={{
-                fontSize: 20, transition: 'transform 0.25s ease',
+                fontSize: 20, transition: 'transform 0.25s ease', flexShrink: 0,
                 transform: tabMenuOpen ? 'rotate(180deg)' : 'none',
               }}>▾</div>
             </button>
 
-            {/* Dropdown list */}
+            {/* Dropdown panel */}
             {tabMenuOpen && (
-              <div style={{
+              <div onClick={e => e.stopPropagation()} style={{
                 position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, zIndex: 50,
                 background: '#fff', borderRadius: 16, overflow: 'hidden',
                 border: '1.5px solid var(--g200)',
-                boxShadow: '0 12px 40px rgba(0,0,0,0.18)',
+                boxShadow: '0 16px 48px rgba(0,0,0,0.16)',
+                maxHeight: 420, overflowY: 'auto',
               }}>
                 {tabs.map((tab, i) => {
                   const isActive = i === activeTab;
@@ -878,7 +956,7 @@ export default function ProjectAssessment() {
                       onClick={() => { setActiveTab(i); setOpenMod(null); setTabMenuOpen(false); }}
                       style={{
                         width: '100%', display: 'flex', alignItems: 'center', gap: 12,
-                        padding: '14px 16px', border: 'none', cursor: 'pointer', textAlign: 'left',
+                        padding: '13px 16px', border: 'none', cursor: 'pointer', textAlign: 'left',
                         background: isActive ? 'var(--g50)' : '#fff',
                         borderBottom: i < tabs.length - 1 ? '1px solid var(--border)' : 'none',
                         transition: 'background 0.15s',
@@ -887,25 +965,33 @@ export default function ProjectAssessment() {
                         width: 32, height: 32, borderRadius: 9, flexShrink: 0,
                         background: isActive ? 'linear-gradient(135deg,var(--g700),var(--g500))' : 'var(--bg-subtle)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 13, fontWeight: 900,
-                        color: isActive ? '#fff' : 'var(--tx-faint)',
-                        fontFamily: 'Montserrat,sans-serif',
+                        overflow: 'hidden',
                         boxShadow: isActive ? '0 2px 8px rgba(34,168,75,0.3)' : 'none',
                       }}>
-                        {i + 1}
+                        {tab.iconUrl ? (
+                          <img src={`${SERVER_URL}${tab.iconUrl}`} alt=""
+                            onError={e => { e.currentTarget.style.display = 'none'; }}
+                            style={{ width: 20, height: 20, objectFit: 'contain' }} />
+                        ) : (
+                          <span style={{
+                            fontSize: 13, fontWeight: 900,
+                            color: isActive ? '#fff' : 'var(--tx-faint)',
+                            fontFamily: 'Montserrat,sans-serif',
+                          }}>{i + 1}</span>
+                        )}
                       </div>
                       <span style={{
                         flex: 1, fontWeight: isActive ? 800 : 600, fontSize: 13.5,
                         fontFamily: 'Montserrat,sans-serif',
                         color: isActive ? 'var(--g700)' : 'var(--tx)',
                       }}>
-                        {tab.title}
+                        {i + 1}. {tab.title}
                       </span>
                       {isActive && (
                         <span style={{
-                          fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 6,
+                          fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6,
                           background: 'var(--g100)', color: 'var(--g700)',
-                          fontFamily: 'Montserrat,sans-serif',
+                          fontFamily: 'Montserrat,sans-serif', flexShrink: 0,
                         }}>Active</span>
                       )}
                     </button>
@@ -1258,16 +1344,27 @@ export default function ProjectAssessment() {
                                               </div>
                                             </div>
 
-                                            {/* Instruction */}
+                                            {/* Instruction button */}
                                             {inp.instruction && (
-                                              <p style={{
-                                                fontSize: 12.5, color: 'var(--tx-muted)',
-                                                fontStyle: 'italic', margin: '0 0 10px',
-                                                padding: '6px 10px', background: 'var(--bg-subtle)',
-                                                borderRadius: 8, borderLeft: '3px solid var(--g300)'
-                                              }}>
-                                                {inp.instruction}
-                                              </p>
+                                              <div style={{ marginBottom: 10 }}>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setInstrModal({ open: true, label: inp.label, html: inp.instruction })}
+                                                  style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                                                    padding: '4px 11px', borderRadius: 8, cursor: 'pointer',
+                                                    border: '1.5px solid #A8EFC0',
+                                                    background: '#F0FDF4', color: '#145C28',
+                                                    fontSize: 12, fontWeight: 700,
+                                                    fontFamily: 'Montserrat,sans-serif',
+                                                    transition: 'background 0.15s, border-color 0.15s',
+                                                  }}
+                                                  onMouseEnter={e => { e.currentTarget.style.background = '#DCFCE7'; e.currentTarget.style.borderColor = '#22A84B'; }}
+                                                  onMouseLeave={e => { e.currentTarget.style.background = '#F0FDF4'; e.currentTarget.style.borderColor = '#A8EFC0'; }}
+                                                >
+                                                  <span style={{ fontSize: 13 }}>📋</span> Instruction
+                                                </button>
+                                              </div>
                                             )}
 
                                             {/* Number */}
@@ -1281,17 +1378,14 @@ export default function ProjectAssessment() {
                                               const editable = isInputEditable(inp);
                                               return (
                                                 <div>
-                                                  {/* Number input + calculate button */}
-                                                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                                                  {/* Number input */}
+                                                  <div style={{ marginBottom: 14 }}>
                                                     <input type="number" className="input-field"
                                                       value={rawVal ?? ''}
                                                       onChange={e => handleChange(inp._id, e.target.value, 'number')}
                                                       placeholder="Enter value"
                                                       disabled={!editable}
                                                       style={{ maxWidth: 200 }} />
-                                                    <a href="https://www.carbonfootprint.com/calculator.aspx" target='blank'>
-                                                      <button className='p-1 border-2 text-white bg-green-500 rounded-lg'>calculate</button>
-                                                    </a>
                                                   </div>
 
                                                   {/* ── Slider ── */}
@@ -1475,6 +1569,68 @@ export default function ProjectAssessment() {
                                                 )}
                                               </div>
                                             )}
+                                            {/* Calculate Button — shown only when URL is configured */}
+                                            {inp.calcBtn?.url && (
+                                              <div style={{
+                                                marginTop: 14,
+                                                paddingTop: 12,
+                                                borderTop: '1px solid var(--border)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 10,
+                                                flexWrap: 'wrap',
+                                              }}>
+                                                <a
+                                                  href={inp.calcBtn.url}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  style={{ textDecoration: 'none', flexShrink: 0 }}
+                                                >
+                                                  <button
+                                                    style={{
+                                                      padding: '9px 22px',
+                                                      borderRadius: 10,
+                                                      border: 'none',
+                                                      cursor: 'pointer',
+                                                      background: inp.calcBtn.color || '#22A84B',
+                                                      color: '#fff',
+                                                      fontWeight: 700,
+                                                      fontSize: 13,
+                                                      display: 'inline-flex',
+                                                      alignItems: 'center',
+                                                      gap: 7,
+                                                      boxShadow: `0 3px 12px ${(inp.calcBtn.color || '#22A84B')}44`,
+                                                      transition: 'opacity 0.18s, transform 0.18s, box-shadow 0.18s',
+                                                      fontFamily: 'inherit',
+                                                      letterSpacing: '0.01em',
+                                                    }}
+                                                    onMouseEnter={e => {
+                                                      e.currentTarget.style.opacity = '0.88';
+                                                      e.currentTarget.style.transform = 'translateY(-2px)';
+                                                      e.currentTarget.style.boxShadow = `0 6px 18px ${(inp.calcBtn.color || '#22A84B')}55`;
+                                                    }}
+                                                    onMouseLeave={e => {
+                                                      e.currentTarget.style.opacity = '1';
+                                                      e.currentTarget.style.transform = 'translateY(0)';
+                                                      e.currentTarget.style.boxShadow = `0 3px 12px ${(inp.calcBtn.color || '#22A84B')}44`;
+                                                    }}
+                                                  >
+                                                    🧮 {inp.calcBtn.name || 'Calculate'}
+                                                  </button>
+                                                </a>
+                                                <span style={{
+                                                  fontSize: 11,
+                                                  color: 'var(--tx-faint)',
+                                                  fontWeight: 500,
+                                                  display: 'inline-flex',
+                                                  alignItems: 'center',
+                                                  gap: 4,
+                                                }}>
+                                                  ↗ opens in new tab
+                                                </span>
+                                              </div>
+                                            )}
+
                                             {/* Comment thread — visible to user; replies after full lock */}
                                             {dbUser && (
                                               <CommentThread

@@ -5,7 +5,8 @@
       "Read(//c/project/DESH-PROJECT-MAIN/desh-server/server/routes//**)",
       "Read(//c/project/DESH-PROJECT-MAIN/desh-server/server/controllers//**)",
       "Read(//c/project/DESH-PROJECT-MAIN/desh-server/**)",
-      "Bash(node -e ':*)"
+      "Bash(node -e ':*)",
+      "Read(//c/project/Caveman-Claude/**)"
     ],
     "additionalDirectories": [
       "c:\\project\\DESH-PROJECT-MAIN\\desh-server\\server\\routes",

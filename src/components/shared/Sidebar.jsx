@@ -31,7 +31,7 @@ const adminNav = [
       { icon: '▦', label: 'Sections', path: '/admin/sections' },
       { icon: '🍃', label: 'Leaf Levels', path: '/admin/evaluation' },
     ]
-  },
+  }, 
   {
     section: 'MANAGEMENT', items: [
       { icon: '◉', label: 'Users', path: '/admin/users' },

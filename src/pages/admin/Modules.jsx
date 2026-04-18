@@ -73,6 +73,7 @@ export default function Modules() {
   const [MM, setMM] = useState({ open: false, d: null });
   const [IM, setIM] = useState({ open: false, d: null, mId: null });
   const [dragState, setDragState] = useState({ dragId: null, overId: null, groupId: null });
+  const [globalCalcDefaults, setGlobalCalcDefaults] = useState({ name: 'Calculate', color: '#22A84B' });
 
   const loadTabs = useCallback(async () => {
     try {
@@ -100,7 +101,19 @@ export default function Modules() {
     } catch { /* sections may not be critical */ }
   }, []);
 
-  useEffect(() => { loadTabs(); loadGlobalSections(); }, []);
+  useEffect(() => {
+    loadTabs();
+    loadGlobalSections();
+    ax.get('/settings').then(r => {
+      const s = r.data.settings;
+      if (s.calcBtnName || s.calcBtnColor) {
+        setGlobalCalcDefaults({
+          name:  s.calcBtnName  || 'Calculate',
+          color: s.calcBtnColor || '#22A84B',
+        });
+      }
+    }).catch(() => {});
+  }, []);
   useEffect(() => { if (activeTab) loadModules(activeTab); }, [activeTab]);
 
   const refresh = () => loadModules(activeTab);
@@ -216,6 +229,11 @@ export default function Modules() {
   // ── Input Modal ───────────────────────────────────────────────
   function InputModal() {
     const editing = !!IM.d?._id;
+    const [instrTab, setInstrTab] = useState('write'); // 'write' | 'preview'
+
+    const insertHtml = (snippet) => {
+      setF(prev => ({ ...prev, instruction: prev.instruction + snippet }));
+    };
 
     const [f, setF] = useState({
       label: IM.d?.label || '',
@@ -229,6 +247,11 @@ export default function Modules() {
       showSlider: IM.d?.showSlider ?? false,
       sliderMin: IM.d?.sliderMin != null ? String(IM.d.sliderMin) : '',
       sliderMax: IM.d?.sliderMax != null ? String(IM.d.sliderMax) : '',
+      calcBtn: {
+        url:   IM.d?.calcBtn?.url   ?? '',
+        name:  IM.d?.calcBtn?.name  ?? globalCalcDefaults.name,
+        color: IM.d?.calcBtn?.color ?? globalCalcDefaults.color,
+      },
     });
 
     const addOpt = () => setF({ ...f, options: [...f.options, { label: '', points: 0 }] });
@@ -256,6 +279,11 @@ export default function Modules() {
         } : undefined,
         sliderMin: f.inputType === 'number' && f.sliderMin !== '' && f.sliderMin !== null ? Number(f.sliderMin) : null,
         sliderMax: f.inputType === 'number' && f.sliderMax !== '' && f.sliderMax !== null ? Number(f.sliderMax) : null,
+        calcBtn: {
+          url:   f.calcBtn.url.trim(),
+          name:  f.calcBtn.name.trim() || globalCalcDefaults.name,
+          color: f.calcBtn.color || globalCalcDefaults.color,
+        },
       };
 
       try {
@@ -292,13 +320,81 @@ export default function Modules() {
               placeholder="e.g. Total site area (sqm)" autoFocus />
           </div>
 
-          {/* Instruction */}
+          {/* Instruction — HTML editor */}
           <div>
-            <Lbl>Instruction (shown to user)</Lbl>
-            <textarea className="input-field" rows={2} value={f.instruction}
-              onChange={e => setF({ ...f, instruction: e.target.value })}
-              placeholder="e.g. Enter the total built-up area in square metres..."
-              style={{ resize: 'vertical' }} />
+            <Lbl>Instruction <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(HTML — shown in a popup to users)</span></Lbl>
+
+            {/* Tab bar */}
+            <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+              {['write', 'preview'].map(tab => (
+                <button key={tab} type="button"
+                  onClick={() => setInstrTab(tab)}
+                  style={{
+                    padding: '4px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                    border: '1px solid',
+                    borderColor: instrTab === tab ? '#22A84B' : 'var(--border)',
+                    background: instrTab === tab ? '#F0FDF4' : 'var(--bg-soft)',
+                    color: instrTab === tab ? '#145C28' : 'var(--tx-muted)',
+                    cursor: 'pointer',
+                  }}>
+                  {tab === 'write' ? '✏️ Write HTML' : '👁 Preview'}
+                </button>
+              ))}
+              <span style={{ flex: 1 }} />
+              {f.instruction && (
+                <span style={{ fontSize: 11, color: 'var(--tx-faint)', alignSelf: 'center' }}>
+                  {f.instruction.length} chars
+                </span>
+              )}
+            </div>
+
+            {instrTab === 'write' ? (
+              <>
+                {/* Quick-insert toolbar */}
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
+                  {[
+                    { label: 'B', title: 'Bold', html: '<strong></strong>' },
+                    { label: 'I', title: 'Italic', html: '<em></em>' },
+                    { label: 'H3', title: 'Heading', html: '<h3></h3>' },
+                    { label: '¶', title: 'Paragraph', html: '<p></p>' },
+                    { label: '•List', title: 'Unordered list', html: '<ul>\n  <li></li>\n</ul>' },
+                    { label: '1.List', title: 'Ordered list', html: '<ol>\n  <li></li>\n</ol>' },
+                    { label: 'Table', title: 'Insert table', html: '<table>\n  <thead><tr><th>Column 1</th><th>Column 2</th></tr></thead>\n  <tbody><tr><td></td><td></td></tr></tbody>\n</table>' },
+                    { label: '❝', title: 'Blockquote', html: '<blockquote></blockquote>' },
+                  ].map(({ label, title, html }) => (
+                    <button key={label} type="button" title={title}
+                      onClick={() => insertHtml(html)}
+                      style={{
+                        padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                        border: '1px solid var(--border)', background: 'var(--bg-soft)',
+                        color: 'var(--tx-muted)', cursor: 'pointer', fontFamily: label === 'B' ? 'serif' : label === 'I' ? 'serif' : 'Montserrat,sans-serif',
+                        fontStyle: label === 'I' ? 'italic' : 'normal',
+                      }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <textarea className="input-field" rows={6} value={f.instruction}
+                  onChange={e => setF({ ...f, instruction: e.target.value })}
+                  placeholder={'Write HTML here, e.g.:\n<p>Enter total built-up area in <strong>square metres</strong>.</p>\n<table>...</table>'}
+                  style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: 12.5 }} />
+              </>
+            ) : (
+              <div style={{
+                minHeight: 80, padding: '12px 16px', borderRadius: 12,
+                border: '1px solid var(--border)', background: 'var(--bg-soft)',
+                overflow: 'auto',
+              }}>
+                {f.instruction
+                  ? <div className="instruction-html-body" dangerouslySetInnerHTML={{ __html: f.instruction }} />
+                  : <p style={{ fontSize: 13, color: 'var(--tx-faint)', fontStyle: 'italic', margin: 0 }}>No instruction written yet.</p>
+                }
+              </div>
+            )}
+
+            <p style={{ fontSize: 11, color: 'var(--tx-faint)', marginTop: 5 }}>
+              If left empty, the Instruction button will not appear for users.
+            </p>
           </div>
 
           {/* Type + Section */}
@@ -576,6 +672,106 @@ export default function Modules() {
               </label>
             </div>
           )}
+
+          {/* ── Calculate Button ── */}
+          <div style={{
+            padding: '16px 18px',
+            background: 'linear-gradient(135deg, #f0fdf4, #f8fafc)',
+            border: '1.5px solid var(--border)',
+            borderRadius: 14,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <div style={{
+                width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+                background: f.calcBtn.color || '#22A84B',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+              }}>🧮</div>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--tx)', margin: 0, fontFamily: 'Montserrat,sans-serif' }}>
+                  Calculate Button
+                </p>
+                <p style={{ fontSize: 11, color: 'var(--tx-muted)', margin: 0, marginTop: 1 }}>
+                  Shown alongside this field only when a URL is set
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* URL */}
+              <div>
+                <Lbl>URL / Link</Lbl>
+                <input
+                  className="input-field"
+                  value={f.calcBtn.url}
+                  onChange={e => setF({ ...f, calcBtn: { ...f.calcBtn, url: e.target.value } })}
+                  placeholder="https://example.com/calculator (leave empty to hide)"
+                />
+              </div>
+
+              {/* Name + Color */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <Lbl>Button Name</Lbl>
+                  <input
+                    className="input-field"
+                    value={f.calcBtn.name}
+                    onChange={e => setF({ ...f, calcBtn: { ...f.calcBtn, name: e.target.value } })}
+                    placeholder={globalCalcDefaults.name}
+                  />
+                </div>
+                <div>
+                  <Lbl>Button Color</Lbl>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input
+                      type="color"
+                      value={f.calcBtn.color}
+                      onChange={e => setF({ ...f, calcBtn: { ...f.calcBtn, color: e.target.value } })}
+                      style={{
+                        width: 40, height: 40, border: '2px solid var(--border-md)',
+                        borderRadius: 8, cursor: 'pointer', padding: 3,
+                        background: 'var(--bg-soft)', flexShrink: 0,
+                      }}
+                    />
+                    <input
+                      className="input-field"
+                      value={f.calcBtn.color}
+                      onChange={e => setF({ ...f, calcBtn: { ...f.calcBtn, color: e.target.value } })}
+                      placeholder="#22A84B"
+                      style={{ fontFamily: 'monospace', fontSize: 12 }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Live preview */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '10px 14px', background: '#fff',
+                borderRadius: 10, border: '1px solid var(--border)',
+              }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--tx-faint)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Preview</span>
+                <button
+                  style={{
+                    padding: '7px 16px', borderRadius: 9, border: 'none',
+                    background: f.calcBtn.color || '#22A84B', color: '#fff',
+                    fontWeight: 700, fontSize: 12.5, cursor: 'default',
+                    opacity: f.calcBtn.url ? 1 : 0.35,
+                    boxShadow: f.calcBtn.url ? '0 2px 8px rgba(0,0,0,0.15)' : 'none',
+                    transition: 'opacity 0.2s, box-shadow 0.2s',
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  🧮 {f.calcBtn.name || globalCalcDefaults.name}
+                </button>
+                {!f.calcBtn.url && (
+                  <span style={{ fontSize: 11, color: 'var(--tx-faint)', fontStyle: 'italic' }}>
+                    hidden — no URL provided
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
 
           {/* Actions */}
           <div style={{ display: 'flex', gap: 10, paddingTop: 4, borderTop: '1px solid var(--border)', marginTop: 4 }}>
@@ -926,6 +1122,17 @@ export default function Modules() {
                                               {o.label} ({o.points}pts)
                                             </span>
                                           ))}
+                                        </div>
+                                      )}
+                                      {inp.calcBtn?.url && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 6 }}>
+                                          <span style={{
+                                            fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 6,
+                                            background: inp.calcBtn.color || '#22A84B', color: '#fff',
+                                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                                          }}>
+                                            🧮 {inp.calcBtn.name || 'Calculate'}
+                                          </span>
                                         </div>
                                       )}
                                     </div>

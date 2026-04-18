@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
+import PartnerFooter from '../../components/shared/PartnerFooter.jsx';
+import useAuthBranding, { getImgSrc } from '../../hooks/useAuthBranding.js';
 
 export default function Register() {
+  const branding = useAuthBranding();
   const { register } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' });
@@ -232,30 +235,9 @@ export default function Register() {
         .card-links a.reg-link { color: #1e8c44; font-weight: 700; text-decoration: none; }
         .card-links a.reg-link:hover { text-decoration: underline; }
 
-        .partner-footer {
-          position: relative; z-index: 10;
-          background: #fff; border-top: 1px solid rgba(34,139,60,0.1);
-          padding: 20px 40px 24px;
-          animation: fadeIn 0.6s ease 0.4s both;
-        }
-        .partner-label {
-          text-align: center; font-size: 9px; font-weight: 700;
-          letter-spacing: 0.22em; text-transform: uppercase; color: #bccdc0;
-          margin-bottom: 14px; font-family: 'DM Sans', sans-serif;
-        }
-        .partner-logos { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 28px; }
-        .partner-logos img {
-          height: 50px; object-fit: contain; 
-          transition: opacity 0.2s, filter 0.2s;
-        }
-        .partner-logos img:hover { opacity: 0.75; filter: grayscale(40%); }
-
         @media (max-width: 480px) {
           .gov-header { padding: 12px 20px; }
           .card-box { padding: 28px 20px; }
-          .partner-footer { padding: 18px 20px 20px; }
-          .partner-logos { gap: 18px; }
-          .partner-logos img { height: 28px; }
         }
       `}</style>
 
@@ -263,11 +245,11 @@ export default function Register() {
 
         {/* ══ SECTION 1: Government Header ══ */}
         <header className="gov-header">
-          <img src="/images/bdLogo.jpg" alt="Bangladesh Government Logo" />
+          <img src={getImgSrc(branding.authHeaderLogo)} alt="Header Logo" />
           <div className="gov-divider" />
           <div className="gov-header-text">
-            <span className="title-bn">গণপ্রজাতন্ত্রী বাংলাদেশ সরকার</span>
-            <span className="title-en">Government of the People's Republic of Bangladesh</span>
+            <span className="title-bn">{branding.authHeaderTitleBn}</span>
+            <span className="title-en">{branding.authHeaderTitleEn}</span>
           </div>
         </header>
 
@@ -280,10 +262,10 @@ export default function Register() {
             {/* Card */}
             <div className="card-box">
               <div className="desh-logo-wrap flex justify-center mx-auto">
-                <img src="/images/0_HBRI_Picture3-removebg-preview.png" alt="DESH" className='h-12' />
-                <img src="/images/logo (1).png" alt="DESH" className='h-14 mr-5' />
+                <img src={getImgSrc(branding.authCardLogoLeft)} alt="Logo" className='h-12' />
+                <img src={getImgSrc(branding.authCardLogoRight)} alt="Logo" className='h-14 mr-5' />
               </div>
-              <span className="system-label card-subheading -mt-8 text-xs flex justify-center mx-auto text-center">Green Building Assessment System</span>
+              <span className="system-label card-subheading -mt-8 text-xs flex justify-center mx-auto text-center">{branding.authSystemLabel}</span>
               <h2 className="card-heading text-center">Create Account</h2>
               <p className="card-subheading text-center">Join the green building community</p>
 
@@ -361,15 +343,7 @@ export default function Register() {
         </main>
 
         {/* ══ SECTION 3: Partner Footer ══ */}
-        <footer className="partner-footer">
-          <p className="partner-label">Institutional Partners &amp; Supporters</p>
-          <div className="partner-logos">
-            {['1_UNOPS_Picture4.png', '3_UN_HABITAT_Picture8.png', '0_HBRI_Picture3.png', 'bdLogo.jpg',
-              , '4_UNEP_Picture6.png', '5_GABC_Picture7.png', 'federal-ministry.png'].map((img, i) => (
-                <img key={i} src={`/images/${img}`} alt="" />
-              ))}
-          </div>
-        </footer>
+        <PartnerFooter />
 
       </div>
     </>

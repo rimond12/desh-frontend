@@ -604,6 +604,55 @@ select.input-field, select.input-dark{
   overflow-y:auto;
 }
 
+/* ── Instruction HTML content renderer ── */
+.instruction-html-body{
+  font-size:14px; line-height:1.7; color:var(--tx);
+  font-family:'Inter',sans-serif;
+}
+.instruction-html-body h1,.instruction-html-body h2,.instruction-html-body h3,
+.instruction-html-body h4,.instruction-html-body h5{
+  font-family:'Montserrat',sans-serif; font-weight:700;
+  margin:0.9em 0 0.4em; color:var(--tx);
+}
+.instruction-html-body h1{font-size:1.35em}
+.instruction-html-body h2{font-size:1.2em}
+.instruction-html-body h3{font-size:1.05em}
+.instruction-html-body p{margin:0 0 0.75em}
+.instruction-html-body ul,.instruction-html-body ol{
+  padding-left:1.4em; margin:0 0 0.75em;
+}
+.instruction-html-body li{margin-bottom:0.25em}
+.instruction-html-body a{color:#22A84B; text-decoration:underline}
+.instruction-html-body strong{font-weight:700}
+.instruction-html-body em{font-style:italic}
+.instruction-html-body table{
+  width:100%; border-collapse:collapse;
+  margin:0.8em 0; font-size:13px;
+  border-radius:8px; overflow:hidden;
+}
+.instruction-html-body th{
+  background:#F0FDF4; color:#145C28;
+  font-weight:700; font-family:'Montserrat',sans-serif;
+  font-size:11px; letter-spacing:0.06em; text-transform:uppercase;
+  padding:9px 12px; border:1px solid #D1FAE5; text-align:left;
+}
+.instruction-html-body td{
+  padding:8px 12px; border:1px solid #E5E7EB;
+  vertical-align:top; color:var(--tx);
+}
+.instruction-html-body tr:nth-child(even) td{background:#FAFAFA}
+.instruction-html-body blockquote{
+  border-left:3px solid #22A84B; margin:0.75em 0;
+  padding:6px 14px; background:#F0FDF4;
+  border-radius:0 8px 8px 0; color:#145C28;
+  font-style:italic;
+}
+.instruction-html-body code{
+  background:#F1F5F9; color:#0F172A;
+  padding:2px 6px; border-radius:4px;
+  font-size:0.88em; font-family:monospace;
+}
+
 /* ═══════════════════ TABS (UI component) ═══════════════════ */
 .tab-bar{
   display:flex; gap:4px;
