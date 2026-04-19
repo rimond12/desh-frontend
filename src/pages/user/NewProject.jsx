@@ -22,6 +22,9 @@ export default function NewProject() {
       .catch(() => toast.error('Failed to load sections'));
   }, []);
 
+  const regularSections = sections.filter(s => !s.isConstant);
+  const constantSections = sections.filter(s => s.isConstant);
+
   const submit = async (e) => {
     e.preventDefault();
     if (!title.trim()) { toast.error('Project title is required'); return; }
@@ -77,31 +80,49 @@ export default function NewProject() {
                 Loading sections…
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-                {sections.map(s => (
-                  <label key={s._id} style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '12px 16px', borderRadius: 12, cursor: 'pointer',
-                    border: `1.5px solid ${sectionId === String(s._id) ? 'var(--g500)' : 'var(--border)'}`,
-                    background: sectionId === String(s._id) ? 'var(--g50)' : '#fff',
-                    transition: 'all 0.15s',
-                  }}>
-                    <input
-                      type="radio"
-                      name="section"
-                      value={s._id}
-                      checked={sectionId === String(s._id)}
-                      onChange={() => setSectionId(String(s._id))}
-                      style={{ accentColor: 'var(--g600)', width: 16, height: 16, flexShrink: 0 }}
-                    />
-                    <span style={{
-                      fontWeight: sectionId === String(s._id) ? 700 : 500,
-                      fontSize: 14,
-                      color: sectionId === String(s._id) ? 'var(--g800)' : 'var(--tx)',
-                    }}>{s.title}</span>
-                  </label>
-                ))}
-              </div>
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: constantSections.length > 0 ? 10 : 20 }}>
+                  {regularSections.map(s => (
+                    <label key={s._id} style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '12px 16px', borderRadius: 12, cursor: 'pointer',
+                      border: `1.5px solid ${sectionId === String(s._id) ? 'var(--g500)' : 'var(--border)'}`,
+                      background: sectionId === String(s._id) ? 'var(--g50)' : '#fff',
+                      transition: 'all 0.15s',
+                    }}>
+                      <input
+                        type="radio"
+                        name="section"
+                        value={s._id}
+                        checked={sectionId === String(s._id)}
+                        onChange={() => setSectionId(String(s._id))}
+                        style={{ accentColor: 'var(--g600)', width: 16, height: 16, flexShrink: 0 }}
+                      />
+                      <span style={{
+                        fontWeight: sectionId === String(s._id) ? 700 : 500,
+                        fontSize: 14,
+                        color: sectionId === String(s._id) ? 'var(--g800)' : 'var(--tx)',
+                      }}>{s.title}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {constantSections.length > 0 && (
+                  // <div style={{
+                  //   display: 'flex', alignItems: 'flex-start', gap: 8,
+                  //   padding: '10px 14px', borderRadius: 10, marginBottom: 20,
+                  //   background: 'rgba(234,179,8,0.07)', border: '1.5px solid rgba(234,179,8,0.25)',
+                  //   fontSize: 12, color: '#92660a',
+                  // }}>
+                  //   <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>⚡</span>
+                  //   <span>
+                  //     <strong>Always included:</strong>{' '}
+                  //     {constantSections.map(s => s.title).join(', ')} — constant{constantSections.length > 1 ? ' sections are' : ' section is'} automatically added to every project.
+                  //   </span>
+                  // </div>
+                  <></>
+                )}
+              </>
             )}
 
             <button
