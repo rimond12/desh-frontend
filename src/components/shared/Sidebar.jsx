@@ -1,59 +1,8 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
-
-const userNav = [
-  {
-    section: 'MAIN', items: [
-      { icon: '⊞', label: 'Deshboard', path: '/dashboard' },
-      { icon: '◫', label: 'My Projects', path: '/projects' },
-      { icon: '+', label: 'New Project', path: '/projects/new' },
-    ]
-  },
-  {
-    section: 'TOOLS', items: [
-      { icon: '✎', label: 'My Notes', path: '/notes' },
-      { icon: '?', label: 'User Manual', path: '/manual' },
-    ]
-  },
-];
-
-const adminNav = [
-  {
-    section: 'OVERVIEW', items: [
-      { icon: '⊞', label: 'Deshboard', path: '/admin' },
-    ]
-  },
-  {
-    section: 'CONTENT', items: [
-      { icon: '◧', label: 'Tabs', path: '/admin/tabs' },
-      { icon: '◈', label: 'Modules', path: '/admin/modules' },
-      { icon: '▦', label: 'Sections', path: '/admin/sections' },
-      { icon: '🍃', label: 'Leaf Levels', path: '/admin/evaluation' },
-    ]
-  },
-  {
-    section: 'MANAGEMENT', items: [
-      { icon: '◉', label: 'Users', path: '/admin/users' },
-      { icon: '◫', label: 'Submissions', path: '/admin/submissions' },
-      { icon: '⏱', label: 'Activity', path: '/admin/activity' },
-    ]
-  },
-  {
-    section: 'SYSTEM', items: [
-      { icon: '⚙', label: 'Settings', path: '/admin/settings' },
-      { icon: '⇅', label: 'Import/Export', path: '/admin/import-export' },
-    ]
-  },
-];
-
-const reviewerNav = [
-  {
-    section: 'REVIEW', items: [
-      { icon: '◫', label: 'Submissions', path: '/reviewer/submissions' },
-    ]
-  },
-];
+import useNavLabels from '../../hooks/useNavLabels.js';
+import { NAV_CONFIG } from '../../config/navConfig.js';
 
 export default function Sidebar({
   isAdmin = false,
@@ -66,7 +15,22 @@ export default function Sidebar({
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const navGroups = isAdmin ? adminNav : isReviewer ? reviewerNav : userNav;
+  const L = useNavLabels();
+
+  const role = isAdmin ? 'admin' : isReviewer ? 'reviewer' : 'user';
+  const roleConfig = NAV_CONFIG.find(r => r.role === role);
+
+  // Build nav groups from config + saved labels
+  const navGroups = roleConfig.sections.map(section => ({
+    section: section.sectionKey
+      ? (L[section.sectionKey] ?? section.sectionDefault)
+      : section.sectionDefault,
+    items: section.items.map(item => ({
+      icon: item.icon,
+      label: L[item.key] ?? item.defaultLabel,
+      path: item.path,
+    })),
+  }));
 
   const handleLogout = async () => {
     await logout();
@@ -82,65 +46,49 @@ export default function Sidebar({
 
   return (
     <>
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div className="sidebar-overlay" onClick={onClose} />
-      )}
+      {mobileOpen && <div className="sidebar-overlay" onClick={onClose} />}
 
       <aside className={sidebarClass}>
 
         {/* ── Logo row ─────────────────────────────────────────── */}
         <div className="sidebar-logo" style={{ position: 'relative' }}>
-          {/* Logo icon — always visible */}
           <div style={{
             width: 42, height: 42, borderRadius: 12, overflow: 'hidden',
-            background: 'white',
-            border: '1px solid rgba(255,255,255,0.15)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
+            background: 'white', border: '1px solid rgba(255,255,255,0.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}>
             <img src="/images/logo (1).png" alt="DESH"
               style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} />
           </div>
 
-          {/* Text — hidden when collapsed via .sb-logo-text CSS class */}
           <div className="sb-logo-text" style={{ flex: 1, minWidth: 0 }}>
             <div style={{
               fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
               fontSize: 17, color: '#fff', letterSpacing: '-0.01em', lineHeight: 1.2,
             }}>
-              DESHboard
+              {L.logoText}
             </div>
             <div style={{
               fontSize: 10.5, color: 'rgba(255,255,255,0.38)',
               fontWeight: 600, letterSpacing: '0.04em', marginTop: 2,
             }}>
-              {isAdmin ? 'Admin Panel' : 'User Portal'}
+              {isAdmin ? L.adminSubtitle : L.userSubtitle}
             </div>
           </div>
 
-          {/* ── Desktop collapse toggle button ── */}
           <button
             className={`sb-toggle-btn${collapsed ? ' collapsed' : ''}`}
             onClick={onToggleCollapse}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {/* Chevron left — CSS rotates it when collapsed */}
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
               <path d="M6.5 2L3.5 5L6.5 8" stroke="currentColor" strokeWidth="1.8"
                 strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
 
-          {/* Mobile close button — visible only on mobile via CSS */}
-          <button
-            className="sidebar-close-btn"
-            onClick={onClose}
-            aria-label="Close menu"
-          >
-            ✕
-          </button>
+          <button className="sidebar-close-btn" onClick={onClose} aria-label="Close menu">✕</button>
         </div>
 
         {/* Green accent line */}
@@ -183,31 +131,23 @@ export default function Sidebar({
 
         {/* ── Footer ───────────────────────────────────────────── */}
         <div className="sidebar-footer">
-          {/* User card */}
           <div className="sb-user-card" style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '10px 12px',
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.09)',
+            display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.09)',
             borderRadius: 12, marginBottom: 8,
           }}>
-            {/* Avatar — always visible */}
             <div style={{
               width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
               background: 'linear-gradient(135deg,#145C28,#34C961)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 14, fontWeight: 800, color: 'white',
-              fontFamily: 'Montserrat,sans-serif',
-              boxShadow: '0 2px 10px rgba(34,168,75,0.4)',
+              fontFamily: 'Montserrat,sans-serif', boxShadow: '0 2px 10px rgba(34,168,75,0.4)',
             }}>
               {user?.displayName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
             </div>
-
-            {/* Name + email — hidden when collapsed */}
             <div className="sb-user-text" style={{ flex: 1, minWidth: 0 }}>
               <p style={{
-                fontSize: 12.5, fontWeight: 700,
-                color: 'rgba(255,255,255,0.85)', margin: 0,
+                fontSize: 12.5, fontWeight: 700, color: 'rgba(255,255,255,0.85)', margin: 0,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
                 {user?.displayName || user?.email?.split('@')[0] || 'User'}
@@ -221,18 +161,15 @@ export default function Sidebar({
             </div>
           </div>
 
-          {/* Logout */}
           <button
             onClick={handleLogout}
             className="sb-logout-btn"
             style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: 10,
               padding: '9px 12px', borderRadius: 10,
-              background: 'rgba(239,68,68,0.08)',
-              border: '1px solid rgba(239,68,68,0.18)',
-              color: 'rgba(252,165,165,0.85)',
-              fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              transition: 'all 0.18s', fontFamily: 'Nunito,sans-serif',
+              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)',
+              color: 'rgba(252,165,165,0.85)', fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', transition: 'all 0.18s', fontFamily: 'Nunito,sans-serif',
               textAlign: 'left', justifyContent: collapsed ? 'center' : 'flex-start',
             }}
             title={collapsed ? 'Logout' : undefined}

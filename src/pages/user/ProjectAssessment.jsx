@@ -1031,10 +1031,11 @@ export default function ProjectAssessment() {
                   .map(s => ({
                     id: String(s._id),
                     title: s.title,
+                    iconUrl: s.iconUrl || '',
                     isConstant: s.isConstant || false,
                     inputs: grouped[String(s._id)],
                   })),
-                ...(grouped['none'] ? [{ id: 'none', title: 'Uncategorized', isConstant: false, inputs: grouped['none'] }] : []),
+                ...(grouped['none'] ? [{ id: 'none', title: 'Uncategorized', iconUrl: '', isConstant: false, inputs: grouped['none'] }] : []),
               ];
 
               // When a section is selected, show that section + all constant sections
@@ -1232,8 +1233,15 @@ export default function ProjectAssessment() {
                                   background: isSecOpen ? 'rgba(255,255,255,0.18)' : 'var(--g100)',
                                   border: isSecOpen ? '1px solid rgba(255,255,255,0.25)' : '1px solid var(--g200)',
                                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  fontSize: 14,
-                                }}>▦</div>
+                                  fontSize: 14, overflow: 'hidden',
+                                }}>
+                                  {group.iconUrl
+                                    ? <img src={`${SERVER_URL}${group.iconUrl}`} alt=""
+                                        style={{ width: 22, height: 22, objectFit: 'contain', filter: isSecOpen ? 'brightness(10)' : 'none' }}
+                                        onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }} />
+                                    : null}
+                                  <span style={{ display: group.iconUrl ? 'none' : 'flex', color: isSecOpen ? '#fff' : 'var(--g600)', fontSize: 14 }}>▦</span>
+                                </div>
                                 <p style={{
                                   fontFamily: 'Montserrat,sans-serif', fontWeight: 800,
                                   fontSize: 14, margin: 0, flex: 1,

@@ -261,9 +261,10 @@ export default function Register() {
 
             {/* Card */}
             <div className="card-box">
-              <div className="desh-logo-wrap flex justify-center mx-auto">
-                <img src={getImgSrc(branding.authCardLogoLeft)} alt="Logo" className='h-12' />
-                <img src={getImgSrc(branding.authCardLogoRight)} alt="Logo" className='h-14 mr-5' />
+              <div className="desh-logo-wrap flex justify-center mx-auto flex-wrap gap-2">
+                {(branding.authCardLogos || []).map((logo, i) => (
+                  <img key={i} src={getImgSrc(logo)} alt="Logo" className='h-12' style={{ objectFit: 'contain' }} />
+                ))}
               </div>
               <span className="system-label card-subheading -mt-8 text-xs flex justify-center mx-auto text-center">{branding.authSystemLabel}</span>
               <h2 className="card-heading text-center">Create Account</h2>

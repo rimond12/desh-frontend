@@ -10,6 +10,7 @@ const DEFAULTS = {
     authHeaderTitleEn: "Government of the People's Republic of Bangladesh",
     authCardLogoLeft:  '/images/0_HBRI_Picture3-removebg-preview.png',
     authCardLogoRight: '/images/logo (1).png',
+    authCardLogos: ['/images/0_HBRI_Picture3-removebg-preview.png', '/images/logo (1).png'],
     authSystemLabel:   'Green Building Assessment System',
 };
 
@@ -41,6 +42,7 @@ export default function useAuthBranding() {
                     authHeaderTitleEn: s.authHeaderTitleEn || DEFAULTS.authHeaderTitleEn,
                     authCardLogoLeft:  s.authCardLogoLeft  || DEFAULTS.authCardLogoLeft,
                     authCardLogoRight: s.authCardLogoRight || DEFAULTS.authCardLogoRight,
+                    authCardLogos: (s.authCardLogos && s.authCardLogos.length > 0) ? s.authCardLogos : DEFAULTS.authCardLogos,
                     authSystemLabel:   s.authSystemLabel   || DEFAULTS.authSystemLabel,
                 });
             })

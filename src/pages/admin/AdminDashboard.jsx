@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
 import { LeafBadge } from '../../components/shared/LeafLogo.jsx';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
+import useNavLabels from '../../hooks/useNavLabels.js';
 
 export default function AdminDashboard() {
   const axiosSecure = useAxiosSecure();
+  const L = useNavLabels();
   const [stats, setStats] = useState({ users: 0, projects: 0, tabs: 0, modules: 0 });
   const [submissions, setSubmissions] = useState([]);
   const [activity, setActivity] = useState([]);
@@ -55,7 +57,7 @@ export default function AdminDashboard() {
     <Layout isAdmin>
       <div className="mb-8 fade-in-up">
         <p className="text-sm" style={{ color: 'var(--tx-muted)' }}>Admin Panel</p>
-        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>Deshboard</h1>
+        <h1 className="text-3xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>{L.adminDashboardHeading}</h1>
       </div>
 
       {/* Stat cards */}
