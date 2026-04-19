@@ -3,7 +3,7 @@ import Layout from '../../components/shared/Layout.jsx';
 import toast from 'react-hot-toast';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 
-const SERVER_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+const SERVER_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 function IconImg({ src, fallback, size = 40 }) {
   const [failed, setFailed] = useState(false);

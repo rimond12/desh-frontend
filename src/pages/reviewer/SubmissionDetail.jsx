@@ -7,7 +7,8 @@ import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 
-const SERVER_BASE = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace('/api', '');
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const SERVER_BASE = API_BASE; // kept for backward compat with imageUrl usages below
 
 const STATUS_CFG = {
   under_review: { label: 'Under Review', color: '#92400E', bg: '#FEF9C3', border: '#FDE68A', dot: '#D97706' },
@@ -45,8 +46,11 @@ function getLeafLevel(pct, rules) {
 }
 
 function getDownloadUrl(doc) {
-  if (doc.filename) return `${SERVER_BASE}/uploads/documents/${doc.filename}`;
-  if (doc.path)     return `${SERVER_BASE}/${doc.path.replace(/\\/g, '/')}`;
+  if (doc.filename) return `${API_BASE}/uploads/documents/${doc.filename}`;
+  if (doc.path) {
+    const fname = doc.path.replace(/\\/g, '/').split('/').pop();
+    return `${API_BASE}/uploads/documents/${fname}`;
+  }
   return null;
 }
 function getFileType(name) {

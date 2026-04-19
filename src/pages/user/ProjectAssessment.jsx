@@ -6,6 +6,10 @@ import CommentThread from '../../components/shared/CommentThread.jsx';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer,
+} from 'recharts';
 
 const SERVER_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 
@@ -109,6 +113,28 @@ function getLeafLevel(pct, rules) {
   return rules.find(r => pct >= r.minPercent && pct <= r.maxPercent) || null;
 }
 
+// Abbreviate a tab name to a short code, e.g. "Climate Change" → "1. CC"
+const SKIP_WORDS = new Set(['and', 'or', 'of', 'the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'after', 'before']);
+function abbreviateTabName(name, index) {
+  const prefix = `${index + 1}.`;
+  if (!name) return `${prefix} T`;
+  const words = name.split(/[\s\-/]+/).filter(w => w.length > 0 && !SKIP_WORDS.has(w.toLowerCase()));
+  const abbr = words.map(w => w[0].toUpperCase()).join('').slice(0, 3) || name.slice(0, 2).toUpperCase();
+  return `${prefix} ${abbr}`;
+}
+
+// Sum earned + max points across all modules of a single tab
+function calcTabScore(tab, answers) {
+  let earned = 0, max = 0;
+  (tab.modules || []).forEach(mod => {
+    getModuleInputs(mod).forEach(inp => {
+      earned += calcInputPoints(inp, answers[inp._id] ?? (inp.inputType === 'checkbox' ? [] : ''));
+      max += calcInputMax(inp);
+    });
+  });
+  return { earned: Math.round(earned * 10) / 10, max };
+}
+
 // ── Points box (per section within module) ─────────────────────
 function PointsBox({ earned, max }) {
   const pct = max > 0 ? Math.round((earned / max) * 100) : 0;
@@ -195,8 +221,6 @@ export default function ProjectAssessment() {
   const [scoreOpen, setScoreOpen] = useState(true);
   // Instruction popup modal
   const [instrModal, setInstrModal] = useState({ open: false, label: '', html: '' });
-  // Score card banner image from admin settings
-  const [scoreCardBanner, setScoreCardBanner] = useState('');
 
   // Close tab dropdown when clicking outside (bubble phase so item clicks fire first)
   useEffect(() => {
@@ -240,9 +264,6 @@ export default function ProjectAssessment() {
       .catch(() => { });
     ax.get('/settings/eval-rules')
       .then(r => setLeafRules(r.data.rules || []))
-      .catch(() => { });
-    ax.get('/settings')
-      .then(r => { if (r.data.settings?.scoreCardBanner) setScoreCardBanner(r.data.settings.scoreCardBanner); })
       .catch(() => { });
     ax.get(`/comments/by-project/${id}`)
       .then(r => {
@@ -519,7 +540,7 @@ export default function ProjectAssessment() {
           flexWrap: 'wrap',
         }}>
           {/* Section dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 160 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             <span style={{
               fontSize: 10, fontWeight: 800, letterSpacing: '0.1em',
               textTransform: 'uppercase', color: 'var(--g700)',
@@ -529,16 +550,80 @@ export default function ProjectAssessment() {
               value={selectedSection}
               onChange={e => setSelectedSection(e.target.value)}
               style={{
-                flex: 1, padding: '6px 12px', borderRadius: 8,
+                padding: '6px 12px', borderRadius: 8,
                 border: '1.5px solid var(--g200)', background: '#fff',
                 fontSize: 13, fontWeight: 600, color: 'var(--tx)',
-                cursor: 'pointer', outline: 'none', maxWidth: 340,
+                cursor: 'pointer', outline: 'none', maxWidth: 260,
               }}>
               <option value="">— Overall Score —</option>
               {regularSections.map(s => (
                 <option key={s._id} value={s._id}>{s.title}</option>
               ))}
             </select>
+          </div>
+
+          {/* Project title — centered */}
+          <div style={{ flex: 1, minWidth: 0, textAlign: 'center', padding: '0 8px' }}>
+            {editingTitle ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                <input
+                  ref={titleInputRef}
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') saveTitleEdit();
+                    if (e.key === 'Escape') cancelTitleEdit();
+                  }}
+                  maxLength={120}
+                  disabled={savingTitle}
+                  style={{
+                    padding: '5px 10px', borderRadius: 8, fontSize: 14,
+                    fontFamily: 'Montserrat,sans-serif', fontWeight: 700,
+                    border: '1.5px solid var(--g300)', background: '#fff',
+                    color: 'var(--tx)', outline: 'none', minWidth: 0, maxWidth: 380, width: '100%',
+                  }}
+                />
+                <button onClick={saveTitleEdit} disabled={savingTitle || !editTitle.trim()} style={{
+                  background: 'rgba(34,168,75,0.12)', border: '1px solid rgba(34,168,75,0.4)',
+                  color: 'var(--g700)', borderRadius: 7, padding: '4px 10px',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+                  opacity: savingTitle || !editTitle.trim() ? 0.5 : 1, flexShrink: 0,
+                }}>{savingTitle ? '…' : 'Save'}</button>
+                <button onClick={cancelTitleEdit} style={{
+                  background: 'rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.12)',
+                  color: 'var(--tx-muted)', borderRadius: 7, padding: '4px 10px',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+                }}>Cancel</button>
+              </div>
+            ) : (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
+                <h2 style={{
+                  fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
+                  fontSize: 15, color: 'var(--tx)', margin: 0,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {project?.title}
+                </h2>
+                {project?.status !== 'submitted' && !isLocked && (
+                  <button onClick={startTitleEdit} title="Rename project" style={{
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    color: 'var(--g500)', fontSize: 14, padding: '2px 4px',
+                    borderRadius: 5, lineHeight: 1, flexShrink: 0,
+                    transition: 'color 0.15s',
+                  }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--g700)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--g500)'}
+                  >✎</button>
+                )}
+              </div>
+            )}
+            {displayMode && (
+              <p style={{
+                fontSize: 10, fontWeight: 700, color: 'var(--g700)',
+                margin: '2px 0 0', fontFamily: 'Montserrat,sans-serif',
+                letterSpacing: '0.04em',
+              }}>▦ {selectedSectionName}</p>
+            )}
           </div>
 
           {/* Collapsed mini-summary — shown only when card is closed */}
@@ -615,236 +700,234 @@ export default function ProjectAssessment() {
         {/* ── Main body (collapsible) ── */}
         {scoreOpen && (() => {
           const sortedLeafRules = [...leafRules].sort((a, b) => a.minPercent - b.minPercent);
-          return (
-            <>
-              {/* body row: left info group + right banner */}
-              <div className="pa-score-body" style={{
-                display: 'flex', alignItems: 'stretch',
+
+          // Per-tab bar chart data
+          const tabChartData = tabs.map((tab, i) => {
+            const { earned, max } = calcTabScore(tab, answers);
+            return {
+              name: abbreviateTabName(tab.title || tab.name || '', i),
+              fullName: tab.title || tab.name || `Tab ${i + 1}`,
+              allocated: max,
+              achieved: Math.round(earned),
+            };
+          });
+
+          // Custom tooltip for the bar chart
+          const ChartTooltip = ({ active, payload, label }) => {
+            if (!active || !payload?.length) return null;
+            const item = tabChartData.find(d => d.name === label);
+            return (
+              <div style={{
+                background: '#fff', border: '1.5px solid var(--border)',
+                borderRadius: 10, padding: '10px 14px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.10)', minWidth: 160,
               }}>
-                {/* ── Left group: leaf + score info — only as wide as content ── */}
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 22,
-                  padding: '20px 26px', flex: '0 0 auto', maxWidth: '58%',
-                  alignSelf: 'center',
-                }}>
-                  {/* Colored leaf — bigger */}
-                  <div className="pa-score-leaf" style={{ flexShrink: 0 }}>
-                    <ColoredLeaf level={displayLevel} colorCode={displayColorCode} imageUrl={activeRule?.imageUrl ? `${SERVER_URL}${activeRule.imageUrl}` : null} size={96} />
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx)', margin: '0 0 6px', fontFamily: 'Montserrat,sans-serif' }}>
+                  {item?.fullName || label}
+                </p>
+                {payload.map((entry, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 3, background: entry.fill, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: 'var(--tx-muted)' }}>{entry.name}:</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx)' }}>{entry.value}</span>
                   </div>
+                ))}
+              </div>
+            );
+          };
 
-                  {/* Score info */}
-                  <div className="pa-score-info" style={{ minWidth: 0, maxWidth: 420 }}>
-                    {/* Editable title */}
-                    {editingTitle ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                        <input
-                          ref={titleInputRef}
-                          value={editTitle}
-                          onChange={e => setEditTitle(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') saveTitleEdit();
-                            if (e.key === 'Escape') cancelTitleEdit();
-                          }}
-                          maxLength={120}
-                          disabled={savingTitle}
-                          style={{
-                            flex: 1, padding: '5px 10px', borderRadius: 8, fontSize: 16,
-                            fontFamily: 'Montserrat,sans-serif', fontWeight: 700,
-                            border: '1.5px solid var(--g300)', background: '#fff',
-                            color: 'var(--tx)', outline: 'none',
-                          }}
-                        />
-                        <button onClick={saveTitleEdit} disabled={savingTitle || !editTitle.trim()} style={{
-                          background: 'rgba(34,168,75,0.12)', border: '1px solid rgba(34,168,75,0.4)',
-                          color: 'var(--g700)', borderRadius: 7, padding: '4px 12px',
-                          fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
-                          opacity: savingTitle || !editTitle.trim() ? 0.5 : 1,
+          return (
+            <div className="pa-score-body" style={{ display: 'flex', alignItems: 'stretch' }}>
+
+              {/* ── LEFT: leaf gallery + progress track + score ── */}
+              <div className="pa-score-left" style={{
+                flex: '0 0 auto', padding: '14px 20px 14px',
+                display: 'flex', flexDirection: 'column', gap: 10,
+                maxWidth: '56%',
+              }}>
+
+                {/* Leaf gallery — image + range % text only (names appear below progress bar) */}
+                {sortedLeafRules.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                    {sortedLeafRules.map(rule => {
+                      const isActive = displayLevel === rule.name;
+                      const color = rule.colorCode || '#94A3B8';
+                      const rangeLabel = rule.minPercent === 0
+                        ? `<${rule.maxPercent}%`
+                        : `${rule.minPercent}–${rule.maxPercent}%`;
+                      return (
+                        <div key={rule._id || rule.name} style={{
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                          opacity: isActive ? 1 : 0.38,
+                          transform: isActive ? 'scale(1.12) translateY(-4px)' : 'scale(1)',
+                          transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+                          cursor: 'default',
                         }}>
-                          {savingTitle ? '…' : 'Save'}
-                        </button>
-                        <button onClick={cancelTitleEdit} style={{
-                          background: 'rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.12)',
-                          color: 'var(--tx-muted)', borderRadius: 7, padding: '4px 12px',
-                          fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                        }}>
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                        <h2 style={{
-                          fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
-                          fontSize: 20, color: 'var(--tx)', margin: 0,
-                        }}>
-                          {project?.title}
-                        </h2>
-                        {project?.status !== 'submitted' && !isLocked && (
-                          <button onClick={startTitleEdit} title="Rename project" style={{
-                            background: 'transparent', border: 'none', cursor: 'pointer',
-                            color: 'var(--g500)', fontSize: 15, padding: '2px 5px',
-                            borderRadius: 6, lineHeight: 1, flexShrink: 0,
-                            transition: 'color 0.15s',
-                          }}
-                            onMouseEnter={e => e.currentTarget.style.color = 'var(--g700)'}
-                            onMouseLeave={e => e.currentTarget.style.color = 'var(--g500)'}
-                          >
-                            ✎
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    {displayMode && (
-                      <p style={{
-                        fontSize: 11, fontWeight: 700, color: 'var(--g700)',
-                        margin: '0 0 4px', fontFamily: 'Montserrat,sans-serif',
-                        letterSpacing: '0.04em',
-                      }}>
-                        ▦ {selectedSectionName}
-                      </p>
-                    )}
-
-                    {/* Score row */}
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-                      <span className="pa-score-pct" style={{
-                        fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
-                        fontSize: 34, color: progressColor || 'var(--tx)', lineHeight: 1,
-                      }}>{displayPct}%</span>
-                      <span style={{ fontSize: 13, color: 'var(--tx-muted)', fontWeight: 600 }}>score</span>
-                      {/* <span style={{
-                        fontSize: 13, color: 'var(--tx-muted)', fontWeight: 700,
-                        background: 'rgba(0,0,0,0.06)', borderRadius: 6,
-                        padding: '2px 8px',
-                      }}>
-                        {displayPts.toFixed(1)} / {displayMax} pts
-                      </span> */}
-                      <span style={{
-                        fontSize: 13, color: 'var(--tx-muted)', fontWeight: 700,
-                        background: 'rgba(0,0,0,0.06)', borderRadius: 6,
-                        padding: '2px 8px',
-                      }}>
-                        {Math.round(displayPts)} / {displayMax} pts
-                      </span>
-                    </div>
-
-                    {/* Badges row */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 10 }}>
-                      {displayLevel
-                        ? <LeafBadge level={displayLevel} />
-                        : <span style={{ fontSize: 11, color: 'var(--tx-faint)', fontWeight: 600 }}>No Level yet</span>}
-
-                      <span className={project?.status === 'submitted'
-                        ? 'status-chip status-completed' : 'status-chip status-progress'}>
-                        {project?.status === 'submitted' ? '✓ Submitted' : '● Draft'}
-                      </span>
-
-                      {reviewCfg && (
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
-                          padding: '3px 10px', borderRadius: 99,
-                          background: reviewCfg.bg, color: reviewCfg.color,
-                          border: `1px solid ${reviewCfg.border}`,
-                          fontSize: 12, fontWeight: 700,
-                          fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
-                        }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: reviewCfg.dot, flexShrink: 0 }} />
-                          {reviewCfg.label}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* ── Leaf Level Progress Track ── */}
-                    {sortedLeafRules.length > 0 && (
-                      <div className="pa-level-track" style={{ minWidth: 260, maxWidth: 400 }}>
-                        {/* Segmented bar */}
-                        <div style={{ display: 'flex', gap: 3, height: 9 }}>
-                          {sortedLeafRules.map((rule, i) => {
-                            const segSpan = rule.maxPercent - rule.minPercent;
-                            const segFill =
-                              displayPct <= rule.minPercent ? 0
-                                : displayPct >= rule.maxPercent ? 100
-                                  : ((displayPct - rule.minPercent) / segSpan) * 100;
-                            const isActive = displayLevel === rule.name;
-                            const color = rule.colorCode || '#94A3B8';
-                            return (
-                              <div key={i} style={{
-                                flex: segSpan,
-                                borderRadius: 99,
-                                background: 'rgba(0,0,0,0.10)',
-                                overflow: 'hidden',
-                                position: 'relative',
-                                boxShadow: isActive ? `0 0 0 1.5px ${color}88` : 'none',
-                                transition: 'box-shadow 0.3s',
-                              }}>
-                                <div style={{
-                                  position: 'absolute', left: 0, top: 0, bottom: 0,
-                                  width: `${segFill}%`,
-                                  background: color,
-                                  transition: 'width 0.9s cubic-bezier(0.4,0,0.2,1)',
-                                  borderRadius: 99,
-                                }} />
-                              </div>
-                            );
-                          })}
+                          <ColoredLeaf
+                            level=""
+                            colorCode={rule.colorCode}
+                            imageUrl={rule.imageUrl ? `${SERVER_URL}${rule.imageUrl}` : null}
+                            size={82}
+                          />
+                          <span style={{
+                            fontSize: 9, fontWeight: 700,
+                            color: isActive ? color : 'var(--tx-faint)',
+                            fontFamily: 'Montserrat,sans-serif',
+                            whiteSpace: 'nowrap', lineHeight: 1.2, textAlign: 'center',
+                          }}>
+                            {rangeLabel}
+                          </span>
                         </div>
-
-                        {/* Level labels */}
-                        <div style={{ display: 'flex', gap: 3, marginTop: 4 }}>
-                          {sortedLeafRules.map((rule, i) => {
-                            const segSpan = rule.maxPercent - rule.minPercent;
-                            const isActive = displayLevel === rule.name;
-                            const color = rule.colorCode || '#94A3B8';
-                            return (
-                              <div key={i} style={{
-                                flex: segSpan,
-                                textAlign: 'center',
-                                fontSize: 9,
-                                fontWeight: isActive ? 800 : 500,
-                                color: isActive ? color : 'var(--tx-faint)',
-                                fontFamily: 'Montserrat,sans-serif',
-                                letterSpacing: isActive ? '0.02em' : 0,
-                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                transition: 'color 0.3s, font-weight 0.3s',
-                              }}>
-                                {isActive && (
-                                  <span style={{ display: 'block', fontSize: 7, marginBottom: 1, opacity: 0.7 }}>▲</span>
-                                )}
-                                {rule.name}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
+                      );
+                    })}
                   </div>
-                </div>
+                )}
 
-                {/* ── Right banner: fills remaining space, shows full image height ── */}
-                {scoreCardBanner && (
-                  <div className="pa-score-banner rounded-xl" style={{
-                    flex: 1, minWidth: 260,
-                    overflow: 'hidden',
-                    borderLeft: '1px solid rgba(34,168,75,0.18)',
-                    display: 'flex', alignItems: 'stretch',
+                {/* Segmented progress track */}
+                {sortedLeafRules.length > 0 && (
+                  <div className="pa-level-track" style={{ minWidth: 220 }}>
+                    <div style={{ display: 'flex', gap: 3, height: 9 }}>
+                      {sortedLeafRules.map((rule, i) => {
+                        const segSpan = rule.maxPercent - rule.minPercent;
+                        const segFill = displayPct <= rule.minPercent ? 0
+                          : displayPct >= rule.maxPercent ? 100
+                            : ((displayPct - rule.minPercent) / segSpan) * 100;
+                        const isActive = displayLevel === rule.name;
+                        const color = rule.colorCode || '#94A3B8';
+                        return (
+                          <div key={i} style={{
+                            flex: segSpan, borderRadius: 99,
+                            background: 'rgba(0,0,0,0.10)', overflow: 'hidden', position: 'relative',
+                            boxShadow: isActive ? `0 0 0 1.5px ${color}88` : 'none',
+                            transition: 'box-shadow 0.3s',
+                          }}>
+                            <div style={{
+                              position: 'absolute', left: 0, top: 0, bottom: 0,
+                              width: `${segFill}%`, background: color, borderRadius: 99,
+                              transition: 'width 0.9s cubic-bezier(0.4,0,0.2,1)',
+                            }} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Leaf names below progress bar */}
+                    <div style={{ display: 'flex', gap: 3, marginTop: 4 }}>
+                      {sortedLeafRules.map((rule, i) => {
+                        const isActive = displayLevel === rule.name;
+                        const color = rule.colorCode || '#94A3B8';
+                        return (
+                          <div key={i} style={{
+                            flex: rule.maxPercent - rule.minPercent,
+                            textAlign: 'center', fontSize: 9,
+                            fontWeight: isActive ? 800 : 500,
+                            color: isActive ? color : 'var(--tx-faint)',
+                            fontFamily: 'Montserrat,sans-serif',
+                            transition: 'color 0.3s, font-weight 0.3s',
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                          }}>
+                            {isActive && <span style={{ display: 'block', fontSize: 7, marginBottom: 1, opacity: 0.7 }}>▲</span>}
+                            {rule.name}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Score % + pts + status */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span className="pa-score-pct" style={{
+                    fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
+                    fontSize: 30, color: progressColor || 'var(--tx)', lineHeight: 1,
+                  }}>{displayPct}%</span>
+                  <span style={{
+                    fontSize: 12, color: 'var(--tx-muted)', fontWeight: 700,
+                    background: 'rgba(0,0,0,0.06)', borderRadius: 6, padding: '2px 8px',
                   }}>
-                    <img
-                      src={`${SERVER_URL}${scoreCardBanner}`}
-                      alt="Score card banner"
-                      style={{
-                        width: '100%',
-                        height: 'auto',
-                        display: 'block',
-                        objectFit: 'fill',
-                      }}
-                      onError={e => {
-                        const col = e.currentTarget.closest('.pa-score-banner');
-                        if (col) col.style.display = 'none';
-                      }}
-                    />
+                    {Math.round(displayPts)} / {displayMax} pts
+                  </span>
+                  {displayLevel
+                    ? <LeafBadge level={displayLevel} />
+                    : null}
+                  <span className={project?.status === 'submitted'
+                    ? 'status-chip status-completed' : 'status-chip status-progress'}>
+                    {project?.status === 'submitted' ? '✓ Submitted' : '● Draft'}
+                  </span>
+                  {reviewCfg && (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      padding: '3px 10px', borderRadius: 99,
+                      background: reviewCfg.bg, color: reviewCfg.color,
+                      border: `1px solid ${reviewCfg.border}`,
+                      fontSize: 11, fontWeight: 700,
+                      fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+                    }}>
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: reviewCfg.dot, flexShrink: 0 }} />
+                      {reviewCfg.label}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* ── RIGHT: per-tab bar chart ── */}
+              <div className="pa-score-chart " style={{
+                flex: 1, minWidth: 0,
+                borderLeft: '1px solid rgba(34,168,75,0.15)',
+                padding: '12px 12px 8px',
+                display: 'flex', flexDirection: 'column',
+              }}>
+                <p style={{
+                  fontSize: 9, fontWeight: 800, letterSpacing: '0.09em',
+                  color: 'var(--g700)', fontFamily: 'Montserrat,sans-serif',
+                  margin: '0 0 4px', textTransform: 'uppercase',
+                }}>Score by Tab</p>
+                {tabChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={155}>
+                    <BarChart
+                      data={tabChartData}
+                      barGap={1}
+                      barCategoryGap="40%"
+                      margin={{ top: 2, right: 4, left: - 22, bottom: 0 }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="rgba(0,0,0,0.07)"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fontSize: 9, fontWeight: 600, fill: '#6B7280', fontFamily: 'Montserrat,sans-serif' }}
+                        axisLine={false}
+                        tickLine={false}
+                        interval={0}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 8, fill: '#9CA3AF' }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={26}
+                      />
+                      <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(34,168,75,0.05)' }} />
+                      <Legend
+                        iconType="circle"
+                        iconSize={7}
+                        wrapperStyle={{ fontSize: 10, paddingTop: 4, fontFamily: 'Nunito,sans-serif' }}
+                      />
+                      <Bar dataKey="allocated" name="Allocated" fill="#34C961" radius={[3, 3, 0, 0]} maxBarSize={18} />
+                      <Bar dataKey="achieved" name="Achieved" fill="#F59E0B" radius={[3, 3, 0, 0]} maxBarSize={18} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'var(--tx-faint)', fontSize: 12,
+                  }}>
+                    No tab data yet
                   </div>
                 )}
               </div>
-            </>
+
+            </div>
           );
         })()}
       </div>
@@ -1142,38 +1225,7 @@ export default function ProjectAssessment() {
                   {isOpen && (
                     <div style={{ padding: '20px' }}>
                       {/* Per-module section switcher */}
-                      {moduleSections.length > 1 && (
-                        <div style={{
-                          display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
-                          padding: '10px 14px', borderRadius: 12,
-                          background: 'var(--g50)', border: '1.5px solid var(--g200)',
-                        }}>
-                          <span style={{
-                            fontSize: 10, fontWeight: 800, letterSpacing: '0.1em',
-                            textTransform: 'uppercase', color: 'var(--g700)',
-                            fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
-                          }}>▦ Section</span>
-                          <select
-                            value={selectedSection}
-                            onChange={e => setSelectedSection(e.target.value)}
-                            style={{
-                              flex: 1, padding: '5px 10px', borderRadius: 8,
-                              border: '1.5px solid var(--g300)', background: '#fff',
-                              fontSize: 13, fontWeight: 600, color: 'var(--tx)',
-                              cursor: 'pointer', outline: 'none',
-                            }}
-                          >
-                            <option value="">— All Sections —</option>
-                            {moduleSections.map(s => (
-                              <option key={s._id} value={String(s._id)}>{s.title}</option>
-                            ))}
-                            {/* {constantSections.filter(cs => grouped[String(cs._id)]).length > 0 && (
-                              <option disabled>── ⚡ Constant sections always visible ──</option>
-                              
-                            )} */}
-                          </select>
-                        </div>
-                      )}
+
 
                       {/* Guidelines */}
                       {mod.readDetails && (
@@ -1237,8 +1289,8 @@ export default function ProjectAssessment() {
                                 }}>
                                   {group.iconUrl
                                     ? <img src={`${SERVER_URL}${group.iconUrl}`} alt=""
-                                        style={{ width: 22, height: 22, objectFit: 'contain', filter: isSecOpen ? 'brightness(10)' : 'none' }}
-                                        onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }} />
+                                      style={{ width: 22, height: 22, objectFit: 'contain', filter: isSecOpen ? 'brightness(10)' : 'none' }}
+                                      onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }} />
                                     : null}
                                   <span style={{ display: group.iconUrl ? 'none' : 'flex', color: isSecOpen ? '#fff' : 'var(--g600)', fontSize: 14 }}>▦</span>
                                 </div>
@@ -1783,15 +1835,11 @@ export default function ProjectAssessment() {
           .pa-toggle-label { display: none !important; }
 
           /* Score card body */
-          .pa-score-body {
-            gap: 12px !important;
-            padding: 14px 14px !important;
-          }
-          .pa-score-leaf    { display: none !important; }
-          /* Hide banner + level track on mobile — no space */
-          .pa-score-banner  { display: none !important; }
+          .pa-score-body    { flex-direction: column !important; }
+          .pa-score-left    { max-width: 100% !important; padding: 14px 14px 10px !important; }
+          /* Hide chart on mobile — not enough space */
+          .pa-score-chart   { display: none !important; }
           .pa-level-track   { display: none !important; }
-          .pa-score-info    { min-width: 0 !important; }
           .pa-score-pct     { font-size: 26px !important; }
 
           /* Section inputs: stack PointsBox below inputs */

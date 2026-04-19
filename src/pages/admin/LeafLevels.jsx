@@ -3,7 +3,7 @@ import Layout from '../../components/shared/Layout.jsx';
 import toast from 'react-hot-toast';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 
-const SERVER_BASE = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace('/api', '');
+const SERVER_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 function LeafPreview({ colorCode, imageUrl, size = 40 }) {
     if (imageUrl) {
