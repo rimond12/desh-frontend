@@ -31,7 +31,7 @@ const adminNav = [
       { icon: '▦', label: 'Sections', path: '/admin/sections' },
       { icon: '🍃', label: 'Leaf Levels', path: '/admin/evaluation' },
     ]
-  }, 
+  },
   {
     section: 'MANAGEMENT', items: [
       { icon: '◉', label: 'Users', path: '/admin/users' },
@@ -109,7 +109,7 @@ export default function Sidebar({
               fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
               fontSize: 17, color: '#fff', letterSpacing: '-0.01em', lineHeight: 1.2,
             }}>
-              DESHBOARD
+              DESHboard
             </div>
             <div style={{
               fontSize: 10.5, color: 'rgba(255,255,255,0.38)',

@@ -32,7 +32,7 @@ export default function Sections() {
   const [reordering, setReordering] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
-  const [form, setForm] = useState({ title: '', sortOrder: '' });
+  const [form, setForm] = useState({ title: '', sortOrder: '', isConstant: false });
   const [iconFile, setIconFile] = useState(null);
   const [iconPreview, setIconPreview] = useState('');
 
@@ -48,7 +48,7 @@ export default function Sections() {
 
   const openNew = () => {
     setEditItem(null);
-    setForm({ title: '', sortOrder: sections.length + 1 });
+    setForm({ title: '', sortOrder: sections.length + 1, isConstant: false });
     setIconFile(null);
     setIconPreview('');
     setShowForm(true);
@@ -56,7 +56,7 @@ export default function Sections() {
 
   const openEdit = (s) => {
     setEditItem(s);
-    setForm({ title: s.title, sortOrder: s.sortOrder ?? 0 });
+    setForm({ title: s.title, sortOrder: s.sortOrder ?? 0, isConstant: s.isConstant || false });
     setIconFile(null);
     setIconPreview(s.iconUrl ? `${SERVER_URL}${s.iconUrl}` : '');
     setShowForm(true);
@@ -75,6 +75,7 @@ export default function Sections() {
       const fd = new FormData();
       fd.append('title', form.title);
       fd.append('sortOrder', form.sortOrder);
+      fd.append('isConstant', form.isConstant ? 'true' : 'false');
       if (iconFile) fd.append('icon', iconFile);
 
       if (editItem) {
@@ -221,6 +222,38 @@ export default function Sections() {
                   <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleIconChange} />
                 </label>
               </div>
+              {/* Constant Section toggle */}
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: 14,
+                padding: '14px 16px', borderRadius: 12,
+                background: form.isConstant ? 'linear-gradient(135deg,#FFF7ED,#FFEDD5)' : 'var(--bg-soft)',
+                border: `1.5px solid ${form.isConstant ? '#FED7AA' : 'var(--border)'}`,
+                cursor: 'pointer', transition: 'all 0.2s',
+              }} onClick={() => setForm({ ...form, isConstant: !form.isConstant })}>
+                <div style={{
+                  width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: 1,
+                  border: `2px solid ${form.isConstant ? '#EA580C' : 'var(--border-md)'}`,
+                  background: form.isConstant ? '#EA580C' : '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.15s',
+                }}>
+                  {form.isConstant && <span style={{ color: '#fff', fontSize: 12, lineHeight: 1, fontWeight: 900 }}>✓</span>}
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: form.isConstant ? '#9A3412' : 'var(--tx)' }}>
+                    Constant Section
+                    {form.isConstant && (
+                      <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 99, background: '#EA580C', color: '#fff', verticalAlign: 'middle' }}>
+                        ⚡ ON
+                      </span>
+                    )}
+                  </p>
+                  <p style={{ margin: '3px 0 0', fontSize: 12, color: form.isConstant ? '#C2410C' : 'var(--tx-muted)', lineHeight: 1.4 }}>
+                    Always visible alongside other sections. Its score is added to every section's total. Not shown in section filter dropdown.
+                  </p>
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                 <button className="btn-primary-green" onClick={save} style={{ flex: 1, justifyContent: 'center' }}>
                   {editItem ? 'Save Changes' : 'Create Section'}
@@ -262,6 +295,7 @@ export default function Sections() {
                 <th style={{ width: 80 }}>Order</th>
                 <th style={{ width: 64 }}>Icon</th>
                 <th>Section Name</th>
+                <th style={{ width: 120 }}>Type</th>
                 <th style={{ width: 140 }}>Actions</th>
               </tr>
             </thead>
@@ -319,6 +353,23 @@ export default function Sections() {
                   </td>
                   <td>
                     <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--tx)' }}>{s.title}</span>
+                  </td>
+                  <td>
+                    {s.isConstant ? (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99,
+                        background: '#FFF7ED', color: '#9A3412', border: '1px solid #FED7AA',
+                        fontFamily: 'Montserrat,sans-serif',
+                      }}>⚡ Constant</span>
+                    ) : (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99,
+                        background: 'var(--g50)', color: 'var(--g700)', border: '1px solid var(--g200)',
+                        fontFamily: 'Montserrat,sans-serif',
+                      }}>Regular</span>
+                    )}
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: 6 }}>

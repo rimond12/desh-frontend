@@ -24,12 +24,13 @@ function calcInputMax(inp) {
   return 0;
 }
 
-function calcSectionData(sectionId, tabs) {
+function calcSectionData(sectionId, tabs, extraIds = []) {
+  const ids = new Set([String(sectionId), ...extraIds.map(String)]);
   let earned = 0, max = 0;
   (tabs || []).forEach(tab => {
     (tab.modules || []).forEach(mod => {
       (mod.inputs || []).forEach(inp => {
-        if (String(inp.sectionId) === String(sectionId)) {
+        if (ids.has(String(inp.sectionId))) {
           earned += inp.points || 0;
           max    += calcInputMax(inp);
         }
@@ -262,8 +263,12 @@ export default function SubmissionDetail() {
   );
 
   // ── Score card calculations ──────────────────────────────────────
-  const sortedSections = [...globalSections].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-  const sectionData    = selectedSection ? calcSectionData(selectedSection, tabs) : null;
+  const sortedSections   = [...globalSections].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const constantSections = sortedSections.filter(s => s.isConstant);
+  const regularSections  = sortedSections.filter(s => !s.isConstant);
+  const constantIds      = constantSections.map(s => String(s._id));
+
+  const sectionData    = selectedSection ? calcSectionData(selectedSection, tabs, constantIds) : null;
 
   const displayPct    = sectionData ? sectionData.pct    : (project?.scorePercent || 0);
   const displayEarned = Math.round(sectionData ? sectionData.earned : (project?.totalPoints  || 0));
@@ -517,10 +522,13 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.55;
             fontSize: 13, fontWeight: 600, color: 'var(--tx)', cursor: 'pointer', outline: 'none',
           }}>
             <option value="">— Overall Score —</option>
-            {sortedSections.map(s => {
+            {regularSections.map(s => {
               const ss = project?.sectionStatuses?.find(st => String(st.sectionId) === String(s._id));
               return <option key={s._id} value={s._id}>{s.title}{ss ? ` · ${STATUS_CFG[ss.status]?.label}` : ''}</option>;
             })}
+            {constantSections.length > 0 && (
+              <option disabled>── ⚡ Constant sections always included ──</option>
+            )}
           </select>
 
           {/* Section status pills */}
@@ -649,11 +657,14 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.55;
 
       {/* ── Tabs → Modules → Inputs ── */}
       {(tabs || []).map((tab, ti) => {
-        // When a section is selected, only show inputs belonging to it
+        // When a section is selected, show that section + all constant sections
+        const selectedWithConstants = selectedSection
+          ? new Set([selectedSection, ...constantIds])
+          : null;
         const visibleModules = (tab.modules || []).map(mod => ({
           ...mod,
-          visibleInputs: selectedSection
-            ? (mod.inputs || []).filter(inp => String(inp.sectionId) === selectedSection)
+          visibleInputs: selectedWithConstants
+            ? (mod.inputs || []).filter(inp => selectedWithConstants.has(String(inp.sectionId)))
             : (mod.inputs || []),
         })).filter(mod => mod.visibleInputs.length > 0);
 
@@ -736,6 +747,11 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.55;
                                 {isInputLocked && (
                                   <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 4, background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', letterSpacing: '0.05em', textTransform: 'uppercase', fontFamily: 'Montserrat,sans-serif' }}>
                                     🔒 locked
+                                  </span>
+                                )}
+                                {selectedSection && constantIds.includes(String(inp.sectionId)) && (
+                                  <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#FFF7ED', color: '#9A3412', border: '1px solid #FED7AA', letterSpacing: '0.05em', fontFamily: 'Montserrat,sans-serif' }}>
+                                    ⚡ Constant
                                   </span>
                                 )}
                               </p>

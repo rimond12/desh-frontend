@@ -86,13 +86,14 @@ function getModuleInputs(mod) {
   );
 }
 
-// Calculate earned + max for a specific global section across all tabs
-function calcSectionScore(sectionId, tabs, answers) {
+// Calculate earned + max for a section (+ optional extra constant section IDs)
+function calcSectionScore(sectionId, tabs, answers, extraIds = []) {
+  const ids = new Set([String(sectionId), ...extraIds.map(String)]);
   let earned = 0, max = 0;
   tabs.forEach(tab => {
     (tab.modules || []).forEach(mod => {
       getModuleInputs(mod).forEach(inp => {
-        if (String(inp.sectionId) === String(sectionId)) {
+        if (ids.has(String(inp.sectionId))) {
           earned += calcInputPoints(inp, answers[inp._id]);
           max += calcInputMax(inp);
         }
@@ -389,13 +390,17 @@ export default function ProjectAssessment() {
 
   // Section score dropdown calculation
   const sortedGlobalSections = [...globalSections].sort((a, b) => a.sortOrder - b.sortOrder);
+  const constantSections = sortedGlobalSections.filter(s => s.isConstant);
+  const regularSections = sortedGlobalSections.filter(s => !s.isConstant);
+  const constantSectionIds = constantSections.map(s => String(s._id));
+
   const sectionScore = selectedSection
-    ? calcSectionScore(selectedSection, tabs, answers)
+    ? calcSectionScore(selectedSection, tabs, answers, constantSectionIds)
     : null;
   const sectionLeaf = sectionScore
     ? getLeafLevel(sectionScore.pct, leafRules)
     : null;
-  const selectedSectionName = sortedGlobalSections.find(s => String(s._id) === selectedSection)?.title || '';
+  const selectedSectionName = regularSections.find(s => String(s._id) === selectedSection)?.title || '';
 
   // Resolve colorCode from leafRules for the overall leaf
   const overallLeafRule = leafRules.find(r => r.name === displayLeaf) || null;
@@ -416,7 +421,7 @@ export default function ProjectAssessment() {
   const displayPct = displayMode ? (sectionScore?.pct ?? 0) : pct;
   const displayPts = Math.round(displayMode ? (sectionScore?.earned ?? 0) : (project?.totalPoints || 0));
   const displayMax = Math.round(displayMode ? (sectionScore?.max ?? 0) : (project?.maxPoints || 0));
-  const activeRule   = displayMode ? sectionLeaf : overallLeafRule;
+  const activeRule = displayMode ? sectionLeaf : overallLeafRule;
   const displayLevel = displayMode ? (sectionLeaf?.name || null) : displayLeaf;
   const displayColorCode = displayMode ? (sectionLeaf?.colorCode || null) : (overallLeafRule?.colorCode || null);
   const progressColor = displayColorCode || '#94A3B8';
@@ -530,7 +535,7 @@ export default function ProjectAssessment() {
                 cursor: 'pointer', outline: 'none', maxWidth: 340,
               }}>
               <option value="">— Overall Score —</option>
-              {sortedGlobalSections.map(s => (
+              {regularSections.map(s => (
                 <option key={s._id} value={s._id}>{s.title}</option>
               ))}
             </select>
@@ -1026,18 +1031,19 @@ export default function ProjectAssessment() {
                   .map(s => ({
                     id: String(s._id),
                     title: s.title,
+                    isConstant: s.isConstant || false,
                     inputs: grouped[String(s._id)],
                   })),
-                ...(grouped['none'] ? [{ id: 'none', title: 'Uncategorized', inputs: grouped['none'] }] : []),
+                ...(grouped['none'] ? [{ id: 'none', title: 'Uncategorized', isConstant: false, inputs: grouped['none'] }] : []),
               ];
 
-              // Only show the currently selected section's group (or all if none selected)
+              // When a section is selected, show that section + all constant sections
               const visibleGroups = selectedSection
-                ? sectionGroups.filter(g => g.id === selectedSection)
+                ? sectionGroups.filter(g => g.id === selectedSection || g.isConstant)
                 : sectionGroups;
 
-              // Sections available in this module (for per-module switcher)
-              const moduleSections = sortedGlobalSections.filter(s => grouped[String(s._id)]);
+              // Only regular (non-constant) sections in per-module switcher
+              const moduleSections = regularSections.filter(s => grouped[String(s._id)]);
 
               // Total pts for this module (all inputs)
               const modPts = allInputs.reduce((s, inp) => s + calcInputPoints(inp, answers[inp._id]), 0);
@@ -1160,6 +1166,10 @@ export default function ProjectAssessment() {
                             {moduleSections.map(s => (
                               <option key={s._id} value={String(s._id)}>{s.title}</option>
                             ))}
+                            {/* {constantSections.filter(cs => grouped[String(cs._id)]).length > 0 && (
+                              <option disabled>── ⚡ Constant sections always visible ──</option>
+                              
+                            )} */}
                           </select>
                         </div>
                       )}
@@ -1228,8 +1238,18 @@ export default function ProjectAssessment() {
                                   fontFamily: 'Montserrat,sans-serif', fontWeight: 800,
                                   fontSize: 14, margin: 0, flex: 1,
                                   color: isSecOpen ? '#fff' : 'var(--tx)',
+                                  display: 'flex', alignItems: 'center', gap: 8,
                                 }}>
                                   {group.title}
+                                  {/* {group.isConstant && (
+                                    <span style={{
+                                      fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 99,
+                                      background: isSecOpen ? 'rgba(255,255,255,0.22)' : '#FFF7ED',
+                                      color: isSecOpen ? '#fff' : '#9A3412',
+                                      border: isSecOpen ? '1px solid rgba(255,255,255,0.3)' : '1px solid #FED7AA',
+                                      flexShrink: 0,
+                                    }}>⚡ Constant</span>
+                                  )} */}
                                 </p>
                                 {/* Section mini score pill */}
                                 <div style={{
