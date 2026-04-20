@@ -12,8 +12,8 @@ const SERVER_BASE = API_BASE; // kept for backward compat with imageUrl usages b
 
 const STATUS_CFG = {
   under_review: { label: 'Under Review', color: '#92400E', bg: '#FEF9C3', border: '#FDE68A', dot: '#D97706' },
-  verified:     { label: 'Verified',     color: '#145C28', bg: '#D6F5E3', border: '#A8EFC0', dot: '#22A84B' },
-  cancelled:    { label: 'Cancelled',    color: '#991B1B', bg: '#FEE2E2', border: '#FECACA', dot: '#EF4444' },
+  verified: { label: 'Verified', color: '#145C28', bg: '#D6F5E3', border: '#A8EFC0', dot: '#22A84B' },
+  cancelled: { label: 'Cancelled', color: '#991B1B', bg: '#FEE2E2', border: '#FECACA', dot: '#EF4444' },
 };
 
 // ── Score helpers ─────────────────────────────────────────────────
@@ -33,7 +33,7 @@ function calcSectionData(sectionId, tabs, extraIds = []) {
       (mod.inputs || []).forEach(inp => {
         if (ids.has(String(inp.sectionId))) {
           earned += inp.points || 0;
-          max    += calcInputMax(inp);
+          max += calcInputMax(inp);
         }
       });
     });
@@ -78,7 +78,7 @@ function getDownloadUrl(doc) {
 function getFileType(name) {
   const ext = (name || '').split('.').pop().toLowerCase();
   if (ext === 'pdf') return 'pdf';
-  if (['jpg','jpeg','png','gif','webp','svg','bmp','ico'].includes(ext)) return 'image';
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext)) return 'image';
   return 'other';
 }
 function fileIcon(name) {
@@ -93,9 +93,9 @@ function fileActionLabel(name) {
 // ── Edit Modal ────────────────────────────────────────────────────
 function EditModal({ project, globalSections, onSave, onClose }) {
   const [sectionId, setSectionId] = useState('');
-  const [status, setStatus]       = useState('');
-  const [note, setNote]           = useState('');
-  const [saving, setSaving]       = useState(false);
+  const [status, setStatus] = useState('');
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const handleSectionChange = (sid) => {
     setSectionId(sid);
@@ -210,20 +210,20 @@ export default function SubmissionDetail() {
   const axiosSecure = useAxiosSecure();
   const { dbUser } = useAuth();
 
-  const [project, setProject]               = useState(null);
-  const [tabs, setTabs]                     = useState([]);
+  const [project, setProject] = useState(null);
+  const [tabs, setTabs] = useState([]);
   const [globalSections, setGlobalSections] = useState([]);
-  const [leafRules, setLeafRules]           = useState([]);
-  const [loading, setLoading]               = useState(true);
+  const [leafRules, setLeafRules] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedSection, setSelectedSection] = useState('');
-  const [showEdit, setShowEdit]             = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   // comment counts per inputId (pre-fetched for badges)
-  const [commentCounts, setCommentCounts]   = useState({});
+  const [commentCounts, setCommentCounts] = useState({});
   // per-question locked inputs
   const [lockedInputsSet, setLockedInputsSet] = useState(new Set());
-  const [togglingInput, setTogglingInput]   = useState(null);
+  const [togglingInput, setTogglingInput] = useState(null);
   // score card collapse
-  const [scoreOpen, setScoreOpen]           = useState(true);
+  const [scoreOpen, setScoreOpen] = useState(true);
 
   useEffect(() => {
     Promise.all([
@@ -267,38 +267,38 @@ export default function SubmissionDetail() {
   );
 
   // ── Score card calculations ──────────────────────────────────────
-  const sortedSections   = [...globalSections].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const sortedSections = [...globalSections].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
   const constantSections = sortedSections.filter(s => s.isConstant);
-  const regularSections  = sortedSections.filter(s => !s.isConstant);
-  const constantIds      = constantSections.map(s => String(s._id));
+  const regularSections = sortedSections.filter(s => !s.isConstant);
+  const constantIds = constantSections.map(s => String(s._id));
 
-  const sectionData    = selectedSection ? calcSectionData(selectedSection, tabs, constantIds) : null;
+  const sectionData = selectedSection ? calcSectionData(selectedSection, tabs, constantIds) : null;
 
-  const displayPct    = sectionData ? sectionData.pct    : (project?.scorePercent || 0);
-  const displayEarned = Math.round(sectionData ? sectionData.earned : (project?.totalPoints  || 0));
-  const displayMax    = Math.round(sectionData ? sectionData.max    : (project?.maxPoints    || 0));
+  const displayPct = sectionData ? sectionData.pct : (project?.scorePercent || 0);
+  const displayEarned = Math.round(sectionData ? sectionData.earned : (project?.totalPoints || 0));
+  const displayMax = Math.round(sectionData ? sectionData.max : (project?.maxPoints || 0));
 
-  const overallRule   = leafRules.find(r => r.name === project?.leafLevel) || null;
-  const sectionRule   = sectionData ? getLeafLevel(sectionData.pct, leafRules) : null;
-  const activeRule    = sectionData ? sectionRule : overallRule;
+  const overallRule = leafRules.find(r => r.name === project?.leafLevel) || null;
+  const sectionRule = sectionData ? getLeafLevel(sectionData.pct, leafRules) : null;
+  const activeRule = sectionData ? sectionRule : overallRule;
 
-  const displayLevel     = activeRule?.name     || null;
+  const displayLevel = activeRule?.name || null;
   const displayColorCode = activeRule?.colorCode || null;
-  const progressColor    = displayColorCode || '#94A3B8';
+  const progressColor = displayColorCode || '#94A3B8';
 
   const activeSectionStatus = selectedSection
     ? project?.sectionStatuses?.find(s => String(s.sectionId) === selectedSection)?.status || null
     : null;
 
   const selectedSectionName = sortedSections.find(s => String(s._id) === selectedSection)?.title || '';
-  const docs       = project?.documents || [];
-  const isLocked   = project?.isLocked || false;
+  const docs = project?.documents || [];
+  const isLocked = project?.isLocked || false;
   const lockStatus = project?.lockStatus || 'pending';
-  const ownerId    = project?.userId?._id || project?.userId;
+  const ownerId = project?.userId?._id || project?.userId;
 
   const LOCK_STATUS_CFG = {
-    pending:           { label: 'Pending Review', bg: '#F3F4F6', border: '#D1D5DB', color: '#4B5563' },
-    locked:            { label: '🔒 Locked',       bg: '#EDE9FE', border: '#C4B5FD', color: '#5B21B6' },
+    pending: { label: 'Pending Review', bg: '#F3F4F6', border: '#D1D5DB', color: '#4B5563' },
+    locked: { label: '🔒 Locked', bg: '#EDE9FE', border: '#C4B5FD', color: '#5B21B6' },
     unlocked_for_edit: { label: '🔓 Unlocked for Edit', bg: '#FEF9C3', border: '#FDE68A', color: '#92400E' },
   };
 
@@ -334,14 +334,14 @@ export default function SubmissionDetail() {
   const exportPdf = () => {
     const win = window.open('', '_blank', 'width=960,height=800');
     if (!win) { toast.error('Please allow popups to export PDF'); return; }
-    const esc = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     let body = '';
 
     body += `<div class="rpt-header">
       <div class="rpt-logo">DESH Submission Report</div>
       <h1>${esc(project?.title)}</h1>
       <p class="meta">by <strong>${esc(project?.userId?.name)}</strong> &bull; ${esc(project?.userId?.email)}</p>
-      <p class="meta">Date: ${new Date(project?.updatedAt).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</p>
+      <p class="meta">Date: ${new Date(project?.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
     </div>`;
 
     body += `<div class="score-card">
@@ -356,41 +356,41 @@ export default function SubmissionDetail() {
     (tabs || []).forEach((tab, ti) => {
       const mods = (tab.modules || []).filter(m => (m.inputs || []).length > 0);
       if (!mods.length) return;
-      body += `<div class="tab-section"><div class="tab-heading">${esc(ti+1 + '. ' + tab.title)}</div>`;
+      body += `<div class="tab-section"><div class="tab-heading">${esc(ti + 1 + '. ' + tab.title)}</div>`;
       mods.forEach((mod, mi) => {
         const inputs = mod.inputs || [];
-        const modEarned = inputs.reduce((s,i) => s + (i.points||0), 0);
-        const modMax    = inputs.reduce((s,i) => s + calcInputMax(i), 0);
+        const modEarned = inputs.reduce((s, i) => s + (i.points || 0), 0);
+        const modMax = inputs.reduce((s, i) => s + calcInputMax(i), 0);
         body += `<div class="module">
           <div class="module-header">
-            <span class="module-title">${esc((ti+1)+'.'+(mi+1)+' '+mod.title)}</span>
+            <span class="module-title">${esc((ti + 1) + '.' + (mi + 1) + ' ' + mod.title)}</span>
             <span class="module-score">${modEarned.toFixed(1)} / ${modMax} pts</span>
           </div><div class="module-body">`;
         inputs.forEach(inp => {
           let val = '';
           if (inp.inputType === 'file') {
-            const linked = (docs||[]).filter(d => String(d.inputId) === String(inp._id));
+            const linked = (docs || []).filter(d => String(d.inputId) === String(inp._id));
             val = linked.length > 0
               ? linked.map(doc => {
-                  const url = getDownloadUrl(doc);
-                  const name = doc.originalName || doc.filename || 'file';
-                  return `<a href="${url}" target="_blank" class="file-link">${fileIcon(name)} ${esc(name)}</a>`;
-                }).join('<br>')
+                const url = getDownloadUrl(doc);
+                const name = doc.originalName || doc.filename || 'file';
+                return `<a href="${url}" target="_blank" class="file-link">${fileIcon(name)} ${esc(name)}</a>`;
+              }).join('<br>')
               : '<span class="empty">No file uploaded</span>';
           } else if (inp.inputType === 'checkbox') {
             const sel = Array.isArray(inp.value) ? inp.value : [];
             const opts = inp.options || [];
             val = opts.length > 0
               ? opts.map(o => {
-                  const on = sel.includes(o.label);
-                  return `<span class="cb-chip ${on?'cb-sel':'cb-unsel'}">${on?'✓ ':''}${esc(o.label)}${o.points?` (${o.points}pts)`:''}</span>`;
-                }).join(' ')
-              : (sel.length > 0 ? sel.map(v=>`<span class="cb-chip cb-sel">✓ ${esc(v)}</span>`).join(' ') : '<span class="empty">—</span>');
+                const on = sel.includes(o.label);
+                return `<span class="cb-chip ${on ? 'cb-sel' : 'cb-unsel'}">${on ? '✓ ' : ''}${esc(o.label)}${o.points ? ` (${o.points}pts)` : ''}</span>`;
+              }).join(' ')
+              : (sel.length > 0 ? sel.map(v => `<span class="cb-chip cb-sel">✓ ${esc(v)}</span>`).join(' ') : '<span class="empty">—</span>');
           } else {
             val = inp.value ? esc(String(inp.value)) : '<span class="empty">—</span>';
           }
           body += `<div class="inp-row">
-            <div class="inp-label">${esc(inp.label)}${inp.isRequired?'<span class="req"> *</span>':''}${inp.points>0?`<span class="pts-badge">${inp.points.toFixed(1)} pts</span>`:''}</div>
+            <div class="inp-label">${esc(inp.label)}${inp.isRequired ? '<span class="req"> *</span>' : ''}${inp.points > 0 ? `<span class="pts-badge">${inp.points.toFixed(1)} pts</span>` : ''}</div>
             <div class="inp-value">${val}</div>
           </div>`;
         });
@@ -531,7 +531,7 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.55;
               return <option key={s._id} value={s._id}>{s.title}{ss ? ` · ${STATUS_CFG[ss.status]?.label}` : ''}</option>;
             })}
             {constantSections.length > 0 && (
-              <option disabled>── ⚡ Constant sections always included ──</option>
+              <></>
             )}
           </select>
 
@@ -612,7 +612,7 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.55;
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             {docs.map((doc, i) => {
-              const url  = getDownloadUrl(doc);
+              const url = getDownloadUrl(doc);
               const name = doc.originalName || doc.filename || 'file';
               const type = getFileType(name);
               const viewable = type === 'pdf' || type === 'image';
@@ -675,118 +675,118 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.55;
         if (visibleModules.length === 0) return null;
 
         return (
-        <div key={tab._id} className="fade-in-up" style={{ marginBottom: 28 }}>
-          {/* Tab heading */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, paddingBottom: 10, borderBottom: '2px solid var(--g200)' }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 28, height: 28, borderRadius: 8, background: 'var(--g600)', color: '#fff',
-              fontSize: 12, fontWeight: 900, flexShrink: 0, fontFamily: 'Montserrat,sans-serif',
-            }}>{ti + 1}</span>
-            <h2 style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 15, color: 'var(--g800)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              {tab.title}
-            </h2>
-          </div>
+          <div key={tab._id} className="fade-in-up" style={{ marginBottom: 28 }}>
+            {/* Tab heading */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, paddingBottom: 10, borderBottom: '2px solid var(--g200)' }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 28, height: 28, borderRadius: 8, background: 'var(--g600)', color: '#fff',
+                fontSize: 12, fontWeight: 900, flexShrink: 0, fontFamily: 'Montserrat,sans-serif',
+              }}>{ti + 1}</span>
+              <h2 style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 15, color: 'var(--g800)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {tab.title}
+              </h2>
+            </div>
 
-          {/* Modules */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {visibleModules.map((mod, mi) => {
-              const modEarned = mod.visibleInputs.reduce((s, inp) => s + (inp.points || 0), 0);
-              const modMax    = mod.visibleInputs.reduce((s, inp) => s + calcInputMax(inp), 0);
-              const modPct    = modMax > 0 ? Math.round((modEarned / modMax) * 100) : 0;
-              const scoreColor = modPct >= 70 ? 'var(--g700)' : modPct >= 40 ? '#92400E' : 'var(--tx-faint)';
-              const scoreBg    = modPct >= 70 ? 'var(--g100)' : modPct >= 40 ? '#FEF9C3' : 'var(--bg-muted)';
+            {/* Modules */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {visibleModules.map((mod, mi) => {
+                const modEarned = mod.visibleInputs.reduce((s, inp) => s + (inp.points || 0), 0);
+                const modMax = mod.visibleInputs.reduce((s, inp) => s + calcInputMax(inp), 0);
+                const modPct = modMax > 0 ? Math.round((modEarned / modMax) * 100) : 0;
+                const scoreColor = modPct >= 70 ? 'var(--g700)' : modPct >= 40 ? '#92400E' : 'var(--tx-faint)';
+                const scoreBg = modPct >= 70 ? 'var(--g100)' : modPct >= 40 ? '#FEF9C3' : 'var(--bg-muted)';
 
-              return (
-                <div key={mod._id} style={{ border: '1px solid var(--border)', borderRadius: 16, background: '#fff', overflow: 'hidden', boxShadow: 'var(--sh-xs)' }}>
-                  {/* Module header */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', background: 'var(--bg-soft)', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'var(--g50)', border: '1px solid var(--g200)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: 'var(--g600)' }}>◈</div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 14, color: 'var(--tx)', margin: 0 }}>
-                        <span style={{ color: 'var(--tx-faint)', marginRight: 4 }}>{ti + 1}.{mi + 1}</span>{mod.title}
-                      </p>
+                return (
+                  <div key={mod._id} style={{ border: '1px solid var(--border)', borderRadius: 16, background: '#fff', overflow: 'hidden', boxShadow: 'var(--sh-xs)' }}>
+                    {/* Module header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', background: 'var(--bg-soft)', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'var(--g50)', border: '1px solid var(--g200)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: 'var(--g600)' }}>◈</div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 14, color: 'var(--tx)', margin: 0 }}>
+                          <span style={{ color: 'var(--tx-faint)', marginRight: 4 }}>{ti + 1}.{mi + 1}</span>{mod.title}
+                        </p>
+                      </div>
+                      <div style={{ padding: '5px 12px', borderRadius: 20, background: scoreBg, border: `1px solid ${modPct >= 70 ? 'var(--g300)' : modPct >= 40 ? '#FDE68A' : 'var(--border)'}` }}>
+                        <span style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 14, color: scoreColor }}>
+                          {modEarned.toFixed(1)}
+                        </span>
+                        {modMax > 0 && <span style={{ fontSize: 11, color: 'var(--tx-faint)', fontWeight: 600 }}> / {modMax} pts</span>}
+                      </div>
                     </div>
-                    <div style={{ padding: '5px 12px', borderRadius: 20, background: scoreBg, border: `1px solid ${modPct >= 70 ? 'var(--g300)' : modPct >= 40 ? '#FDE68A' : 'var(--border)'}` }}>
-                      <span style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 14, color: scoreColor }}>
-                        {modEarned.toFixed(1)}
-                      </span>
-                      {modMax > 0 && <span style={{ fontSize: 11, color: 'var(--tx-faint)', fontWeight: 600 }}> / {modMax} pts</span>}
-                    </div>
-                  </div>
 
-                  {/* Input rows */}
-                  <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {mod.visibleInputs.map(inp => {
-                      const isInputLocked = lockedInputsSet.has(String(inp._id));
-                      const isToggling    = togglingInput === String(inp._id);
-                      const isEmpty = inp.inputType === 'file' ? !inp.uploaded
-                        : Array.isArray(inp.value) ? inp.value.length === 0
-                        : inp.value === '' || inp.value === undefined;
+                    {/* Input rows */}
+                    <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {mod.visibleInputs.map(inp => {
+                        const isInputLocked = lockedInputsSet.has(String(inp._id));
+                        const isToggling = togglingInput === String(inp._id);
+                        const isEmpty = inp.inputType === 'file' ? !inp.uploaded
+                          : Array.isArray(inp.value) ? inp.value.length === 0
+                            : inp.value === '' || inp.value === undefined;
 
-                      // Find all uploaded documents for file inputs
-                      const linkedDocs = inp.inputType === 'file'
-                        ? docs.filter(d => String(d.inputId) === String(inp._id))
-                        : [];
+                        // Find all uploaded documents for file inputs
+                        const linkedDocs = inp.inputType === 'file'
+                          ? docs.filter(d => String(d.inputId) === String(inp._id))
+                          : [];
 
-                      return (
-                        <div key={inp._id} style={{
-                          padding: '10px 12px', borderRadius: 10,
-                          background: isInputLocked ? '#FFFBEB' : isEmpty ? 'var(--bg-subtle)' : '#FAFFFE',
-                          border: `1px solid ${isInputLocked ? '#FDE68A' : isEmpty ? 'var(--border)' : 'var(--g100)'}`,
-                          opacity: isEmpty && !isInputLocked ? 0.55 : 1,
-                          transition: 'border-color 0.2s, background 0.2s',
-                        }}>
-                          {/* Top row: label + value + points badge + lock button */}
-                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx)', margin: '0 0 3px', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                {inp.label}
-                                {inp.isRequired && <span style={{ color: '#EF4444', fontSize: 10 }}>*</span>}
-                                <span style={{
-                                  fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 4, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'Montserrat,sans-serif',
-                                  background: { number: '#EFF6FF', text: 'var(--g50)', checkbox: '#FEF9C3', file: '#F5F0E8' }[inp.inputType],
-                                  color: { number: '#1D4ED8', text: 'var(--g700)', checkbox: '#92400E', file: '#78350F' }[inp.inputType],
-                                }}>{inp.inputType}</span>
-                                {isInputLocked && (
-                                  <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 4, background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', letterSpacing: '0.05em', textTransform: 'uppercase', fontFamily: 'Montserrat,sans-serif' }}>
-                                    🔒 locked
-                                  </span>
-                                )}
-                                {selectedSection && constantIds.includes(String(inp.sectionId)) && (
-                                  <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#FFF7ED', color: '#9A3412', border: '1px solid #FED7AA', letterSpacing: '0.05em', fontFamily: 'Montserrat,sans-serif' }}>
-                                    ⚡ Constant
-                                  </span>
-                                )}
-                              </p>
-                              <div style={{ fontSize: 13, color: isEmpty ? 'var(--tx-faint)' : 'var(--tx)', wordBreak: 'break-word' }}>
-                                {inp.inputType === 'file'
-                                  ? (linkedDocs.length > 0
-                                    ? (
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                                        {linkedDocs.map((doc, di) => {
-                                          const url  = getDownloadUrl(doc);
-                                          const name = doc.originalName || doc.filename || 'file';
-                                          const type = getFileType(name);
-                                          const viewable = type === 'pdf' || type === 'image';
-                                          return (
-                                            <a key={di} href={url}
-                                              target="_blank" rel="noopener noreferrer"
-                                              {...(!viewable ? { download: name } : {})}
-                                              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 8, background: 'var(--g50)', border: '1px solid var(--g200)', color: 'var(--g800)', fontWeight: 600, fontSize: 12, textDecoration: 'none' }}>
-                                              <span>{fileIcon(name)}</span>
-                                              <span style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
-                                              <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: 'var(--g200)', color: 'var(--g800)', flexShrink: 0 }}>{fileActionLabel(name)}</span>
-                                            </a>
-                                          );
-                                        })}
-                                      </div>
-                                    )
-                                    : <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>No file uploaded</span>)
-                                  : inp.inputType === 'checkbox'
-                                    ? (() => {
+                        return (
+                          <div key={inp._id} style={{
+                            padding: '10px 12px', borderRadius: 10,
+                            background: isInputLocked ? '#FFFBEB' : isEmpty ? 'var(--bg-subtle)' : '#FAFFFE',
+                            border: `1px solid ${isInputLocked ? '#FDE68A' : isEmpty ? 'var(--border)' : 'var(--g100)'}`,
+                            opacity: isEmpty && !isInputLocked ? 0.55 : 1,
+                            transition: 'border-color 0.2s, background 0.2s',
+                          }}>
+                            {/* Top row: label + value + points badge + lock button */}
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx)', margin: '0 0 3px', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                  {inp.label}
+                                  {inp.isRequired && <span style={{ color: '#EF4444', fontSize: 10 }}>*</span>}
+                                  <span style={{
+                                    fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 4, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'Montserrat,sans-serif',
+                                    background: { number: '#EFF6FF', text: 'var(--g50)', checkbox: '#FEF9C3', file: '#F5F0E8' }[inp.inputType],
+                                    color: { number: '#1D4ED8', text: 'var(--g700)', checkbox: '#92400E', file: '#78350F' }[inp.inputType],
+                                  }}>{inp.inputType}</span>
+                                  {isInputLocked && (
+                                    <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 4, background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', letterSpacing: '0.05em', textTransform: 'uppercase', fontFamily: 'Montserrat,sans-serif' }}>
+                                      🔒 locked
+                                    </span>
+                                  )}
+                                  {selectedSection && constantIds.includes(String(inp.sectionId)) && (
+                                    <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#FFF7ED', color: '#9A3412', border: '1px solid #FED7AA', letterSpacing: '0.05em', fontFamily: 'Montserrat,sans-serif' }}>
+                                      ⚡ Constant
+                                    </span>
+                                  )}
+                                </p>
+                                <div style={{ fontSize: 13, color: isEmpty ? 'var(--tx-faint)' : 'var(--tx)', wordBreak: 'break-word' }}>
+                                  {inp.inputType === 'file'
+                                    ? (linkedDocs.length > 0
+                                      ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                          {linkedDocs.map((doc, di) => {
+                                            const url = getDownloadUrl(doc);
+                                            const name = doc.originalName || doc.filename || 'file';
+                                            const type = getFileType(name);
+                                            const viewable = type === 'pdf' || type === 'image';
+                                            return (
+                                              <a key={di} href={url}
+                                                target="_blank" rel="noopener noreferrer"
+                                                {...(!viewable ? { download: name } : {})}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 8, background: 'var(--g50)', border: '1px solid var(--g200)', color: 'var(--g800)', fontWeight: 600, fontSize: 12, textDecoration: 'none' }}>
+                                                <span>{fileIcon(name)}</span>
+                                                <span style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                                                <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: 'var(--g200)', color: 'var(--g800)', flexShrink: 0 }}>{fileActionLabel(name)}</span>
+                                              </a>
+                                            );
+                                          })}
+                                        </div>
+                                      )
+                                      : <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>No file uploaded</span>)
+                                    : inp.inputType === 'checkbox'
+                                      ? (() => {
                                         const selected = Array.isArray(inp.value) ? inp.value : [];
-                                        const allOpts  = inp.options || [];
+                                        const allOpts = inp.options || [];
                                         if (allOpts.length === 0 && selected.length === 0)
                                           return <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>;
                                         const list = allOpts.length > 0 ? allOpts.map(o => ({ label: o.label, pts: o.points || 0 })) : selected.map(v => ({ label: v, pts: 0 }));
@@ -811,53 +811,53 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.55;
                                           </div>
                                         );
                                       })()
-                                    : (inp.value || <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)}
+                                      : (inp.value || <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)}
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                                {inp.points > 0 && (
+                                  <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 7, background: 'var(--g100)', color: 'var(--g700)', border: '1px solid var(--g200)', whiteSpace: 'nowrap' }}>
+                                    {inp.points.toFixed(1)} pts
+                                  </span>
+                                )}
+                                <button
+                                  onClick={() => toggleInputLock(inp._id, isInputLocked)}
+                                  disabled={isToggling}
+                                  style={{
+                                    fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 7,
+                                    border: `1px solid ${isInputLocked ? '#FDE68A' : 'var(--g200)'}`,
+                                    background: isInputLocked ? '#FEF9C3' : 'var(--g50)',
+                                    color: isInputLocked ? '#92400E' : 'var(--g700)',
+                                    cursor: isToggling ? 'wait' : 'pointer',
+                                    whiteSpace: 'nowrap', opacity: isToggling ? 0.6 : 1,
+                                    transition: 'all 0.2s',
+                                  }}
+                                >
+                                  {isToggling ? '...' : isInputLocked ? '🔓 Unlock' : '🔒 Lock'}
+                                </button>
                               </div>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
-                              {inp.points > 0 && (
-                                <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 7, background: 'var(--g100)', color: 'var(--g700)', border: '1px solid var(--g200)', whiteSpace: 'nowrap' }}>
-                                  {inp.points.toFixed(1)} pts
-                                </span>
-                              )}
-                              <button
-                                onClick={() => toggleInputLock(inp._id, isInputLocked)}
-                                disabled={isToggling}
-                                style={{
-                                  fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 7,
-                                  border: `1px solid ${isInputLocked ? '#FDE68A' : 'var(--g200)'}`,
-                                  background: isInputLocked ? '#FEF9C3' : 'var(--g50)',
-                                  color: isInputLocked ? '#92400E' : 'var(--g700)',
-                                  cursor: isToggling ? 'wait' : 'pointer',
-                                  whiteSpace: 'nowrap', opacity: isToggling ? 0.6 : 1,
-                                  transition: 'all 0.2s',
-                                }}
-                              >
-                                {isToggling ? '...' : isInputLocked ? '🔓 Unlock' : '🔒 Lock'}
-                              </button>
-                            </div>
+                            {/* Comment thread — admin can view + edit any comment */}
+                            {dbUser && (
+                              <CommentThread
+                                projectId={project._id}
+                                inputId={inp._id}
+                                currentUserId={dbUser._id}
+                                currentRole={dbUser.role}
+                                isLocked={isLocked}
+                                projectOwnerId={ownerId}
+                                initialCount={commentCounts[String(inp._id)] || 0}
+                              />
+                            )}
                           </div>
-                          {/* Comment thread — admin can view + edit any comment */}
-                          {dbUser && (
-                            <CommentThread
-                              projectId={project._id}
-                              inputId={inp._id}
-                              currentUserId={dbUser._id}
-                              currentRole={dbUser.role}
-                              isLocked={isLocked}
-                              projectOwnerId={ownerId}
-                              initialCount={commentCounts[String(inp._id)] || 0}
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
         );
       })}
 

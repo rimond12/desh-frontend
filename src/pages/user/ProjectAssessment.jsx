@@ -1398,6 +1398,25 @@ export default function ProjectAssessment() {
                                               </div>
                                             )}
 
+                                            {/* Details — inline below question */}
+                                            {inp.details && (
+                                              <div style={{
+                                                display: 'flex', alignItems: 'flex-start', gap: 6,
+                                                marginBottom: 10,
+                                                paddingLeft: 10,
+                                                borderLeft: '3px solid #93C5FD',
+                                              }}>
+                                                <p style={{
+                                                  margin: 0,
+                                                  fontSize: 12,
+                                                  color: '#4B5563',
+                                                  lineHeight: 1.55,
+                                                }}>
+                                                  {inp.details}
+                                                </p>
+                                              </div>
+                                            )}
+
                                             {/* Number */}
                                             {inp.inputType === 'number' && (() => {
                                               const sMin = inp.sliderMin != null ? Number(inp.sliderMin) : (inp.line?.x1 ?? 0);

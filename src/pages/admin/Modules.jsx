@@ -238,6 +238,7 @@ export default function Modules() {
     const [f, setF] = useState({
       label: IM.d?.label || '',
       instruction: IM.d?.instruction || '',
+      details: IM.d?.details || '',
       inputType: IM.d?.inputType || 'number',
       sectionId: IM.d?.sectionId || '',
       isRequired: IM.d?.isRequired ?? false,
@@ -268,6 +269,7 @@ export default function Modules() {
       const payload = {
         label: f.label,
         instruction: f.instruction,
+        details: f.details,
         inputType: f.inputType,
         sectionId: f.sectionId,
         isRequired: f.isRequired,
@@ -394,6 +396,22 @@ export default function Modules() {
 
             <p style={{ fontSize: 11, color: 'var(--tx-faint)', marginTop: 5 }}>
               If left empty, the Instruction button will not appear for users.
+            </p>
+          </div>
+
+          {/* Details — plain text shown inline below the question */}
+          <div>
+            <Lbl>Details <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(plain text — shown inline below the question)</span></Lbl>
+            <textarea
+              className="input-field"
+              rows={3}
+              value={f.details}
+              onChange={e => setF({ ...f, details: e.target.value })}
+              placeholder="Add any additional details, context, or guidance for this question…"
+              style={{ resize: 'vertical' }}
+            />
+            <p style={{ fontSize: 11, color: 'var(--tx-faint)', marginTop: 5 }}>
+              If left empty, no details block will appear under this question.
             </p>
           </div>
 
@@ -1101,9 +1119,26 @@ export default function Modules() {
                                         {inp.label}
                                       </p>
                                       {inp.instruction && (
-                                        <p style={{ fontSize: 12, color: 'var(--tx-muted)', margin: '3px 0 0', fontStyle: 'italic' }}>
-                                          ℹ {inp.instruction}
-                                        </p>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
+                                          <span style={{
+                                            fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 5,
+                                            background: '#F0FDF4', color: '#15803D', border: '1px solid #A8EFC0',
+                                            fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+                                          }}>📋 Instruction</span>
+                                        </div>
+                                      )}
+                                      {inp.details && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
+                                          <span style={{
+                                            fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 5,
+                                            background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE',
+                                            fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+                                          }}>ℹ️ Details</span>
+                                          <span style={{
+                                            fontSize: 11, color: 'var(--tx-muted)', overflow: 'hidden',
+                                            textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 280,
+                                          }}>{inp.details}</span>
+                                        </div>
                                       )}
                                       {inp.inputType === 'number' && inp.line && (
                                         <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>

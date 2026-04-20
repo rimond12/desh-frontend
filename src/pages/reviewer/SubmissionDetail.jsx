@@ -12,8 +12,8 @@ const SERVER_BASE = API_BASE; // kept for backward compat with imageUrl usages b
 
 const STATUS_CFG = {
   under_review: { label: 'Under Review', color: '#92400E', bg: '#FEF9C3', border: '#FDE68A', dot: '#D97706' },
-  verified:     { label: 'Verified',     color: '#145C28', bg: '#D6F5E3', border: '#A8EFC0', dot: '#22A84B' },
-  cancelled:    { label: 'Cancelled',    color: '#991B1B', bg: '#FEE2E2', border: '#FECACA', dot: '#EF4444' },
+  verified: { label: 'Verified', color: '#145C28', bg: '#D6F5E3', border: '#A8EFC0', dot: '#22A84B' },
+  cancelled: { label: 'Cancelled', color: '#991B1B', bg: '#FEE2E2', border: '#FECACA', dot: '#EF4444' },
 };
 
 function calcInputMax(inp) {
@@ -32,7 +32,7 @@ function calcSectionData(sectionId, tabs, extraIds = []) {
       (mod.inputs || []).forEach(inp => {
         if (ids.has(String(inp.sectionId))) {
           earned += inp.points || 0;
-          max    += calcInputMax(inp);
+          max += calcInputMax(inp);
         }
       })
     )
@@ -56,7 +56,7 @@ function getDownloadUrl(doc) {
 function getFileType(name) {
   const ext = (name || '').split('.').pop().toLowerCase();
   if (ext === 'pdf') return 'pdf';
-  if (['jpg','jpeg','png','gif','webp','svg','bmp','ico'].includes(ext)) return 'image';
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext)) return 'image';
   return 'other';
 }
 function fileIcon(name) {
@@ -70,29 +70,29 @@ function fileActionLabel(name) {
 
 // ── Input type badge colors ───────────────────────────────────────
 const TYPE_STYLE = {
-  number:   { bg: '#EFF6FF', color: '#1D4ED8' },
-  text:     { bg: 'var(--g50)', color: 'var(--g700)' },
+  number: { bg: '#EFF6FF', color: '#1D4ED8' },
+  text: { bg: 'var(--g50)', color: 'var(--g700)' },
   checkbox: { bg: '#FEF9C3', color: '#92400E' },
-  file:     { bg: '#F5F0E8', color: '#78350F' },
+  file: { bg: '#F5F0E8', color: '#78350F' },
 };
 
 export default function ReviewerSubmissionDetail() {
-  const { id }  = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
   const axiosSecure = useAxiosSecure();
-  const { dbUser }  = useAuth();
+  const { dbUser } = useAuth();
 
-  const [project, setProject]               = useState(null);
-  const [tabs, setTabs]                     = useState([]);
+  const [project, setProject] = useState(null);
+  const [tabs, setTabs] = useState([]);
   const [globalSections, setGlobalSections] = useState([]);
-  const [leafRules, setLeafRules]           = useState([]);
-  const [loading, setLoading]               = useState(true);
+  const [leafRules, setLeafRules] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedSection, setSelectedSection] = useState('');
-  const [locking, setLocking]               = useState(false);
+  const [locking, setLocking] = useState(false);
   // score card collapse
-  const [scoreOpen, setScoreOpen]           = useState(true);
+  const [scoreOpen, setScoreOpen] = useState(true);
   // comment counts per inputId (pre-fetched for badges)
-  const [commentCounts, setCommentCounts]   = useState({});
+  const [commentCounts, setCommentCounts] = useState({});
   // per-question locked inputs (updated live when reviewer posts a comment)
   const [lockedInputsSet, setLockedInputsSet] = useState(new Set());
 
@@ -156,14 +156,14 @@ export default function ReviewerSubmissionDetail() {
   const exportPdf = () => {
     const win = window.open('', '_blank', 'width=960,height=800');
     if (!win) { toast.error('Please allow popups to export PDF'); return; }
-    const esc = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     let body = '';
 
     body += `<div class="rpt-header">
       <div class="rpt-logo">DESH Submission Report</div>
       <h1>${esc(project?.title)}</h1>
       <p class="meta">by <strong>${esc(project?.userId?.name)}</strong> &bull; ${esc(project?.userId?.email)}</p>
-      <p class="meta">Date: ${new Date(project?.updatedAt).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</p>
+      <p class="meta">Date: ${new Date(project?.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
     </div>`;
 
     body += `<div class="score-card">
@@ -178,41 +178,41 @@ export default function ReviewerSubmissionDetail() {
     (tabs || []).forEach((tab, ti) => {
       const mods = (tab.modules || []).filter(m => (m.inputs || []).length > 0);
       if (!mods.length) return;
-      body += `<div class="tab-section"><div class="tab-heading">${esc(ti+1 + '. ' + tab.title)}</div>`;
+      body += `<div class="tab-section"><div class="tab-heading">${esc(ti + 1 + '. ' + tab.title)}</div>`;
       mods.forEach((mod, mi) => {
         const inputs = mod.inputs || [];
-        const modEarned = inputs.reduce((s,i) => s + (i.points||0), 0);
-        const modMax    = inputs.reduce((s,i) => s + calcInputMax(i), 0);
+        const modEarned = inputs.reduce((s, i) => s + (i.points || 0), 0);
+        const modMax = inputs.reduce((s, i) => s + calcInputMax(i), 0);
         body += `<div class="module">
           <div class="module-header">
-            <span class="module-title">${esc((ti+1)+'.'+(mi+1)+' '+mod.title)}</span>
+            <span class="module-title">${esc((ti + 1) + '.' + (mi + 1) + ' ' + mod.title)}</span>
             <span class="module-score">${modEarned.toFixed(1)} / ${modMax} pts</span>
           </div><div class="module-body">`;
         inputs.forEach(inp => {
           let val = '';
           if (inp.inputType === 'file') {
-            const linked = (docs||[]).filter(d => String(d.inputId) === String(inp._id));
+            const linked = (docs || []).filter(d => String(d.inputId) === String(inp._id));
             val = linked.length > 0
               ? linked.map(doc => {
-                  const url  = getDownloadUrl(doc);
-                  const name = doc.originalName || doc.filename || 'file';
-                  return `<a href="${url}" target="_blank" class="file-link">${fileIcon(name)} ${esc(name)}</a>`;
-                }).join('<br>')
+                const url = getDownloadUrl(doc);
+                const name = doc.originalName || doc.filename || 'file';
+                return `<a href="${url}" target="_blank" class="file-link">${fileIcon(name)} ${esc(name)}</a>`;
+              }).join('<br>')
               : '<span class="empty">No file uploaded</span>';
           } else if (inp.inputType === 'checkbox') {
-            const sel  = Array.isArray(inp.value) ? inp.value : [];
+            const sel = Array.isArray(inp.value) ? inp.value : [];
             const opts = inp.options || [];
             val = opts.length > 0
               ? opts.map(o => {
-                  const on = sel.includes(o.label);
-                  return `<span class="cb-chip ${on?'cb-sel':'cb-unsel'}">${on?'✓ ':''}${esc(o.label)}${o.points?` (${o.points}pts)`:''}</span>`;
-                }).join(' ')
-              : (sel.length > 0 ? sel.map(v=>`<span class="cb-chip cb-sel">✓ ${esc(v)}</span>`).join(' ') : '<span class="empty">—</span>');
+                const on = sel.includes(o.label);
+                return `<span class="cb-chip ${on ? 'cb-sel' : 'cb-unsel'}">${on ? '✓ ' : ''}${esc(o.label)}${o.points ? ` (${o.points}pts)` : ''}</span>`;
+              }).join(' ')
+              : (sel.length > 0 ? sel.map(v => `<span class="cb-chip cb-sel">✓ ${esc(v)}</span>`).join(' ') : '<span class="empty">—</span>');
           } else {
             val = inp.value ? esc(String(inp.value)) : '<span class="empty">—</span>';
           }
           body += `<div class="inp-row">
-            <div class="inp-label">${esc(inp.label)}${inp.isRequired?'<span class="req"> *</span>':''}${inp.points>0?`<span class="pts-badge">${inp.points.toFixed(1)} pts</span>`:''}</div>
+            <div class="inp-label">${esc(inp.label)}${inp.isRequired ? '<span class="req"> *</span>' : ''}${inp.points > 0 ? `<span class="pts-badge">${inp.points.toFixed(1)} pts</span>` : ''}</div>
             <div class="inp-value">${val}</div>
           </div>`;
         });
@@ -273,25 +273,25 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.55;
   );
 
   // ── Score card calculations ──────────────────────────────────────
-  const sortedSections   = [...globalSections].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const sortedSections = [...globalSections].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
   const constantSections = sortedSections.filter(s => s.isConstant);
-  const regularSections  = sortedSections.filter(s => !s.isConstant);
-  const constantIds      = constantSections.map(s => String(s._id));
+  const regularSections = sortedSections.filter(s => !s.isConstant);
+  const constantIds = constantSections.map(s => String(s._id));
 
-  const sectionData    = selectedSection ? calcSectionData(selectedSection, tabs, constantIds) : null;
-  const displayPct     = sectionData ? sectionData.pct    : (project?.scorePercent || 0);
-  const displayEarned  = Math.round(sectionData ? sectionData.earned : (project?.totalPoints  || 0));
-  const displayMax     = Math.round(sectionData ? sectionData.max    : (project?.maxPoints    || 0));
-  const overallRule    = leafRules.find(r => r.name === project?.leafLevel) || null;
-  const sectionRule    = sectionData ? getLeafLevel(sectionData.pct, leafRules) : null;
-  const activeRule     = sectionData ? sectionRule : overallRule;
-  const displayLevel   = activeRule?.name     || null;
-  const displayColor   = activeRule?.colorCode || null;
-  const progressColor  = displayColor || '#94A3B8';
-  const docs           = project?.documents || [];
-  const isLocked       = project?.isLocked || false;
-  const lockStatus     = project?.lockStatus || 'pending';
-  const ownerId        = project?.userId?._id || project?.userId;
+  const sectionData = selectedSection ? calcSectionData(selectedSection, tabs, constantIds) : null;
+  const displayPct = sectionData ? sectionData.pct : (project?.scorePercent || 0);
+  const displayEarned = Math.round(sectionData ? sectionData.earned : (project?.totalPoints || 0));
+  const displayMax = Math.round(sectionData ? sectionData.max : (project?.maxPoints || 0));
+  const overallRule = leafRules.find(r => r.name === project?.leafLevel) || null;
+  const sectionRule = sectionData ? getLeafLevel(sectionData.pct, leafRules) : null;
+  const activeRule = sectionData ? sectionRule : overallRule;
+  const displayLevel = activeRule?.name || null;
+  const displayColor = activeRule?.colorCode || null;
+  const progressColor = displayColor || '#94A3B8';
+  const docs = project?.documents || [];
+  const isLocked = project?.isLocked || false;
+  const lockStatus = project?.lockStatus || 'pending';
+  const ownerId = project?.userId?._id || project?.userId;
 
   return (
     <Layout isReviewer>
@@ -401,7 +401,7 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.55;
               <option key={s._id} value={s._id}>{s.title}</option>
             ))}
             {constantSections.length > 0 && (
-              <option disabled>── ⚡ Constant sections always included ──</option>
+              <></>
             )}
           </select>
           {(project?.sectionStatuses || []).map((ss, i) => {
@@ -498,10 +498,10 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.55;
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {visibleModules.map((mod, mi) => {
                 const modEarned = mod.visibleInputs.reduce((s, inp) => s + (inp.points || 0), 0);
-                const modMax    = mod.visibleInputs.reduce((s, inp) => s + calcInputMax(inp), 0);
-                const modPct    = modMax > 0 ? Math.round((modEarned / modMax) * 100) : 0;
+                const modMax = mod.visibleInputs.reduce((s, inp) => s + calcInputMax(inp), 0);
+                const modPct = modMax > 0 ? Math.round((modEarned / modMax) * 100) : 0;
                 const scoreColor = modPct >= 70 ? 'var(--g700)' : modPct >= 40 ? '#92400E' : 'var(--tx-faint)';
-                const scoreBg    = modPct >= 70 ? 'var(--g100)' : modPct >= 40 ? '#FEF9C3' : 'var(--bg-muted)';
+                const scoreBg = modPct >= 70 ? 'var(--g100)' : modPct >= 40 ? '#FEF9C3' : 'var(--bg-muted)';
 
                 return (
                   <div key={mod._id} style={{ border: '1px solid var(--border)', borderRadius: 16, background: '#fff', overflow: 'hidden', boxShadow: 'var(--sh-xs)' }}>
@@ -524,14 +524,14 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.55;
                       {mod.visibleInputs.map((inp, qi) => {
                         const isEmpty = inp.inputType === 'file' ? !inp.uploaded
                           : Array.isArray(inp.value) ? inp.value.length === 0
-                          : inp.value === '' || inp.value === undefined;
+                            : inp.value === '' || inp.value === undefined;
                         const ts = TYPE_STYLE[inp.inputType] || {};
                         const linkedDocs = inp.inputType === 'file'
                           ? docs.filter(d => String(d.inputId) === String(inp._id))
                           : [];
 
                         const isInputLocked = lockedInputsSet.has(String(inp._id));
-                        const isToggling    = togglingInput === String(inp._id);
+                        const isToggling = togglingInput === String(inp._id);
                         return (
                           <div key={inp._id} style={{
                             padding: '12px 14px', borderRadius: 12,
@@ -566,52 +566,52 @@ body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.55;
                                   {inp.inputType === 'file'
                                     ? (linkedDocs.length > 0
                                       ? <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                                          {linkedDocs.map((doc, di) => {
-                                            const url  = getDownloadUrl(doc);
-                                            const name = doc.originalName || doc.filename || 'file';
-                                            const type = getFileType(name);
-                                            const viewable = type === 'pdf' || type === 'image';
-                                            return (
-                                              <a key={di} href={url}
-                                                target="_blank" rel="noopener noreferrer"
-                                                {...(!viewable ? { download: name } : {})}
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 7, background: 'var(--g50)', border: '1px solid var(--g200)', color: 'var(--g800)', fontWeight: 600, fontSize: 12, textDecoration: 'none' }}>
-                                                <span>{fileIcon(name)}</span>
-                                                <span style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
-                                                <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, background: 'var(--g200)', color: 'var(--g800)', flexShrink: 0 }}>{fileActionLabel(name)}</span>
-                                              </a>
-                                            );
-                                          })}
-                                        </div>
+                                        {linkedDocs.map((doc, di) => {
+                                          const url = getDownloadUrl(doc);
+                                          const name = doc.originalName || doc.filename || 'file';
+                                          const type = getFileType(name);
+                                          const viewable = type === 'pdf' || type === 'image';
+                                          return (
+                                            <a key={di} href={url}
+                                              target="_blank" rel="noopener noreferrer"
+                                              {...(!viewable ? { download: name } : {})}
+                                              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 7, background: 'var(--g50)', border: '1px solid var(--g200)', color: 'var(--g800)', fontWeight: 600, fontSize: 12, textDecoration: 'none' }}>
+                                              <span>{fileIcon(name)}</span>
+                                              <span style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                                              <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, background: 'var(--g200)', color: 'var(--g800)', flexShrink: 0 }}>{fileActionLabel(name)}</span>
+                                            </a>
+                                          );
+                                        })}
+                                      </div>
                                       : <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>No file uploaded</span>)
                                     : inp.inputType === 'checkbox'
                                       ? (() => {
-                                          const selected = Array.isArray(inp.value) ? inp.value : [];
-                                          const allOpts  = inp.options || [];
-                                          if (allOpts.length === 0 && selected.length === 0)
-                                            return <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>;
-                                          const list = allOpts.length > 0 ? allOpts.map(o => ({ label: o.label, pts: o.points || 0 })) : selected.map(v => ({ label: v, pts: 0 }));
-                                          return (
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 4 }}>
-                                              {list.map((o, oi) => {
-                                                const on = selected.includes(o.label);
-                                                return (
-                                                  <span key={oi} style={{
-                                                    fontSize: 11, fontWeight: on ? 700 : 500,
-                                                    padding: '3px 9px', borderRadius: 20,
-                                                    background: on ? '#FEF9C3' : 'var(--bg-subtle)',
-                                                    color: on ? '#92400E' : 'var(--tx-faint)',
-                                                    border: `1px solid ${on ? '#FDE68A' : 'var(--border)'}`,
-                                                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                                                  }}>
-                                                    {on ? '✓' : '○'} {o.label}
-                                                    {o.pts > 0 && <span style={{ fontSize: 9, opacity: 0.7 }}>({o.pts}pts)</span>}
-                                                  </span>
-                                                );
-                                              })}
-                                            </div>
-                                          );
-                                        })()
+                                        const selected = Array.isArray(inp.value) ? inp.value : [];
+                                        const allOpts = inp.options || [];
+                                        if (allOpts.length === 0 && selected.length === 0)
+                                          return <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>;
+                                        const list = allOpts.length > 0 ? allOpts.map(o => ({ label: o.label, pts: o.points || 0 })) : selected.map(v => ({ label: v, pts: 0 }));
+                                        return (
+                                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 4 }}>
+                                            {list.map((o, oi) => {
+                                              const on = selected.includes(o.label);
+                                              return (
+                                                <span key={oi} style={{
+                                                  fontSize: 11, fontWeight: on ? 700 : 500,
+                                                  padding: '3px 9px', borderRadius: 20,
+                                                  background: on ? '#FEF9C3' : 'var(--bg-subtle)',
+                                                  color: on ? '#92400E' : 'var(--tx-faint)',
+                                                  border: `1px solid ${on ? '#FDE68A' : 'var(--border)'}`,
+                                                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                }}>
+                                                  {on ? '✓' : '○'} {o.label}
+                                                  {o.pts > 0 && <span style={{ fontSize: 9, opacity: 0.7 }}>({o.pts}pts)</span>}
+                                                </span>
+                                              );
+                                            })}
+                                          </div>
+                                        );
+                                      })()
                                       : (inp.value || <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)}
                                 </div>
                               </div>
