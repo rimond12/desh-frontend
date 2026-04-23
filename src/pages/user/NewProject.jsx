@@ -28,6 +28,7 @@ export default function NewProject() {
   const submit = async (e) => {
     e.preventDefault();
     if (!title.trim()) { toast.error('Project title is required'); return; }
+
     if (!sectionId) { toast.error('Please select a section / stage'); return; }
     setLoading(true);
     try {

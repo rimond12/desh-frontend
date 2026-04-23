@@ -77,6 +77,7 @@ export default function Manual() {
                             </div>
                         ))}
                     </div>
+
                 </div>
 
                 {/* Leaf Level guide */}
