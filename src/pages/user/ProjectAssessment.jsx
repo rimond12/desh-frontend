@@ -7,11 +7,14 @@ import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer,
 } from 'recharts';
+import { RiInformation2Fill } from 'react-icons/ri';
 
 const SERVER_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+
+const ACHIEVED_COLORS = ['#C0392B', '#4B5563', '#EA7C0C', '#2563EB', '#166534', '#7C3AED', '#92400E'];
 
 function IconImg({ src, fallback, size = 36, radius = 10 }) {
   const [failed, setFailed] = useState(false);
@@ -452,6 +455,163 @@ export default function ProjectAssessment() {
   // Legacy flag kept only for the Submit button and module-level save visibility
   const isEditable = !isLocked && project?.status !== 'submitted';
 
+  const exportPdf = () => {
+    const win = window.open('', '_blank', 'width=1040,height=900');
+    if (!win) { toast.error('Please allow popups to export PDF'); return; }
+
+    const API_PDF_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+    const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const fIcon = (name) => { const e = (name || '').split('.').pop().toLowerCase(); return e === 'pdf' ? '📄' : ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(e) ? '🖼️' : '📎'; };
+    const typeClass = (t) => ({ number: 't-num', text: 't-txt', checkbox: 't-chk', file: 't-fil' }[t] || 't-txt');
+    const updatedDate = project?.updatedAt ? new Date(project.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    const pctFill = Math.min(project?.scorePercent || 0, 100);
+
+    let body = '';
+    body += `<div class="rpt-cover">
+      <div class="rpt-brand">DESH — Project Report</div>
+      <div class="rpt-title">${esc(project?.title)}</div>
+      <div class="rpt-meta">
+        <span>📅 ${updatedDate}</span>
+        <span>${project?.status === 'submitted' ? '✓ Submitted' : '● Draft'}</span>
+      </div>
+    </div>
+    <div class="score-strip">
+      <div class="sc-num">${project?.scorePercent || 0}<span class="sc-pct">%</span></div>
+      <div class="sc-vline"></div>
+      <div>
+        <div class="sc-pts">${Math.round(project?.totalPoints || 0)} / ${Math.round(project?.maxPoints || 0)} pts</div>
+        <div class="sc-level">
+          ${project?.leafLevel ? `<span class="sc-pill p-green">${esc(project.leafLevel)}</span>` : ''}
+          <span class="sc-pill ${project?.status === 'submitted' ? 'p-green' : 'p-amber'}">${project?.status === 'submitted' ? '✓ Submitted' : '● Draft'}</span>
+        </div>
+      </div>
+      <div class="sc-bar-wrap">
+        <div class="sc-bar-label">Overall Score</div>
+        <div class="sc-bar-track"><div class="sc-bar-fill" style="width:${pctFill}%"></div></div>
+        <div class="sc-bar-sub">${pctFill}% achieved</div>
+      </div>
+    </div>`;
+
+    body += `<div class="content">`;
+    (tabs || []).forEach((tab, ti) => {
+      const allInputs = (tab.modules || []).flatMap(m => getModuleInputs(m));
+      if (!allInputs.length) return;
+      const mods = (tab.modules || []).filter(m => getModuleInputs(m).length > 0);
+      body += `<div class="tab-sec">
+        <div class="tab-hdr">
+          <div class="tab-badge">${ti + 1}</div>
+          <div class="tab-name">${esc(tab.title)}</div>
+        </div>`;
+      mods.forEach((mod, mi) => {
+        const inputs = getModuleInputs(mod);
+        const modEarned = inputs.reduce((s, inp) => s + calcInputPoints(inp, answers[inp._id] ?? (inp.inputType === 'checkbox' ? [] : '')), 0);
+        const modMax = inputs.reduce((s, inp) => s + calcInputMax(inp), 0);
+        body += `<div class="mod">
+          <div class="mod-hdr">
+            <span class="mod-name">${esc((ti + 1) + '.' + (mi + 1) + ' ' + mod.title)}</span>
+            ${modMax > 0 ? `<span class="mod-pts">${modEarned.toFixed(1)} / ${modMax} pts</span>` : ''}
+          </div>`;
+        inputs.forEach(inp => {
+          let val = '';
+          if (inp.inputType === 'file') {
+            const linkedDocs = inp.documents || [];
+            val = linkedDocs.length > 0
+              ? linkedDocs.map(doc => { const url = `${API_PDF_BASE}/uploads/documents/${doc.filename}`; const name = doc.originalName || doc.filename || 'file'; return `<a href="${url}" target="_blank" class="file-link">${fIcon(name)} ${esc(name)}</a>`; }).join('<br>')
+              : '<span class="val-empty">No file uploaded</span>';
+          } else if (inp.inputType === 'checkbox') {
+            const sel = Array.isArray(answers[inp._id]) ? answers[inp._id] : [];
+            const opts = inp.options || [];
+            const list = opts.length > 0 ? opts : sel.map(l => ({ label: l, points: 0 }));
+            val = list.length > 0
+              ? `<div class="cb-wrap">${list.map(o => { const on = sel.includes(o.label); return `<span class="cb-chip ${on ? 'cb-on' : 'cb-off'}">${on ? '✓ ' : ''}${esc(o.label)}${o.points ? ` (${o.points}pts)` : ''}</span>`; }).join('')}</div>`
+              : '<span class="val-empty">—</span>';
+          } else {
+            const v = answers[inp._id];
+            val = (v !== '' && v !== undefined && v !== null) ? esc(String(v)) : '<span class="val-empty">—</span>';
+          }
+          const pts = calcInputPoints(inp, answers[inp._id] ?? (inp.inputType === 'checkbox' ? [] : ''));
+          body += `<div class="inp">
+            <div class="inp-lbl">
+              <span class="inp-type ${typeClass(inp.inputType)}">${inp.inputType}</span>
+              ${esc(inp.label)}${inp.isRequired ? '<span class="inp-req"> *</span>' : ''}
+              ${pts > 0 ? `<span class="inp-pts">${pts.toFixed(1)} pts</span>` : ''}
+            </div>
+            <div class="inp-val">${val}</div>
+          </div>`;
+        });
+        body += `</div>`;
+      });
+      body += `</div>`;
+    });
+    body += `</div>`;
+
+    const css = `@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-height:1.6;background:#fff}
+.rpt-cover{background:linear-gradient(135deg,#0a3d20,#1a6b35 55%,#22A84B);color:#fff;padding:34px 40px 26px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.rpt-brand{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.2em;color:rgba(255,255,255,.65);margin-bottom:13px;font-family:'Montserrat',sans-serif}
+.rpt-title{font-family:'Montserrat',sans-serif;font-size:24px;font-weight:900;line-height:1.25;margin-bottom:10px;word-break:break-word}
+.rpt-meta{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:rgba(255,255,255,.82)}
+.score-strip{display:flex;align-items:center;gap:28px;padding:20px 40px;background:#F0FDF4;border-bottom:1.5px solid #A8EFC0;flex-wrap:wrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.sc-num{font-family:'Montserrat',sans-serif;font-size:52px;font-weight:900;color:#145C28;line-height:1}
+.sc-pct{font-size:26px}
+.sc-vline{width:1.5px;height:44px;background:#A8EFC0;flex-shrink:0}
+.sc-pts{font-family:'Montserrat',sans-serif;font-size:15px;font-weight:800;color:#145C28}
+.sc-level{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
+.sc-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 12px;border-radius:99px;font-size:11px;font-weight:700;font-family:'Montserrat',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.p-green{background:#D6F5E3;color:#145C28;border:1px solid #A8EFC0}
+.p-amber{background:#FEF9C3;color:#92400E;border:1px solid #FDE68A}
+.sc-bar-wrap{flex:1;min-width:180px}
+.sc-bar-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#145C28;font-family:'Montserrat',sans-serif;margin-bottom:6px}
+.sc-bar-track{height:10px;background:#D1FAE5;border-radius:99px;overflow:hidden}
+.sc-bar-fill{height:100%;background:linear-gradient(90deg,#22A84B,#16A34A);border-radius:99px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.sc-bar-sub{font-size:10px;font-weight:700;color:#166534;margin-top:5px}
+.content{padding:24px 40px 40px}
+.tab-sec{margin-bottom:28px}
+.tab-hdr{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:2.5px solid #22A84B;margin-bottom:12px;page-break-after:avoid}
+.tab-badge{min-width:26px;height:26px;padding:0 7px;border-radius:6px;background:#22A84B;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:900;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.tab-name{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#145C28}
+.mod{border:1px solid #E5E7EB;border-radius:10px;margin-bottom:10px;overflow:hidden;page-break-inside:avoid}
+.mod-hdr{background:#F9FAFB;padding:10px 15px;border-bottom:1px solid #E5E7EB;display:flex;justify-content:space-between;align-items:center;gap:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.mod-name{font-family:'Montserrat',sans-serif;font-size:12px;font-weight:800;color:#111}
+.mod-pts{font-size:10.5px;font-weight:700;color:#145C28;background:#D6F5E3;padding:3px 9px;border-radius:20px;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.inp{display:grid;grid-template-columns:1fr 1.3fr;gap:12px;padding:9px 15px;border-bottom:1px solid #F3F4F6;align-items:start}
+.inp:last-child{border-bottom:none}
+.inp:nth-child(even){background:#FAFAFA}
+.inp-lbl{font-size:11.5px;font-weight:700;color:#374151;display:flex;align-items:flex-start;gap:5px;flex-wrap:wrap;line-height:1.45}
+.inp-type{font-size:8px;font-weight:800;padding:1px 5px;border-radius:3px;text-transform:uppercase;letter-spacing:.05em;font-family:'Montserrat',sans-serif;white-space:nowrap;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.t-num{background:#EFF6FF;color:#1D4ED8}.t-txt{background:#F0FDF4;color:#166534}.t-chk{background:#FEF9C3;color:#92400E}.t-fil{background:#FFF7ED;color:#78350F}
+.inp-req{color:#EF4444;font-size:9px}
+.inp-pts{font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;background:#D6F5E3;color:#145C28;white-space:nowrap;margin-left:auto;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.inp-val{font-size:12.5px;color:#374151;word-break:break-word;line-height:1.55}
+.val-empty{color:#9CA3AF;font-style:italic;font-size:12px}
+.file-link{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;background:#EFF6FF;color:#1D4ED8;text-decoration:none;font-size:11px;font-weight:600;border:1px solid #BFDBFE;margin:2px 0;word-break:break-all}
+.cb-wrap{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.cb-chip{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.cb-on{background:#FEF9C3;color:#92400E;border-color:#FDE68A}.cb-off{background:#F9FAFB;color:#9CA3AF;border-color:#E5E7EB}
+.print-bar{position:fixed;top:0;left:0;right:0;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid #E5E7EB;padding:11px 22px;display:flex;align-items:center;gap:14px;z-index:200;box-shadow:0 2px 14px rgba(0,0,0,.08)}
+.print-bar-info{flex:1;min-width:0}
+.print-bar-title{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:800;color:#111;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.print-bar-sub{font-size:11px;color:#6B7280;margin-top:1px}
+.print-btn{display:flex;align-items:center;gap:7px;padding:9px 22px;background:#22A84B;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;white-space:nowrap;flex-shrink:0;box-shadow:0 2px 8px rgba(34,168,75,.28)}
+.body-offset{padding-top:62px}
+@media print{.print-bar{display:none!important}.body-offset{padding-top:0!important}.tab-sec+.tab-sec{page-break-before:always}.mod{page-break-inside:avoid}.tab-hdr{page-break-after:avoid}}`;
+
+    win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<title>${esc(project?.title)} — Project Report</title>
+<style>${css}</style></head><body>
+<div class="print-bar">
+  <div class="print-bar-info">
+    <div class="print-bar-title">${esc(project?.title)}</div>
+    <div class="print-bar-sub">DESH Project Report &bull; ${updatedDate}</div>
+  </div>
+  <button class="print-btn" onclick="window.print()">🖨 Print / Save as PDF</button>
+</div>
+<div class="body-offset">${body}</div>
+<script>setTimeout(()=>window.print(),600)<\/script></body></html>`);
+    win.document.close();
+  };
+
   return (
     <Layout>
       {/* ── Instruction Popup Modal ── */}
@@ -649,6 +809,15 @@ export default function ProjectAssessment() {
             <Link to="/notes" style={{ textDecoration: 'none' }} className="btn-secondary">
               📝 Notes
             </Link>
+            <button onClick={exportPdf} style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '7px 14px', borderRadius: 10, cursor: 'pointer',
+              background: '#EFF6FF', border: '1.5px solid #BFDBFE', color: '#1D4ED8',
+              fontWeight: 700, fontSize: 13, fontFamily: 'Montserrat,sans-serif',
+              whiteSpace: 'nowrap', transition: 'all 0.15s',
+            }}>
+              ⬇ Export PDF
+            </button>
             {project?.status !== 'submitted' && (
               <button className="btn-primary-green" onClick={submitProject} disabled={submitting}>
                 {submitting ? 'Submitting…' : '✓ Submit'}
@@ -751,7 +920,7 @@ export default function ProjectAssessment() {
                       const rangeLabel = `${rule.minPercent}–${rule.maxPercent}%`;
                       const segFill = displayPct <= rule.minPercent ? 0
                         : displayPct >= rule.maxPercent ? 100
-                        : ((displayPct - rule.minPercent) / segSpan) * 100;
+                          : ((displayPct - rule.minPercent) / segSpan) * 100;
                       return (
                         <div
                           key={rule._id || rule.name}
@@ -873,43 +1042,65 @@ export default function ProjectAssessment() {
                 minWidth: 0,
                 display: 'flex', flexDirection: 'column',
                 borderLeft: '1px solid rgba(34,168,75,0.15)',
-                padding: '14px 14px 10px 12px',
+                padding: '12px 12px 10px 12px',
               }}>
                 <p style={{
                   fontSize: 9, fontWeight: 800, letterSpacing: '0.09em',
                   textTransform: 'uppercase', color: 'var(--g700)',
-                  fontFamily: 'Montserrat,sans-serif', marginBottom: 4,
+                  fontFamily: 'Montserrat,sans-serif', marginBottom: 6,
                 }}>
                   Score by Tab
                 </p>
 
                 {tabChartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={160}>
-                    <BarChart
-                      data={tabChartData}
-                      barGap={0}
-                      barCategoryGap="12%"
-                      margin={{ top: 2, right: 4, left: -22, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.07)" vertical={false} />
-                      <XAxis
-                        dataKey="name"
-                        tick={{ fontSize: 9, fontWeight: 600, fill: '#6B7280', fontFamily: 'Montserrat,sans-serif' }}
-                        axisLine={false} tickLine={false} interval={0}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 8, fill: '#9CA3AF' }}
-                        axisLine={false} tickLine={false} width={26}
-                      />
-                      <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(34,168,75,0.05)' }} />
-                      <Legend
-                        iconType="circle" iconSize={7}
-                        wrapperStyle={{ fontSize: 10, paddingTop: 4, fontFamily: 'Nunito,sans-serif' }}
-                      />
-                      <Bar dataKey="achieved" name="Achieved" fill="#F59E0B" radius={[3,3,0,0]} maxBarSize={10} />
-                      <Bar dataKey="allocated" name="Allocated" fill="#34C961" radius={[3,3,0,0]} maxBarSize={10} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <div style={{
+                    flex: 1,
+                    background: '#EBF7F2',
+                    borderRadius: 10,
+                    padding: '10px 6px 6px 4px',
+                    display: 'flex', flexDirection: 'column',
+                  }}>
+                    {/* Legend */}
+                    <div style={{
+                      display: 'flex', gap: 14, justifyContent: 'center',
+                      marginBottom: 8, flexWrap: 'wrap',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: 2, background: '#22A84B', display: 'inline-block', flexShrink: 0 }} />
+                        <span style={{ fontSize: 9, fontWeight: 700, color: '#374151', fontFamily: 'Montserrat,sans-serif' }}>Allocated Points</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: 2, background: '#EA7C0C', display: 'inline-block', flexShrink: 0 }} />
+                        <span style={{ fontSize: 9, fontWeight: 700, color: '#374151', fontFamily: 'Montserrat,sans-serif' }}>Achieved Points</span>
+                      </div>
+                    </div>
+                    <ResponsiveContainer width="100%" height={148}>
+                      <BarChart
+                        data={tabChartData}
+                        barGap={3}
+                        barCategoryGap="28%"
+                        margin={{ top: 2, right: 6, left: -20, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.08)" vertical={false} />
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fontSize: 9, fontWeight: 700, fill: '#4B5563', fontFamily: 'Montserrat,sans-serif' }}
+                          axisLine={false} tickLine={false} interval={0}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 8, fill: '#9CA3AF', fontFamily: 'Montserrat,sans-serif' }}
+                          axisLine={false} tickLine={false} width={24}
+                        />
+                        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(34,168,75,0.07)' }} />
+                        <Bar dataKey="allocated" name="Allocated" fill="#22A84B" radius={[4, 4, 0, 0]} maxBarSize={22} />
+                        <Bar dataKey="achieved" name="Achieved" radius={[4, 4, 0, 0]} maxBarSize={22}>
+                          {tabChartData.map((_, idx) => (
+                            <Cell key={`cell-${idx}`} fill={ACHIEVED_COLORS[idx % ACHIEVED_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 ) : (
                   <div style={{
                     flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1029,7 +1220,7 @@ export default function ProjectAssessment() {
             </div>
 
             {/* Progress bar */}
-            <div style={{ height: 4, background: 'var(--g100)' }}>
+            <div style={{ height: 5, background: 'var(--g100)' }}>
               <div style={{
                 height: '100%',
                 width: `${((activeTab + 1) / tabs.length) * 100}%`,
@@ -1375,6 +1566,28 @@ export default function ProjectAssessment() {
                                               </div>
                                             </div>
 
+                                            {/* Details — immediately after question */}
+                                            {inp.details && (
+                                              <div style={{
+                                                display: 'flex', alignItems: 'flex-start', gap: 7,
+                                                marginBottom: 9, marginTop: 1,
+                                              }}>
+                                                <span style={{
+                                                  fontSize: 16, color: '#6B7280', flexShrink: 0,
+                                                  lineHeight: 5.5, marginTop: 1,
+                                                  fontStyle: 'normal', userSelect: 'none',
+                                                }}><RiInformation2Fill /></span>
+                                                <p style={{
+                                                  margin: 0, fontSize: 12,
+                                                  color: '#6B7280', lineHeight: 1.6,
+                                                  fontStyle: 'italic',
+                                                  fontFamily: 'Inter,sans-serif',
+                                                }}>
+                                                  {inp.details}
+                                                </p>
+                                              </div>
+                                            )}
+
                                             {/* Instruction button */}
                                             {inp.instruction && (
                                               <div style={{ marginBottom: 10 }}>
@@ -1395,25 +1608,6 @@ export default function ProjectAssessment() {
                                                 >
                                                   <span style={{ fontSize: 13 }}>📋</span> Instruction
                                                 </button>
-                                              </div>
-                                            )}
-
-                                            {/* Details — inline below question */}
-                                            {inp.details && (
-                                              <div style={{
-                                                display: 'flex', alignItems: 'flex-start', gap: 6,
-                                                marginBottom: 10,
-                                                paddingLeft: 10,
-                                                borderLeft: '3px solid #93C5FD',
-                                              }}>
-                                                <p style={{
-                                                  margin: 0,
-                                                  fontSize: 12,
-                                                  color: '#4B5563',
-                                                  lineHeight: 1.55,
-                                                }}>
-                                                  {inp.details}
-                                                </p>
                                               </div>
                                             )}
 

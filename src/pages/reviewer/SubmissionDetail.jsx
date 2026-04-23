@@ -154,112 +154,155 @@ export default function ReviewerSubmissionDetail() {
   };
 
   const exportPdf = () => {
-    const win = window.open('', '_blank', 'width=960,height=800');
+    const win = window.open('', '_blank', 'width=1040,height=900');
     if (!win) { toast.error('Please allow popups to export PDF'); return; }
+
     const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const fIcon = (name) => { const e = (name||'').split('.').pop().toLowerCase(); return e==='pdf'?'📄':['jpg','jpeg','png','gif','webp','svg'].includes(e)?'🖼️':'📎'; };
+    const typeClass = (t) => ({number:'t-num',text:'t-txt',checkbox:'t-chk',file:'t-fil'}[t]||'t-txt');
+    const submittedDate = project?.updatedAt ? new Date(project.updatedAt).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}) : '';
+    const pctFill = Math.min(project?.scorePercent || 0, 100);
+
     let body = '';
-
-    body += `<div class="rpt-header">
-      <div class="rpt-logo">DESH Submission Report</div>
-      <h1>${esc(project?.title)}</h1>
-      <p class="meta">by <strong>${esc(project?.userId?.name)}</strong> &bull; ${esc(project?.userId?.email)}</p>
-      <p class="meta">Date: ${new Date(project?.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-    </div>`;
-
-    body += `<div class="score-card">
-      <div class="score-big">${project?.scorePercent || 0}<span class="pct">%</span></div>
-      <div class="score-info">
-        <div class="score-pts">${Math.round(project?.totalPoints || 0)} / ${Math.round(project?.maxPoints || 0)} pts</div>
-        <div class="score-level">${esc(project?.leafLevel || 'Not rated')}</div>
-        <div class="score-status">${project?.status === 'submitted' ? '✓ Submitted' : 'Draft'}</div>
+    body += `<div class="rpt-cover">
+      <div class="rpt-brand">DESH — Submission Report</div>
+      <div class="rpt-title">${esc(project?.title)}</div>
+      <div class="rpt-meta">
+        <span>👤 ${esc(project?.userId?.name)} &bull; ${esc(project?.userId?.email)}</span>
+        <span>📅 ${submittedDate}</span>
+      </div>
+    </div>
+    <div class="score-strip">
+      <div class="sc-num">${project?.scorePercent||0}<span class="sc-pct">%</span></div>
+      <div class="sc-vline"></div>
+      <div>
+        <div class="sc-pts">${Math.round(project?.totalPoints||0)} / ${Math.round(project?.maxPoints||0)} pts</div>
+        <div class="sc-level">
+          ${project?.leafLevel ? `<span class="sc-pill p-green">${esc(project.leafLevel)}</span>` : ''}
+          <span class="sc-pill ${project?.status==='submitted'?'p-green':'p-amber'}">${project?.status==='submitted'?'✓ Submitted':'● Draft'}</span>
+        </div>
+      </div>
+      <div class="sc-bar-wrap">
+        <div class="sc-bar-label">Overall Score</div>
+        <div class="sc-bar-track"><div class="sc-bar-fill" style="width:${pctFill}%"></div></div>
+        <div class="sc-bar-sub">${pctFill}% achieved</div>
       </div>
     </div>`;
 
+    body += `<div class="content">`;
     (tabs || []).forEach((tab, ti) => {
       const mods = (tab.modules || []).filter(m => (m.inputs || []).length > 0);
       if (!mods.length) return;
-      body += `<div class="tab-section"><div class="tab-heading">${esc(ti + 1 + '. ' + tab.title)}</div>`;
+      body += `<div class="tab-sec">
+        <div class="tab-hdr">
+          <div class="tab-badge">${ti + 1}</div>
+          <div class="tab-name">${esc(tab.title)}</div>
+        </div>`;
       mods.forEach((mod, mi) => {
         const inputs = mod.inputs || [];
         const modEarned = inputs.reduce((s, i) => s + (i.points || 0), 0);
         const modMax = inputs.reduce((s, i) => s + calcInputMax(i), 0);
-        body += `<div class="module">
-          <div class="module-header">
-            <span class="module-title">${esc((ti + 1) + '.' + (mi + 1) + ' ' + mod.title)}</span>
-            <span class="module-score">${modEarned.toFixed(1)} / ${modMax} pts</span>
-          </div><div class="module-body">`;
+        body += `<div class="mod">
+          <div class="mod-hdr">
+            <span class="mod-name">${esc((ti+1)+'.'+(mi+1)+' '+mod.title)}</span>
+            ${modMax > 0 ? `<span class="mod-pts">${modEarned.toFixed(1)} / ${modMax} pts</span>` : ''}
+          </div>`;
         inputs.forEach(inp => {
           let val = '';
           if (inp.inputType === 'file') {
             const linked = (docs || []).filter(d => String(d.inputId) === String(inp._id));
             val = linked.length > 0
-              ? linked.map(doc => {
-                const url = getDownloadUrl(doc);
-                const name = doc.originalName || doc.filename || 'file';
-                return `<a href="${url}" target="_blank" class="file-link">${fileIcon(name)} ${esc(name)}</a>`;
-              }).join('<br>')
-              : '<span class="empty">No file uploaded</span>';
+              ? linked.map(doc => { const url = getDownloadUrl(doc); const name = doc.originalName || doc.filename || 'file'; return `<a href="${url}" target="_blank" class="file-link">${fIcon(name)} ${esc(name)}</a>`; }).join('<br>')
+              : '<span class="val-empty">No file uploaded</span>';
           } else if (inp.inputType === 'checkbox') {
             const sel = Array.isArray(inp.value) ? inp.value : [];
             const opts = inp.options || [];
-            val = opts.length > 0
-              ? opts.map(o => {
-                const on = sel.includes(o.label);
-                return `<span class="cb-chip ${on ? 'cb-sel' : 'cb-unsel'}">${on ? '✓ ' : ''}${esc(o.label)}${o.points ? ` (${o.points}pts)` : ''}</span>`;
-              }).join(' ')
-              : (sel.length > 0 ? sel.map(v => `<span class="cb-chip cb-sel">✓ ${esc(v)}</span>`).join(' ') : '<span class="empty">—</span>');
+            const list = opts.length > 0 ? opts : sel.map(l => ({ label: l, points: 0 }));
+            val = list.length > 0
+              ? `<div class="cb-wrap">${list.map(o => { const on = sel.includes(o.label); return `<span class="cb-chip ${on?'cb-on':'cb-off'}">${on?'✓ ':''}${esc(o.label)}${o.points?` (${o.points}pts)`:''}</span>`; }).join('')}</div>`
+              : '<span class="val-empty">—</span>';
           } else {
-            val = inp.value ? esc(String(inp.value)) : '<span class="empty">—</span>';
+            val = inp.value ? esc(String(inp.value)) : '<span class="val-empty">—</span>';
           }
-          body += `<div class="inp-row">
-            <div class="inp-label">${esc(inp.label)}${inp.isRequired ? '<span class="req"> *</span>' : ''}${inp.points > 0 ? `<span class="pts-badge">${inp.points.toFixed(1)} pts</span>` : ''}</div>
-            <div class="inp-value">${val}</div>
+          body += `<div class="inp">
+            <div class="inp-lbl">
+              <span class="inp-type ${typeClass(inp.inputType)}">${inp.inputType}</span>
+              ${esc(inp.label)}${inp.isRequired ? '<span class="inp-req"> *</span>' : ''}
+              ${inp.points > 0 ? `<span class="inp-pts">${inp.points.toFixed(1)} pts</span>` : ''}
+            </div>
+            <div class="inp-val">${val}</div>
           </div>`;
         });
-        body += `</div></div>`;
+        body += `</div>`;
       });
       body += `</div>`;
     });
+    body += `</div>`;
 
-    const css = `*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;line-height:1.55;padding:28px;background:#fff}
-.rpt-header{margin-bottom:22px;padding-bottom:16px;border-bottom:3px solid #22A84B}
-.rpt-logo{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#22A84B;margin-bottom:6px}
-.rpt-header h1{font-size:22px;font-weight:900;color:#111;margin-bottom:5px}
-.meta{font-size:12px;color:#555;margin-top:3px}
-.score-card{display:flex;align-items:center;gap:20px;background:#F0FDF4;border:1.5px solid #A8EFC0;border-radius:10px;padding:14px 20px;margin-bottom:24px}
-.score-big{font-size:44px;font-weight:900;color:#145C28;line-height:1}
-.pct{font-size:22px}
-.score-pts{font-size:14px;font-weight:700;color:#145C28}
-.score-level{font-size:13px;font-weight:800;color:#145C28;margin-top:4px}
-.score-status{font-size:11px;color:#555;margin-top:3px}
-.tab-section{margin-bottom:26px;page-break-before:always}
-.tab-heading{font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#145C28;padding:7px 0;border-bottom:2px solid #A8EFC0;margin-bottom:10px}
-.module{border:1px solid #E5E7EB;border-radius:10px;margin-bottom:12px;overflow:hidden;page-break-inside:avoid}
-.module-header{background:#F9FAFB;padding:9px 14px;border-bottom:1px solid #E5E7EB;display:flex;justify-content:space-between;align-items:center}
-.module-title{font-size:12px;font-weight:800;color:#111}
-.module-score{font-size:11px;font-weight:700;color:#145C28;background:#D6F5E3;padding:2px 8px;border-radius:12px}
-.inp-row{padding:9px 14px;border-bottom:1px solid #F3F4F6}
-.inp-row:last-child{border-bottom:none}
-.inp-label{font-size:12px;font-weight:700;color:#111;margin-bottom:4px;display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap}
-.req{color:#EF4444}
-.pts-badge{margin-left:auto;font-size:10px;font-weight:800;padding:1px 7px;border-radius:4px;background:#D6F5E3;color:#145C28;white-space:nowrap;flex-shrink:0}
-.inp-value{font-size:12px;color:#444}
-.empty{color:#aaa;font-style:italic}
-.file-link{display:inline-block;margin:2px 0;color:#1D4ED8;text-decoration:underline;word-break:break-all}
-.cb-chip{display:inline-block;margin:2px 3px;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600;border:1px solid}
-.cb-sel{background:#FEF3C7;color:#92400E;border-color:#FDE68A}
-.cb-unsel{background:#F9FAFB;color:#9CA3AF;border-color:#E5E7EB}
-.no-print{margin-top:28px;text-align:center;padding:20px;border-top:2px dashed #E5E7EB}
-.no-print button{padding:11px 28px;background:#22A84B;color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer}
-.no-print p{font-size:11px;color:#888;margin-top:8px}
-@media print{.no-print{display:none}body{padding:14px}}`;
+    const css = `@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-height:1.6;background:#fff}
+.rpt-cover{background:linear-gradient(135deg,#0a3d20,#1a6b35 55%,#22A84B);color:#fff;padding:34px 40px 26px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.rpt-brand{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.2em;color:rgba(255,255,255,.65);margin-bottom:13px;font-family:'Montserrat',sans-serif}
+.rpt-title{font-family:'Montserrat',sans-serif;font-size:24px;font-weight:900;line-height:1.25;margin-bottom:10px;word-break:break-word}
+.rpt-meta{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:rgba(255,255,255,.82)}
+.score-strip{display:flex;align-items:center;gap:28px;padding:20px 40px;background:#F0FDF4;border-bottom:1.5px solid #A8EFC0;flex-wrap:wrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.sc-num{font-family:'Montserrat',sans-serif;font-size:52px;font-weight:900;color:#145C28;line-height:1}
+.sc-pct{font-size:26px}
+.sc-vline{width:1.5px;height:44px;background:#A8EFC0;flex-shrink:0}
+.sc-pts{font-family:'Montserrat',sans-serif;font-size:15px;font-weight:800;color:#145C28}
+.sc-level{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
+.sc-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 12px;border-radius:99px;font-size:11px;font-weight:700;font-family:'Montserrat',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.p-green{background:#D6F5E3;color:#145C28;border:1px solid #A8EFC0}
+.p-amber{background:#FEF9C3;color:#92400E;border:1px solid #FDE68A}
+.sc-bar-wrap{flex:1;min-width:180px}
+.sc-bar-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#145C28;font-family:'Montserrat',sans-serif;margin-bottom:6px}
+.sc-bar-track{height:10px;background:#D1FAE5;border-radius:99px;overflow:hidden}
+.sc-bar-fill{height:100%;background:linear-gradient(90deg,#22A84B,#16A34A);border-radius:99px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.sc-bar-sub{font-size:10px;font-weight:700;color:#166534;margin-top:5px}
+.content{padding:24px 40px 40px}
+.tab-sec{margin-bottom:28px}
+.tab-hdr{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:2.5px solid #22A84B;margin-bottom:12px;page-break-after:avoid}
+.tab-badge{min-width:26px;height:26px;padding:0 7px;border-radius:6px;background:#22A84B;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:900;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.tab-name{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#145C28}
+.mod{border:1px solid #E5E7EB;border-radius:10px;margin-bottom:10px;overflow:hidden;page-break-inside:avoid}
+.mod-hdr{background:#F9FAFB;padding:10px 15px;border-bottom:1px solid #E5E7EB;display:flex;justify-content:space-between;align-items:center;gap:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.mod-name{font-family:'Montserrat',sans-serif;font-size:12px;font-weight:800;color:#111}
+.mod-pts{font-size:10.5px;font-weight:700;color:#145C28;background:#D6F5E3;padding:3px 9px;border-radius:20px;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.inp{display:grid;grid-template-columns:1fr 1.3fr;gap:12px;padding:9px 15px;border-bottom:1px solid #F3F4F6;align-items:start}
+.inp:last-child{border-bottom:none}
+.inp:nth-child(even){background:#FAFAFA}
+.inp-lbl{font-size:11.5px;font-weight:700;color:#374151;display:flex;align-items:flex-start;gap:5px;flex-wrap:wrap;line-height:1.45}
+.inp-type{font-size:8px;font-weight:800;padding:1px 5px;border-radius:3px;text-transform:uppercase;letter-spacing:.05em;font-family:'Montserrat',sans-serif;white-space:nowrap;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.t-num{background:#EFF6FF;color:#1D4ED8}.t-txt{background:#F0FDF4;color:#166534}.t-chk{background:#FEF9C3;color:#92400E}.t-fil{background:#FFF7ED;color:#78350F}
+.inp-req{color:#EF4444;font-size:9px}
+.inp-pts{font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;background:#D6F5E3;color:#145C28;white-space:nowrap;margin-left:auto;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.inp-val{font-size:12.5px;color:#374151;word-break:break-word;line-height:1.55}
+.val-empty{color:#9CA3AF;font-style:italic;font-size:12px}
+.file-link{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;background:#EFF6FF;color:#1D4ED8;text-decoration:none;font-size:11px;font-weight:600;border:1px solid #BFDBFE;margin:2px 0;word-break:break-all}
+.cb-wrap{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.cb-chip{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.cb-on{background:#FEF9C3;color:#92400E;border-color:#FDE68A}.cb-off{background:#F9FAFB;color:#9CA3AF;border-color:#E5E7EB}
+.print-bar{position:fixed;top:0;left:0;right:0;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid #E5E7EB;padding:11px 22px;display:flex;align-items:center;gap:14px;z-index:200;box-shadow:0 2px 14px rgba(0,0,0,.08)}
+.print-bar-info{flex:1;min-width:0}
+.print-bar-title{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:800;color:#111;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.print-bar-sub{font-size:11px;color:#6B7280;margin-top:1px}
+.print-btn{display:flex;align-items:center;gap:7px;padding:9px 22px;background:#22A84B;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;white-space:nowrap;flex-shrink:0;box-shadow:0 2px 8px rgba(34,168,75,.28)}
+.body-offset{padding-top:62px}
+@media print{.print-bar{display:none!important}.body-offset{padding-top:0!important}.tab-sec+.tab-sec{page-break-before:always}.mod{page-break-inside:avoid}.tab-hdr{page-break-after:avoid}}`;
 
     win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
 <title>${esc(project?.title)} — Submission Report</title>
-<style>${css}</style></head><body>${body}
-<div class="no-print"><button onclick="window.print()">🖨️ Print / Save as PDF</button><p>In the print dialog choose "Save as PDF" to export.</p></div>
-<script>setTimeout(()=>window.print(),500)<\/script></body></html>`);
+<style>${css}</style></head><body>
+<div class="print-bar">
+  <div class="print-bar-info">
+    <div class="print-bar-title">${esc(project?.title)}</div>
+    <div class="print-bar-sub">DESH Submission Report &bull; ${submittedDate}</div>
+  </div>
+  <button class="print-btn" onclick="window.print()">🖨 Print / Save as PDF</button>
+</div>
+<div class="body-offset">${body}</div>
+<script>setTimeout(()=>window.print(),600)<\/script></body></html>`);
     win.document.close();
   };
 
