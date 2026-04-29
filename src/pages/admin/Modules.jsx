@@ -260,6 +260,21 @@ export default function Modules() {
     const setOpt = (i, k, v) => {
       const o = [...f.options]; o[i] = { ...o[i], [k]: v }; setF({ ...f, options: o });
     };
+    const moveOpt = (i, dir) => {
+      const j = i + dir;
+      if (j < 0 || j >= f.options.length) return;
+      const opts = [...f.options];
+      [opts[i], opts[j]] = [opts[j], opts[i]];
+      setF({ ...f, options: opts });
+    };
+    const reorderOpt = (from, toPos) => {
+      const to = Math.max(0, Math.min(f.options.length - 1, toPos - 1));
+      if (from === to) return;
+      const opts = [...f.options];
+      const [item] = opts.splice(from, 1);
+      opts.splice(to, 0, item);
+      setF({ ...f, options: opts });
+    };
     const setLine = (k, v) => setF({ ...f, line: { ...f.line, [k]: v } });
 
     const save = async () => {
@@ -620,10 +635,13 @@ export default function Modules() {
                 }}>+ Add Option</button>
               </div>
               {f.options.map((o, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 36px', gap: 8, marginBottom: 8 }}>
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 62px 30px 30px 36px', gap: 6, marginBottom: 8, alignItems: 'center' }}>
+                  {/* Label */}
                   <input className="input-field" value={o.label}
                     onChange={e => setOpt(i, 'label', e.target.value)}
                     placeholder={`Option ${i + 1} label`} style={{ padding: '9px 12px' }} />
+
+                  {/* Points */}
                   <div style={{ position: 'relative' }}>
                     <input type="number" className="input-field" value={o.points}
                       onChange={e => setOpt(i, 'points', Number(e.target.value))}
@@ -634,8 +652,62 @@ export default function Modules() {
                       color: 'var(--tx-faint)', fontWeight: 700, pointerEvents: 'none'
                     }}>pts</span>
                   </div>
-                  <button onClick={() => delOpt(i)} style={{
-                    background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+
+                  {/* Position / sort-order input */}
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="number" className="input-field"
+                      value={i + 1} min={1} max={f.options.length}
+                      onChange={e => {
+                        const v = parseInt(e.target.value, 10);
+                        if (!isNaN(v)) reorderOpt(i, v);
+                      }}
+                      title="Set position"
+                      style={{ padding: '9px 6px 9px 10px', textAlign: 'center', paddingRight: 20 }}
+                    />
+                    <span style={{
+                      position: 'absolute', right: 5, top: '50%',
+                      transform: 'translateY(-50%)', fontSize: 8,
+                      color: 'var(--tx-faint)', fontWeight: 800,
+                      pointerEvents: 'none', letterSpacing: '0.04em'
+                    }}>#</span>
+                  </div>
+
+                  {/* Move up */}
+                  <button
+                    onClick={() => moveOpt(i, -1)}
+                    disabled={i === 0}
+                    title="Move up"
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      height: '100%', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                      background: i === 0 ? 'var(--bg-subtle)' : 'var(--g50)',
+                      border: `1px solid ${i === 0 ? 'var(--border)' : 'var(--g200)'}`,
+                      color: i === 0 ? 'var(--tx-faint)' : 'var(--g600)',
+                      cursor: i === 0 ? 'default' : 'pointer',
+                      opacity: i === 0 ? 0.45 : 1,
+                    }}>▲</button>
+
+                  {/* Move down */}
+                  <button
+                    onClick={() => moveOpt(i, 1)}
+                    disabled={i === f.options.length - 1}
+                    title="Move down"
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      height: '100%', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                      background: i === f.options.length - 1 ? 'var(--bg-subtle)' : 'var(--g50)',
+                      border: `1px solid ${i === f.options.length - 1 ? 'var(--border)' : 'var(--g200)'}`,
+                      color: i === f.options.length - 1 ? 'var(--tx-faint)' : 'var(--g600)',
+                      cursor: i === f.options.length - 1 ? 'default' : 'pointer',
+                      opacity: i === f.options.length - 1 ? 0.45 : 1,
+                    }}>▼</button>
+
+                  {/* Delete */}
+                  <button onClick={() => delOpt(i)} title="Remove option" style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    height: '100%', background: 'rgba(239,68,68,0.08)',
+                    border: '1px solid rgba(239,68,68,0.2)',
                     borderRadius: 8, color: '#EF4444', cursor: 'pointer', fontSize: 14
                   }}>✕</button>
                 </div>

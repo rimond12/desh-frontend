@@ -207,7 +207,21 @@ export default function ReviewerSubmissionDetail() {
             <span class="mod-name">${esc((ti+1)+'.'+(mi+1)+' '+mod.title)}</span>
             ${modMax > 0 ? `<span class="mod-pts">${modEarned.toFixed(1)} / ${modMax} pts</span>` : ''}
           </div>`;
+        // Group inputs by stage (sectionId)
+        const stageGroups = [];
+        const seenStages = new Map();
         inputs.forEach(inp => {
+          const sid = String(inp.sectionId || 'none');
+          if (!seenStages.has(sid)) {
+            const sec = (globalSections || []).find(s => String(s._id) === sid);
+            seenStages.set(sid, stageGroups.length);
+            stageGroups.push({ title: sec?.title || '', inputs: [] });
+          }
+          stageGroups[seenStages.get(sid)].inputs.push(inp);
+        });
+        stageGroups.forEach(group => {
+          if (group.title) body += `<div class="stage-hdr">${esc(group.title)}</div>`;
+          group.inputs.forEach(inp => {
           let val = '';
           if (inp.inputType === 'file') {
             const linked = (docs || []).filter(d => String(d.inputId) === String(inp._id));
@@ -232,7 +246,8 @@ export default function ReviewerSubmissionDetail() {
             </div>
             <div class="inp-val">${val}</div>
           </div>`;
-        });
+          }); // end group.inputs.forEach
+        }); // end stageGroups.forEach
         body += `</div>`;
       });
       body += `</div>`;
@@ -289,7 +304,8 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 .print-bar-sub{font-size:11px;color:#6B7280;margin-top:1px}
 .print-btn{display:flex;align-items:center;gap:7px;padding:9px 22px;background:#22A84B;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;white-space:nowrap;flex-shrink:0;box-shadow:0 2px 8px rgba(34,168,75,.28)}
 .body-offset{padding-top:62px}
-@media print{.print-bar{display:none!important}.body-offset{padding-top:0!important}.tab-sec+.tab-sec{page-break-before:always}.mod{page-break-inside:avoid}.tab-hdr{page-break-after:avoid}}`;
+.stage-hdr{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#145C28;padding:8px 15px 6px;background:linear-gradient(90deg,#F0FDF4,#fff);border-left:3px solid #22A84B;margin:8px -1px 0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@media print{.print-bar{display:none!important}.body-offset{padding-top:0!important}.tab-sec+.tab-sec{page-break-before:always}.mod{page-break-inside:avoid}.tab-hdr{page-break-after:avoid}.stage-hdr{background:#F0FDF4!important}}`;
 
     win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
 <title>${esc(project?.title)} — Submission Report</title>
@@ -564,7 +580,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 
                     {/* Input rows */}
                     <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {mod.visibleInputs.map((inp, qi) => {
+                      {mod.visibleInputs.flatMap((inp, qi) => {
                         const isEmpty = inp.inputType === 'file' ? !inp.uploaded
                           : Array.isArray(inp.value) ? inp.value.length === 0
                             : inp.value === '' || inp.value === undefined;
@@ -575,7 +591,29 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 
                         const isInputLocked = lockedInputsSet.has(String(inp._id));
                         const isToggling = togglingInput === String(inp._id);
-                        return (
+                        const prevInp = mod.visibleInputs[qi - 1];
+                        const isNewSection = !prevInp || String(prevInp.sectionId) !== String(inp.sectionId);
+                        const stageSec = isNewSection ? globalSections.find(s => String(s._id) === String(inp.sectionId)) : null;
+                        const result = [];
+                        if (stageSec?.title) {
+                          result.push(
+                            <div key={`stage-${qi}`} style={{
+                              display: 'flex', alignItems: 'center', gap: 8,
+                              margin: qi === 0 ? '0 0 2px' : '10px 0 2px',
+                              padding: '6px 10px',
+                              background: 'linear-gradient(90deg,#EFF9F4,transparent)',
+                              borderLeft: '3px solid var(--g400)',
+                              borderRadius: '0 6px 6px 0',
+                            }}>
+                              <span style={{
+                                fontSize: 10, fontWeight: 800, color: 'var(--g700)',
+                                textTransform: 'uppercase', letterSpacing: '0.08em',
+                                fontFamily: 'Montserrat,sans-serif',
+                              }}>{stageSec.title}</span>
+                            </div>
+                          );
+                        }
+                        result.push(
                           <div key={inp._id} style={{
                             padding: '12px 14px', borderRadius: 12,
                             background: isInputLocked ? '#FFFBEB' : isEmpty ? 'var(--bg-subtle)' : '#FAFFFE',
@@ -713,6 +751,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                             )}
                           </div>
                         );
+                        return result;
                       })}
                     </div>
                   </div>

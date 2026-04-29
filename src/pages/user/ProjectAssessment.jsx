@@ -511,33 +511,48 @@ export default function ProjectAssessment() {
             <span class="mod-name">${esc((ti + 1) + '.' + (mi + 1) + ' ' + mod.title)}</span>
             ${modMax > 0 ? `<span class="mod-pts">${modEarned.toFixed(1)} / ${modMax} pts</span>` : ''}
           </div>`;
+        // Group inputs by stage (sectionId)
+        const stageGroups = [];
+        const seenStages = new Map();
         inputs.forEach(inp => {
-          let val = '';
-          if (inp.inputType === 'file') {
-            const linkedDocs = inp.documents || [];
-            val = linkedDocs.length > 0
-              ? linkedDocs.map(doc => { const url = `${API_PDF_BASE}/uploads/documents/${doc.filename}`; const name = doc.originalName || doc.filename || 'file'; return `<a href="${url}" target="_blank" class="file-link">${fIcon(name)} ${esc(name)}</a>`; }).join('<br>')
-              : '<span class="val-empty">No file uploaded</span>';
-          } else if (inp.inputType === 'checkbox') {
-            const sel = Array.isArray(answers[inp._id]) ? answers[inp._id] : [];
-            const opts = inp.options || [];
-            const list = opts.length > 0 ? opts : sel.map(l => ({ label: l, points: 0 }));
-            val = list.length > 0
-              ? `<div class="cb-wrap">${list.map(o => { const on = sel.includes(o.label); return `<span class="cb-chip ${on ? 'cb-on' : 'cb-off'}">${on ? '✓ ' : ''}${esc(o.label)}${o.points ? ` (${o.points}pts)` : ''}</span>`; }).join('')}</div>`
-              : '<span class="val-empty">—</span>';
-          } else {
-            const v = answers[inp._id];
-            val = (v !== '' && v !== undefined && v !== null) ? esc(String(v)) : '<span class="val-empty">—</span>';
+          const sid = String(inp.sectionId || 'none');
+          if (!seenStages.has(sid)) {
+            const sec = (globalSections || []).find(s => String(s._id) === sid);
+            seenStages.set(sid, stageGroups.length);
+            stageGroups.push({ title: sec?.title || '', inputs: [] });
           }
-          const pts = calcInputPoints(inp, answers[inp._id] ?? (inp.inputType === 'checkbox' ? [] : ''));
-          body += `<div class="inp">
-            <div class="inp-lbl">
-              <span class="inp-type ${typeClass(inp.inputType)}">${inp.inputType}</span>
-              ${esc(inp.label)}${inp.isRequired ? '<span class="inp-req"> *</span>' : ''}
-              ${pts > 0 ? `<span class="inp-pts">${pts.toFixed(1)} pts</span>` : ''}
-            </div>
-            <div class="inp-val">${val}</div>
-          </div>`;
+          stageGroups[seenStages.get(sid)].inputs.push(inp);
+        });
+        stageGroups.forEach(group => {
+          if (group.title) body += `<div class="stage-hdr">${esc(group.title)}</div>`;
+          group.inputs.forEach(inp => {
+            let val = '';
+            if (inp.inputType === 'file') {
+              const linkedDocs = inp.documents || [];
+              val = linkedDocs.length > 0
+                ? linkedDocs.map(doc => { const url = `${API_PDF_BASE}/uploads/documents/${doc.filename}`; const name = doc.originalName || doc.filename || 'file'; return `<a href="${url}" target="_blank" class="file-link">${fIcon(name)} ${esc(name)}</a>`; }).join('<br>')
+                : '<span class="val-empty">No file uploaded</span>';
+            } else if (inp.inputType === 'checkbox') {
+              const sel = Array.isArray(answers[inp._id]) ? answers[inp._id] : [];
+              const opts = inp.options || [];
+              const list = opts.length > 0 ? opts : sel.map(l => ({ label: l, points: 0 }));
+              val = list.length > 0
+                ? `<div class="cb-wrap">${list.map(o => { const on = sel.includes(o.label); return `<span class="cb-chip ${on ? 'cb-on' : 'cb-off'}">${on ? '✓ ' : ''}${esc(o.label)}${o.points ? ` (${o.points}pts)` : ''}</span>`; }).join('')}</div>`
+                : '<span class="val-empty">—</span>';
+            } else {
+              const v = answers[inp._id];
+              val = (v !== '' && v !== undefined && v !== null) ? esc(String(v)) : '<span class="val-empty">—</span>';
+            }
+            const pts = calcInputPoints(inp, answers[inp._id] ?? (inp.inputType === 'checkbox' ? [] : ''));
+            body += `<div class="inp">
+              <div class="inp-lbl">
+                <span class="inp-type ${typeClass(inp.inputType)}">${inp.inputType}</span>
+                ${esc(inp.label)}${inp.isRequired ? '<span class="inp-req"> *</span>' : ''}
+                ${pts > 0 ? `<span class="inp-pts">${pts.toFixed(1)} pts</span>` : ''}
+              </div>
+              <div class="inp-val">${val}</div>
+            </div>`;
+          });
         });
         body += `</div>`;
       });
@@ -595,7 +610,8 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 .print-bar-sub{font-size:11px;color:#6B7280;margin-top:1px}
 .print-btn{display:flex;align-items:center;gap:7px;padding:9px 22px;background:#22A84B;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;white-space:nowrap;flex-shrink:0;box-shadow:0 2px 8px rgba(34,168,75,.28)}
 .body-offset{padding-top:62px}
-@media print{.print-bar{display:none!important}.body-offset{padding-top:0!important}.tab-sec+.tab-sec{page-break-before:always}.mod{page-break-inside:avoid}.tab-hdr{page-break-after:avoid}}`;
+.stage-hdr{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#145C28;padding:8px 15px 6px;background:linear-gradient(90deg,#F0FDF4,#fff);border-left:3px solid #22A84B;margin:8px -1px 0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@media print{.print-bar{display:none!important}.body-offset{padding-top:0!important}.tab-sec+.tab-sec{page-break-before:always}.mod{page-break-inside:avoid}.tab-hdr{page-break-after:avoid}.stage-hdr{background:#F0FDF4!important}}`;
 
     win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
 <title>${esc(project?.title)} — Project Report</title>
@@ -1618,6 +1634,8 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                               const rawVal = answers[inp._id];
                                               const hasVal = rawVal !== '' && rawVal !== undefined && rawVal !== null;
                                               const numVal = hasVal ? Math.min(Math.max(Number(rawVal), sMin), sMax) : sMin;
+                                              const sRange = sMax - sMin;
+                                              const sStep = sRange > 10 ? 1 : sRange > 1 ? 0.1 : 0.01;
                                               const pct = sMax > sMin ? ((numVal - sMin) / (sMax - sMin)) * 100 : 0;
                                               const editable = isInputEditable(inp);
                                               return (
@@ -1653,7 +1671,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                                       {/* Range slider */}
                                                       <input
                                                         type="range"
-                                                        min={sMin} max={sMax} step={1}
+                                                        min={sMin} max={sMax} step={sStep}
                                                         value={numVal}
                                                         onChange={e => handleChange(inp._id, e.target.value, 'number')}
                                                         disabled={!editable}
