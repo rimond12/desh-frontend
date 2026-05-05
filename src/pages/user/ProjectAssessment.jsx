@@ -705,31 +705,9 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
           background: 'rgba(255,255,255,0.5)',
           flexWrap: 'wrap',
         }}>
-          {/* Section dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            <span style={{
-              fontSize: 10, fontWeight: 800, letterSpacing: '0.1em',
-              textTransform: 'uppercase', color: 'var(--g700)',
-              fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
-            }}>Section</span>
-            <select
-              value={selectedSection}
-              onChange={e => setSelectedSection(e.target.value)}
-              style={{
-                padding: '6px 12px', borderRadius: 8,
-                border: '1.5px solid var(--g200)', background: '#fff',
-                fontSize: 13, fontWeight: 600, color: 'var(--tx)',
-                cursor: 'pointer', outline: 'none', maxWidth: 260,
-              }}>
-              <option value="">— Overall Score —</option>
-              {regularSections.map(s => (
-                <option key={s._id} value={s._id}>{s.title}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Project title — centered */}
-          <div style={{ flex: 1, minWidth: 0, textAlign: 'center', padding: '0 8px' }}>
+          {/* Project title + section — stacked left */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, flex: 1 }}>
+          <div style={{ minWidth: 0 }}>
             {editingTitle ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
                 <input
@@ -783,14 +761,32 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                 )}
               </div>
             )}
-            {displayMode && (
-              <p style={{
-                fontSize: 10, fontWeight: 700, color: 'var(--g700)',
-                margin: '2px 0 0', fontFamily: 'Montserrat,sans-serif',
-                letterSpacing: '0.04em',
-              }}>▦ {selectedSectionName}</p>
-            )}
           </div>
+          {/* Section dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <span style={{
+              fontSize: 10, fontWeight: 800, letterSpacing: '0.1em',
+              textTransform: 'uppercase', color: 'var(--g700)',
+              fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+            }}>Section</span>
+            <select
+              value={selectedSection}
+              onChange={e => setSelectedSection(e.target.value)}
+              style={{
+                padding: '6px 12px', borderRadius: 8,
+                border: '1.5px solid var(--g200)', background: '#fff',
+                fontSize: 13, fontWeight: 600, color: 'var(--tx)',
+                cursor: 'pointer', outline: 'none', maxWidth: 260,
+              }}>
+              <option value="">— Overall Score —</option>
+              {regularSections.map(s => (
+                <option key={s._id} value={s._id}>{s.title}</option>
+              ))}
+            </select>
+          </div>
+          </div>{/* end column wrapper */}
+
+          
 
           {/* Collapsed mini-summary — shown only when card is closed */}
           {!scoreOpen && (
@@ -1447,7 +1443,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                 }}>
                                   {group.iconUrl
                                     ? <img src={`${SERVER_URL}${group.iconUrl}`} alt=""
-                                      style={{ width: 22, height: 22, objectFit: 'contain', filter: isSecOpen ? 'brightness(10)' : 'none' }}
+                                      style={{ width: 22, height: 22, objectFit: 'contain' }}
                                       onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }} />
                                     : null}
                                   <span style={{ display: group.iconUrl ? 'none' : 'flex', color: isSecOpen ? '#fff' : 'var(--g600)', fontSize: 14 }}>▦</span>
