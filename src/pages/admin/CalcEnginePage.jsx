@@ -3,7 +3,7 @@ import CalcAdmin from '../../components/calcEngine/CalcAdmin.jsx';
 
 export default function CalcEnginePage() {
     return (
-        <Layout>
+        <Layout isAdmin>
             <CalcAdmin />
         </Layout>
     );
