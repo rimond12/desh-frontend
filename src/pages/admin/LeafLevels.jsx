@@ -107,6 +107,8 @@ export default function LeafLevels() {
             await axiosSecure.delete(`/settings/eval-rules/${id}`);
             toast.success('Deleted!');
             fetchLevels();
+            
+            
         } catch { toast.error('Failed'); }
     };
 

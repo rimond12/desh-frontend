@@ -49,6 +49,7 @@ export default function ChangePasswordCard() {
     const [loading, setLoading] = useState(false);
 
     const firebaseUser = auth.currentUser;
+    
 
     // Detect whether the signed-in user has a password-based provider.
     // Google / SSO-only accounts have no password and cannot use this form.
