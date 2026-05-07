@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 import PartnerFooter from '../../components/shared/PartnerFooter.jsx';
 import useAuthBranding, { getImgSrc } from '../../hooks/useAuthBranding.js';
+import CaptchaWidget from '../../components/shared/CaptchaWidget.jsx';
 
 export default function Login() {
   const branding = useAuthBranding();
@@ -13,6 +14,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [gLoading, setGLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
+  const [captchaDone, setCaptchaDone] = useState(
+    () => sessionStorage.getItem('captcha_login') === '1'
+  );
 
   const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -25,6 +29,7 @@ export default function Login() {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!captchaDone) { toast.error('Please complete the verification first.'); return; }
     setLoading(true);
     try {
       await login(form.email, form.password);
@@ -35,6 +40,7 @@ export default function Login() {
   };
 
   const handleGoogle = async () => {
+    if (!captchaDone) { toast.error('Please complete the verification first.'); return; }
     setGLoading(true);
     try {
       await loginWithGoogle();
@@ -433,7 +439,18 @@ export default function Login() {
                   </button>
                 </div>
 
-                <button type="submit" disabled={loading} className="submit-btn">
+                {/* ── CAPTCHA verification ── */}
+                <CaptchaWidget
+                  sessionKey="captcha_login"
+                  onVerify={setCaptchaDone}
+                />
+
+                <button
+                  type="submit"
+                  disabled={loading || !captchaDone}
+                  className="submit-btn"
+                  style={{ opacity: !captchaDone ? 0.5 : 1 }}
+                >
                   {loading
                     ? <><span className="spinner" /> Signing in…</>
                     : 'Sign In →'}
@@ -446,7 +463,7 @@ export default function Login() {
                 <div className="divider-line" />
               </div>
 
-              <button onClick={handleGoogle} disabled={gLoading} className="google-btn">
+              <button onClick={handleGoogle} disabled={gLoading || !captchaDone} className="google-btn" style={{ opacity: !captchaDone ? 0.5 : 1 }}>
                 {gLoading
                   ? 'Connecting…'
                   : <>

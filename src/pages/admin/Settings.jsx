@@ -2,9 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import Layout from '../../components/shared/Layout.jsx';
 import toast from 'react-hot-toast';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
-import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
-import { auth } from '../../services/firebase';
 import { NAV_CONFIG, NAV_LABEL_DEFAULTS } from '../../config/navConfig.js';
+import ChangePasswordCard from '../../components/shared/ChangePasswordCard.jsx';
 
 const SERVER_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -16,7 +15,6 @@ function getLogoSrc(path) {
 export default function Settings() {
     const axiosSecure = useAxiosSecure();
     const [site, setSite] = useState({ siteName: 'DESH Project', maxFileSize: 10, allowedTypes: 'pdf,jpg,jpeg,png' });
-    const [pass, setPass] = useState({ current: '', newPass: '', confirm: '' });
     const [saving, setSaving] = useState(false);
 
     // Footer CMS state
@@ -84,23 +82,6 @@ export default function Settings() {
             toast.success('Settings saved!');
         } catch { toast.error('Failed to save'); }
         finally { setSaving(false); }
-    };
-
-    const changePass = async () => {
-        if (!pass.current || !pass.newPass) { toast.error('Fill all fields'); return; }
-        if (pass.newPass !== pass.confirm) { toast.error("Passwords don't match"); return; }
-        if (pass.newPass.length < 6) { toast.error('Min 6 characters'); return; }
-        setSaving(true);
-        try {
-            const user = auth.currentUser;
-            const cred = EmailAuthProvider.credential(user.email, pass.current);
-            await reauthenticateWithCredential(user, cred);
-            await updatePassword(user, pass.newPass);
-            setPass({ current: '', newPass: '', confirm: '' });
-            toast.success('Password changed!');
-        } catch (err) {
-            toast.error(err.code === 'auth/wrong-password' ? 'Wrong current password' : 'Failed to change password');
-        } finally { setSaving(false); }
     };
 
     const saveAuthBranding = async () => {
@@ -739,30 +720,8 @@ export default function Settings() {
                     </div>
                 </div>
 
-                {/* <div className="glass-card p-6">
-                    <h2 className="font-bold text-lg mb-5">🔒 Change Password</h2>
-                    <div className="space-y-4">
-                        {[
-                            { label: 'CURRENT PASSWORD', key: 'current', placeholder: '••••••••' },
-                            { label: 'NEW PASSWORD', key: 'newPass', placeholder: 'Min 6 characters' },
-                            { label: 'CONFIRM PASSWORD', key: 'confirm', placeholder: 'Repeat new password' },
-                        ].map(f => (
-                            <div key={f.key}>
-                                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>{f.label}</label>
-                                <input type="password" value={pass[f.key]} onChange={e => setPass({ ...pass, [f.key]: e.target.value })}
-                                    placeholder={f.placeholder} className="input-dark w-full px-4 py-3 text-sm" />
-                            </div>
-                        ))}
-                        {pass.confirm && pass.newPass !== pass.confirm && (
-                            <p className="text-xs" style={{ color: '#E2670C' }}>⚠ Passwords don't match</p>
-                        )}
-                        <button onClick={changePass} disabled={saving}
-                            className="w-full py-3 px-6 rounded-xl font-semibold text-sm"
-                            style={{ background: 'linear-gradient(135deg,#97542A,#E2670C)', color: 'white' }}>
-                            {saving ? 'Updating...' : '🔒 Change Password'}
-                        </button>
-                    </div>
-                </div> */}
+                {/* Change Password */}
+                <ChangePasswordCard />
             </div>
         </Layout>
     );

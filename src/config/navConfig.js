@@ -77,6 +77,13 @@ export const NAV_CONFIG = [
                 ],
             },
             {
+                sectionKey: 'adminSection_TOOLS',
+                sectionDefault: 'TOOLS',
+                items: [
+                    { key: 'adminNav_calcEngine', defaultLabel: 'Calc Engine', path: '/admin/calc-engine', icon: '∑' },
+                ],
+            },
+            {
                 sectionKey: 'adminSection_SYSTEM',
                 sectionDefault: 'SYSTEM',
                 items: [
@@ -110,6 +117,13 @@ export const NAV_CONFIG = [
                 items: [
                     { key: 'userNav_notes',  defaultLabel: 'My Notes',    path: '/notes',   icon: '✎' },
                     { key: 'userNav_manual', defaultLabel: 'User Manual', path: '/manual',  icon: '?' },
+                ],
+            },
+            {
+                sectionKey: 'userSection_ACCOUNT',
+                sectionDefault: 'ACCOUNT',
+                items: [
+                    { key: 'userNav_account', defaultLabel: 'My Account', path: '/account', icon: '👤' },
                 ],
             },
         ],

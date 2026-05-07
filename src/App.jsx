@@ -12,6 +12,7 @@ import NewProject       from './pages/user/NewProject.jsx';
 import ProjectAssessment from './pages/user/ProjectAssessment.jsx';
 import Notes            from './pages/user/Notes.jsx';
 import Manual           from './pages/user/Manual.jsx';
+import Account          from './pages/user/Account.jsx';
 import CreateProfile    from './pages/user/CreateProfile.jsx';
 
 import ReviewerSubmissions     from './pages/reviewer/Submissions.jsx';
@@ -28,6 +29,7 @@ import Users            from './pages/admin/Users.jsx';
 import ActivityLogs     from './pages/admin/ActivityLogs.jsx';
 import Settings         from './pages/admin/Settings.jsx';
 import ImportExport     from './pages/admin/ImportExport.jsx';
+import CalcEnginePage   from './pages/admin/CalcEnginePage.jsx';
 
 // ── Route guards — role checked from dbUser (MongoDB), not email lists ──
 
@@ -104,6 +106,7 @@ function AppRoutes() {
       <Route path="/projects/:id" element={<PrivateRoute><ProjectAssessment/></PrivateRoute>} />
       <Route path="/notes"        element={<PrivateRoute><Notes/></PrivateRoute>} />
       <Route path="/manual"       element={<PrivateRoute><Manual/></PrivateRoute>} />
+      <Route path="/account"      element={<PrivateRoute><Account/></PrivateRoute>} />
 
       {/* Reviewer routes */}
       <Route path="/reviewer/submissions"     element={<ReviewerRoute><ReviewerSubmissions/></ReviewerRoute>} />
@@ -121,6 +124,7 @@ function AppRoutes() {
       <Route path="/admin/activity"         element={<AdminRoute><ActivityLogs/></AdminRoute>} />
       <Route path="/admin/settings"         element={<AdminRoute><Settings/></AdminRoute>} />
       <Route path="/admin/import-export"   element={<AdminRoute><ImportExport/></AdminRoute>} />
+      <Route path="/admin/calc-engine"     element={<AdminRoute><CalcEnginePage/></AdminRoute>} />
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

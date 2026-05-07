@@ -1,0 +1,104 @@
+/* ===== Calc Engine Admin – DESH Styles ===== */
+
+/* ── Root ── */
+.ce-admin-root { font-family: inherit; }
+
+/* ── Tab nav ── */
+.ce-tab-nav { display: flex; gap: .25rem; border-bottom: 2px solid #e2e8f0; margin-bottom: 1.5rem; }
+.ce-tab-btn { background: none; border: none; padding: .55rem 1.1rem; cursor: pointer; font-size: .88rem; font-weight: 600; color: #64748b; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: color .15s, border-color .15s; }
+.ce-tab-btn:hover { color: #1e293b; }
+.ce-tab-btn.active { color: var(--g600, #16a34a); border-bottom-color: var(--g500, #22C55E); }
+
+/* ── Tab header ── */
+.ce-tab-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-bottom: 1.25rem; }
+.ce-tab-title { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0; }
+.ce-header-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+/* ── Buttons (admin-specific additions) ── */
+.ce-btn-primary { background: var(--g500, #22C55E); color: #fff; border: none; }
+.ce-btn-primary:hover { background: var(--g600, #16a34a); }
+.ce-btn-danger { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+.ce-btn-danger:hover { background: #fecaca; }
+.ce-btn-text { background: none; border: none; color: #64748b; cursor: pointer; font-size: .88rem; padding: .25rem .4rem; }
+.ce-btn-text:hover { color: #1e293b; }
+
+/* ── Calc list ── */
+.ce-calc-list { display: flex; flex-direction: column; gap: .75rem; }
+.ce-calc-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: .9rem 1.1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; }
+.ce-calc-card-title { font-size: .95rem; font-weight: 700; color: #0f172a; margin: 0 0 .15rem; }
+.ce-calc-card-desc { font-size: .8rem; color: #64748b; margin: 0; }
+.ce-calc-actions { display: flex; gap: .35rem; flex-wrap: wrap; }
+
+/* ── Empty state ── */
+.ce-empty { text-align: center; padding: 2.5rem; color: #94a3b8; font-size: .9rem; background: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 8px; }
+
+/* ── Master list / cards ── */
+.ce-master-list { display: flex; flex-direction: column; gap: .75rem; }
+.ce-master-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+.ce-master-header { display: flex; align-items: center; justify-content: space-between; padding: .75rem 1rem; background: #f8fafc; cursor: pointer; gap: .5rem; }
+.ce-master-title { font-weight: 600; font-size: .9rem; color: #0f172a; }
+.ce-master-body { padding: .85rem 1rem; border-top: 1px solid #e2e8f0; }
+.ce-item-list { display: flex; flex-direction: column; gap: .3rem; }
+.ce-item-row { display: flex; align-items: center; gap: .5rem; padding: .3rem .4rem; border-radius: 5px; background: #f8fafc; }
+.ce-item-key { font-size: .78rem; font-weight: 700; color: #475569; min-width: 50px; }
+.ce-item-label { font-size: .83rem; color: #1e293b; flex: 1; }
+.ce-item-value { font-size: .78rem; color: #64748b; min-width: 40px; text-align: right; }
+
+/* ── Icon buttons ── */
+.ce-icon-btn { background: none; border: none; cursor: pointer; padding: .2rem .35rem; border-radius: 4px; font-size: .82rem; color: #64748b; transition: background .12s; }
+.ce-icon-btn:hover { background: #e2e8f0; color: #1e293b; }
+.ce-icon-btn-danger:hover { background: #fee2e2; color: #dc2626; }
+
+/* ── Builder ── */
+.ce-builder-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: .75rem; }
+.ce-builder-title { font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0; display: inline; margin-left: .5rem; }
+.ce-section-list { display: flex; flex-direction: column; gap: .65rem; }
+
+/* ── Section cards (builder) ── */
+.ce-sec-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+.ce-sec-header { display: flex; align-items: center; gap: .55rem; padding: .7rem 1rem; background: #f8fafc; cursor: pointer; flex-wrap: wrap; }
+.ce-drag-handle { color: #cbd5e1; cursor: grab; font-size: 1rem; }
+.ce-order-badge { background: var(--g500, #22C55E); color: #fff; border-radius: 4px; padding: .1rem .45rem; font-size: .72rem; font-weight: 700; flex-shrink: 0; }
+.ce-sec-title { font-weight: 600; font-size: .88rem; color: #0f172a; flex: 1; min-width: 100px; }
+.ce-sec-actions { display: flex; gap: .3rem; margin-left: auto; }
+.ce-sec-body { padding: .75rem 1rem; border-top: 1px solid #e2e8f0; display: none; }
+.ce-sec-body.open { display: block; }
+
+/* ── Column rows (builder/section editor) ── */
+.ce-col-row { display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; background: #f8fafc; border-radius: 5px; margin-bottom: .35rem; flex-wrap: wrap; }
+.ce-col-info { flex: 1; font-size: .83rem; display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+.ce-col-id { font-size: .75rem; color: #94a3b8; font-family: monospace; }
+
+/* ── Type / visibility badges ── */
+.ce-type-badge { background: #e0f2fe; color: #0369a1; border-radius: 4px; padding: .1rem .45rem; font-size: .72rem; font-weight: 600; white-space: nowrap; }
+.ce-badge { border-radius: 4px; padding: .1rem .45rem; font-size: .72rem; font-weight: 600; white-space: nowrap; }
+.ce-badge-visible { background: #dcfce7; color: #15803d; }
+.ce-badge-hidden  { background: #f1f5f9; color: #94a3b8; }
+
+/* ── Section editor (inside SectionModal) ── */
+.ce-section-editor-header { display: flex; align-items: center; gap: .65rem; margin: 1rem 0 .5rem; flex-wrap: wrap; }
+.ce-section-editor-header strong { flex: 1; font-size: .88rem; }
+
+/* ── Form elements ── */
+.ce-label { display: block; font-size: .78rem; font-weight: 600; color: #475569; margin: .7rem 0 .25rem; }
+.ce-label.ce-check-label { display: flex; align-items: center; gap: .4rem; cursor: pointer; }
+.ce-form-input { margin-bottom: 0; }
+.ce-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+@media (max-width: 540px) { .ce-form-grid { grid-template-columns: 1fr; } }
+.ce-hint { font-size: .75rem; color: #94a3b8; margin: .2rem 0 0; }
+.ce-hint code { background: #f1f5f9; padding: .05rem .3rem; border-radius: 3px; font-size: .74rem; }
+
+/* ── Modal ── */
+.ce-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.ce-modal { background: #fff; border-radius: 10px; width: 100%; max-width: 500px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.18); }
+.ce-modal-lg { max-width: 720px; }
+.ce-modal-header { display: flex; align-items: center; justify-content: space-between; padding: .85rem 1.1rem; border-bottom: 1px solid #e2e8f0; }
+.ce-modal-header h3 { margin: 0; font-size: .95rem; font-weight: 700; color: #0f172a; }
+.ce-modal-close { background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #94a3b8; line-height: 1; padding: 0 .2rem; }
+.ce-modal-close:hover { color: #1e293b; }
+.ce-modal-body { padding: 1rem 1.1rem; overflow-y: auto; flex: 1; }
+.ce-modal-footer { padding: .75rem 1.1rem; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: .5rem; }
+
+/* ── Settings card ── */
+.ce-settings-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.1rem 1.25rem; max-width: 480px; }
+.ce-settings-card h3 { margin: 0 0 .5rem; font-size: .95rem; font-weight: 700; color: #0f172a; }

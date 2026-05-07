@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 import PartnerFooter from '../../components/shared/PartnerFooter.jsx';
 import useAuthBranding, { getImgSrc } from '../../hooks/useAuthBranding.js';
+import CaptchaWidget from '../../components/shared/CaptchaWidget.jsx';
 
 export default function Register() {
   const branding = useAuthBranding();
@@ -12,11 +13,15 @@ export default function Register() {
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' });
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
+  const [captchaDone, setCaptchaDone] = useState(
+    () => sessionStorage.getItem('captcha_register') === '1'
+  );
 
   const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!captchaDone) { toast.error('Please complete the verification first.'); return; }
     if (form.password !== form.confirm) { toast.error('Passwords do not match'); return; }
     if (form.password.length < 6) { toast.error('Min. 6 characters'); return; }
     setLoading(true);
@@ -325,7 +330,18 @@ export default function Register() {
                   <p className="mismatch-msg">⚠ Passwords don't match</p>
                 )}
 
-                <button type="submit" disabled={loading} className="submit-btn">
+                {/* ── CAPTCHA verification ── */}
+                <CaptchaWidget
+                  sessionKey="captcha_register"
+                  onVerify={setCaptchaDone}
+                />
+
+                <button
+                  type="submit"
+                  disabled={loading || !captchaDone}
+                  className="submit-btn"
+                  style={{ opacity: !captchaDone ? 0.5 : 1 }}
+                >
                   {loading
                     ? <><span className="spinner" /> Creating…</>
                     : 'Create Account →'}
