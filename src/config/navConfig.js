@@ -115,8 +115,9 @@ export const NAV_CONFIG = [
                 sectionKey: 'userSection_TOOLS',
                 sectionDefault: 'TOOLS',
                 items: [
-                    { key: 'userNav_notes',  defaultLabel: 'My Notes',    path: '/notes',   icon: '✎' },
-                    { key: 'userNav_manual', defaultLabel: 'User Manual', path: '/manual',  icon: '?' },
+                    { key: 'userNav_notes',        defaultLabel: 'My Notes',     path: '/notes',         icon: '✎' },
+                    { key: 'userNav_manual',       defaultLabel: 'User Manual',  path: '/manual',        icon: '?' },
+                    { key: 'userNav_calculations', defaultLabel: 'Calculations', path: '/calculations',  icon: '∑' },
                 ],
             },
             {
@@ -142,6 +143,13 @@ export const NAV_CONFIG = [
                 sectionDefault: 'REVIEW',
                 items: [
                     { key: 'reviewerNav_submissions', defaultLabel: 'Submissions', path: '/reviewer/submissions', icon: '◫' },
+                ],
+            },
+            {
+                sectionKey: 'reviewerSection_TOOLS',
+                sectionDefault: 'TOOLS',
+                items: [
+                    { key: 'reviewerNav_calculations', defaultLabel: 'Calculations', path: '/calculations', icon: '∑' },
                 ],
             },
         ],

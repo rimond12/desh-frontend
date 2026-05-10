@@ -12,8 +12,10 @@ import NewProject       from './pages/user/NewProject.jsx';
 import ProjectAssessment from './pages/user/ProjectAssessment.jsx';
 import Notes            from './pages/user/Notes.jsx';
 import Manual           from './pages/user/Manual.jsx';
-import Account          from './pages/user/Account.jsx';
-import CreateProfile    from './pages/user/CreateProfile.jsx';
+import Account                  from './pages/user/Account.jsx';
+import CreateProfile            from './pages/user/CreateProfile.jsx';
+import CalculationsArchivePage  from './pages/user/CalculationsArchivePage.jsx';
+import CalculationViewPage      from './pages/user/CalculationViewPage.jsx';
 
 import ReviewerSubmissions     from './pages/reviewer/Submissions.jsx';
 import ReviewerSubmissionDetail from './pages/reviewer/SubmissionDetail.jsx';
@@ -104,9 +106,11 @@ function AppRoutes() {
       <Route path="/projects"     element={<PrivateRoute><Projects/></PrivateRoute>} />
       <Route path="/projects/new" element={<PrivateRoute><NewProject/></PrivateRoute>} />
       <Route path="/projects/:id" element={<PrivateRoute><ProjectAssessment/></PrivateRoute>} />
-      <Route path="/notes"        element={<PrivateRoute><Notes/></PrivateRoute>} />
-      <Route path="/manual"       element={<PrivateRoute><Manual/></PrivateRoute>} />
-      <Route path="/account"      element={<PrivateRoute><Account/></PrivateRoute>} />
+      <Route path="/notes"              element={<PrivateRoute><Notes/></PrivateRoute>} />
+      <Route path="/manual"             element={<PrivateRoute><Manual/></PrivateRoute>} />
+      <Route path="/account"            element={<PrivateRoute><Account/></PrivateRoute>} />
+      <Route path="/calculations"       element={<PrivateRoute><CalculationsArchivePage/></PrivateRoute>} />
+      <Route path="/calculations/:id"   element={<PrivateRoute><CalculationViewPage/></PrivateRoute>} />
 
       {/* Reviewer routes */}
       <Route path="/reviewer/submissions"     element={<ReviewerRoute><ReviewerSubmissions/></ReviewerRoute>} />

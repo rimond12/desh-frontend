@@ -96,6 +96,7 @@ export default function LeafLevels() {
             }
 
             setShowForm(false);
+            
             fetchLevels();
         } catch { toast.error('Failed to save'); }
         finally { setSaving(false); }
@@ -108,7 +109,7 @@ export default function LeafLevels() {
             toast.success('Deleted!');
             fetchLevels();
             
-            
+
         } catch { toast.error('Failed'); }
     };
 
