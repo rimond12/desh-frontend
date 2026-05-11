@@ -178,6 +178,30 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
   const rows = sectionRows[sec.order_num] || [];
   const visibleCols = (sec.config.columns||[]).filter(c=>!isHidden(c));
   const visibleSums = (sec.config.summaries||[]).filter(s=>!isHidden(s));
+  const columnGroups = sec.config.column_groups || [];
+
+  // Build merged-header data when groups are defined
+  const hasGroupHeaders = columnGroups.length > 0;
+  let row1Items = [];
+  let row2Cols  = [];
+  if (hasGroupHeaders) {
+    const colToGroup = {};
+    columnGroups.forEach(g => g.column_ids.forEach(id => { colToGroup[id] = g; }));
+    const seenGroups = new Set();
+    visibleCols.forEach(col => {
+      const grp = colToGroup[col.id];
+      if (grp) {
+        if (!seenGroups.has(grp.id)) {
+          seenGroups.add(grp.id);
+          const colSpan = visibleCols.filter(c => grp.column_ids.includes(c.id)).length;
+          row1Items.push({ type: "group", grp, colSpan });
+        }
+        row2Cols.push(col);
+      } else {
+        row1Items.push({ type: "col", col });
+      }
+    });
+  }
 
   function handleCellChange(secOrder, rowIdx, colId, value, secObj) {
     setSectionRows(prev => {
@@ -201,7 +225,22 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
   return (
     <div className="ce-section-body">
       <table className="ce-table">
-        <thead><tr>{visibleCols.map(c=><th key={c.id}>{c.label}</th>)}<th style={{width:40}}></th></tr></thead>
+        <thead>
+          {hasGroupHeaders ? (
+            <>
+              <tr>
+                {row1Items.map((item, i) => item.type === "group"
+                  ? <th key={i} colSpan={item.colSpan} style={{ background: item.grp.bgColor, color: item.grp.textColor, textAlign: "center" }}>{item.grp.label}</th>
+                  : <th key={i} rowSpan={2}>{item.col.label}</th>
+                )}
+                <th rowSpan={2} style={{ width: 40 }}></th>
+              </tr>
+              <tr>{row2Cols.map(c => <th key={c.id}>{c.label}</th>)}</tr>
+            </>
+          ) : (
+            <tr>{visibleCols.map(c=><th key={c.id}>{c.label}</th>)}<th style={{width:40}}></th></tr>
+          )}
+        </thead>
         <tbody>
           {rows.map((_,ri) => (
             <TableRow key={ri} sec={sec} rowIdx={ri} sections={sections} sectionRows={sectionRows}
@@ -278,6 +317,134 @@ function CalcRefSection({ sec, crossCalcRows }) {
           })}</tbody>
         </table>
       )}
+    </div>
+  );
+}
+
+// ── Instruction Table Section ─────────────────────────────────────────────────
+
+function getLeafCols(columns) {
+  const leaves = [];
+  (columns || []).forEach(col => {
+    if (col.isGroup && col.children?.length) leaves.push(...getLeafCols(col.children));
+    else leaves.push(col);
+  });
+  return leaves;
+}
+
+function renderInstrCell(cell) {
+  if (!cell) return null;
+  if (cell.type === "url") {
+    return <a href={cell.url} target="_blank" rel="noopener noreferrer" className="ce-instr-link">{cell.label || cell.url}</a>;
+  }
+  if (cell.type === "image") {
+    const align = cell.imgAlign || "left";
+    const width = cell.imgWidth || "100%";
+    const style = {
+      width, maxWidth: "100%", display: "block",
+      ...(align === "center" ? { margin: "0 auto" } : align === "right" ? { marginLeft: "auto" } : {})
+    };
+    return <img src={cell.src} alt={cell.alt || ""} style={style} />;
+  }
+  const text = String(cell.value || "");
+  return text.includes("\n") ? <span style={{ whiteSpace: "pre-wrap" }}>{text}</span> : <span>{text}</span>;
+}
+
+function InstrTableBlock({ block }) {
+  const columns = block.columns || [];
+  const rows = block.rows || [];
+  const leafCols = getLeafCols(columns);
+  const hasGroups = columns.some(c => c.isGroup);
+  if (leafCols.length === 0) return null;
+
+  // Pre-compute cells occupied by rowspan from above rows
+  const occupied = {};
+  rows.forEach((row, ri) => {
+    leafCols.forEach(col => {
+      if (occupied[`${ri}_${col.id}`]) return;
+      const rs = row.cells?.[col.id]?.rowspan || 1;
+      if (rs > 1) {
+        for (let r = ri + 1; r < ri + rs && r < rows.length; r++) {
+          occupied[`${r}_${col.id}`] = true;
+        }
+      }
+    });
+  });
+
+  return (
+    <div className="ce-instr-table-wrap">
+      <table className="ce-instr-table">
+        <thead>
+          {hasGroups ? (
+            <>
+              <tr>
+                {columns.map(col => col.isGroup
+                  ? <th key={col.id} colSpan={getLeafCols([col]).length} className="ce-instr-col-th" style={{ background: col.bgColor||"#f8fafc", color: col.textColor||"#0f172a" }}>{col.label}</th>
+                  : <th key={col.id} rowSpan={2} className="ce-instr-col-th" style={{ background: col.bgColor||"#F5E200", color: col.textColor||"#000", ...(col.width?{width:col.width}:{}) }}>{col.label}</th>
+                )}
+              </tr>
+              <tr>
+                {columns.flatMap(col => col.isGroup ? getLeafCols([col]) : []).map(col => (
+                  <th key={col.id} className="ce-instr-col-th" style={{ background: col.bgColor||"#F5E200", color: col.textColor||"#000", ...(col.width?{width:col.width}:{}) }}>{col.label}</th>
+                ))}
+              </tr>
+            </>
+          ) : (
+            <tr>
+              {leafCols.map(col => (
+                <th key={col.id} className="ce-instr-col-th" style={{ background: col.bgColor||"#F5E200", color: col.textColor||"#000", ...(col.width?{width:col.width}:{}) }}>{col.label}</th>
+              ))}
+            </tr>
+          )}
+        </thead>
+        <tbody>
+          {rows.map((row, ri) => (
+            <tr key={ri} className="ce-instr-row">
+              {leafCols.map(col => {
+                if (occupied[`${ri}_${col.id}`]) return null;
+                const cell = row.cells?.[col.id];
+                const rs = cell?.rowspan || 1;
+                return (
+                  <td key={col.id} className="ce-instr-td" rowSpan={rs > 1 ? rs : undefined}>
+                    {renderInstrCell(cell)}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+          {rows.length === 0 && (
+            <tr><td colSpan={leafCols.length} style={{ textAlign: "center", color: "#94a3b8", padding: "1.5rem", fontSize: ".83rem" }}>No data</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function InstructionTableSection({ sec }) {
+  const cfg = sec.config;
+
+  // Normalise to blocks format (migrate old configs automatically)
+  let blocks = cfg.blocks;
+  if (!blocks) {
+    blocks = [];
+    if (cfg.columns?.length || cfg.rows?.length) {
+      blocks = [{ blockType: "table", columns: cfg.columns||[], rows: cfg.rows||[], group_header: cfg.group_header }];
+    }
+  }
+  if (!blocks.length) return null;
+
+  return (
+    <div className="ce-section-body">
+      {blocks.map((block, bi) => {
+        if (block.blockType === "paragraph") {
+          return <p key={bi} className="ce-instr-para">{block.content}</p>;
+        }
+        if (block.blockType === "table") {
+          return <InstrTableBlock key={bi} block={block} />;
+        }
+        return null;
+      })}
     </div>
   );
 }
@@ -444,6 +611,7 @@ export default function CalcEngine({ calcId }) {
           )}
           {sec.config.type==="formula_display" && <FormulaDisplaySection sec={sec} summaries={summaries} />}
           {sec.config.type==="calc_ref" && <CalcRefSection sec={sec} crossCalcRows={crossCalcRows} />}
+          {sec.config.type==="instruction_table" && <InstructionTableSection sec={sec} />}
         </div>
       ))}
     </div>

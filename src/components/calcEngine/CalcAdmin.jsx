@@ -39,7 +39,7 @@ function parseExtraValues(text) {
 // ── Modal wrapper ─────────────────────────────────────────────────────────────
 function Modal({ title, onClose, children, footer, large=false }) {
   return (
-    <div className="ce-modal-overlay" onClick={e=>{if(e.target.classList.contains("ce-modal-overlay"))onClose();}}>
+    <div className="ce-modal-overlay" onClick={e=>{e.stopPropagation();if(e.target.classList.contains("ce-modal-overlay"))onClose();}}>
       <div className={`ce-modal${large?" ce-modal-lg":""}`}>
         <div className="ce-modal-header"><h3>{title}</h3><button className="ce-modal-close" onClick={onClose}>×</button></div>
         <div className="ce-modal-body">{children}</div>
@@ -248,6 +248,45 @@ function ColumnModal({ editCol, editIdx, allMasters, allCalcs, editorColumns, on
   );
 }
 
+// ── Column Group Modal (input table merged headers) ───────────────────────────
+function GroupModal({ editGroup, editIdx, columns, onClose, onConfirm }) {
+  const [grp, setGrp] = useState(editGroup
+    ? JSON.parse(JSON.stringify(editGroup))
+    : { id: `grp_${Date.now()}`, label: "", bgColor: "#dbeafe", textColor: "#1e40af", column_ids: [] }
+  );
+  function toggleCol(colId) {
+    setGrp(g => ({ ...g, column_ids: g.column_ids.includes(colId) ? g.column_ids.filter(id => id !== colId) : [...g.column_ids, colId] }));
+  }
+  function handleSave() {
+    if (!grp.label.trim()) { alert("Group label required"); return; }
+    if (!grp.column_ids.length) { alert("Select at least one column for this group"); return; }
+    onConfirm({ ...grp, label: grp.label.trim() }, editIdx);
+  }
+  return (
+    <Modal title={editGroup ? "Edit Column Group" : "Add Column Group"} onClose={onClose}
+      footer={<><button className="ce-btn ce-btn-secondary" onClick={onClose}>Cancel</button><button className="ce-btn ce-btn-primary" onClick={handleSave}>Save Group</button></>}>
+      <label className="ce-label">Group Label *</label>
+      <input type="text" className="ce-input ce-form-input" value={grp.label} onChange={e => setGrp(g => ({ ...g, label: e.target.value }))} placeholder="e.g. Building Details" />
+      <div className="ce-form-grid">
+        <div><label className="ce-label">Background Color</label><input type="color" className="ce-input ce-form-input" style={{ height: 38, padding: 2, cursor: "pointer" }} value={grp.bgColor || "#dbeafe"} onChange={e => setGrp(g => ({ ...g, bgColor: e.target.value }))} /></div>
+        <div><label className="ce-label">Text Color</label><input type="color" className="ce-input ce-form-input" style={{ height: 38, padding: 2, cursor: "pointer" }} value={grp.textColor || "#1e40af"} onChange={e => setGrp(g => ({ ...g, textColor: e.target.value }))} /></div>
+      </div>
+      <label className="ce-label">Columns in this group *</label>
+      <p className="ce-hint">Tick the columns that should appear under this merged header.</p>
+      {columns.length === 0 && <p className="ce-hint" style={{ color: "#dc2626" }}>No columns defined yet — add columns first.</p>}
+      <div style={{ display: "flex", flexDirection: "column", gap: ".4rem", marginTop: ".4rem" }}>
+        {columns.map(col => (
+          <label key={col.id} style={{ display: "flex", alignItems: "center", gap: ".5rem", fontSize: ".83rem", cursor: "pointer" }}>
+            <input type="checkbox" checked={grp.column_ids.includes(col.id)} onChange={() => toggleCol(col.id)} />
+            <span style={{ fontWeight: 600 }}>{col.label}</span>
+            <span className="ce-col-id">[{col.id}]</span>
+          </label>
+        ))}
+      </div>
+    </Modal>
+  );
+}
+
 // ── Summary Modal ─────────────────────────────────────────────────────────────
 function SummaryModal({editSummary,editIdx,onClose,onConfirm}){
   const [s,setS]=useState(editSummary?JSON.parse(JSON.stringify(editSummary)):{id:"",label:"",formula:""});
@@ -280,6 +319,335 @@ function FormulaModal({editFormula,editIdx,onClose,onConfirm}){
   </Modal>);
 }
 
+// ── Instruction Table Helpers ─────────────────────────────────────────────────
+function getLeafColumns(columns) {
+  const leaves = [];
+  (columns || []).forEach(col => {
+    if (col.isGroup && col.children?.length) leaves.push(...getLeafColumns(col.children));
+    else leaves.push(col);
+  });
+  return leaves;
+}
+
+// ── Instruction Table: Column Modal ───────────────────────────────────────────
+function InstrColModal({ editCol, editIdx, onClose, onConfirm }) {
+  const [col, setCol] = useState(() => editCol
+    ? JSON.parse(JSON.stringify(editCol))
+    : { id: "", label: "", bgColor: "#ffffff", textColor: "#000000", width: "", isGroup: false, children: [] }
+  );
+  function addChild() { setCol(c => ({ ...c, children: [...(c.children||[]), { id: "", label: "", bgColor: "#F5E200", textColor: "#000000", width: "" }] })); }
+  function removeChild(i) { setCol(c => ({ ...c, children: c.children.filter((_, ci) => ci !== i) })); }
+  function updateChild(i, key, val) { setCol(c => { const ch = [...(c.children||[])]; ch[i] = { ...ch[i], [key]: val }; return { ...c, children: ch }; }); }
+  function handleSave() {
+    const id = col.id.trim().replace(/\s+/g, "_");
+    if (!id || !col.label.trim()) { alert("ID and Label required"); return; }
+    if (col.isGroup) {
+      if (!col.children?.length) { alert("Group column needs at least one sub-column"); return; }
+      for (const ch of col.children) { if (!ch.id.trim() || !ch.label.trim()) { alert("All sub-column IDs and Labels are required"); return; } }
+    }
+    const saved = { ...col, id, label: col.label.trim() };
+    if (saved.isGroup) saved.children = saved.children.map(c => ({ ...c, id: c.id.trim().replace(/\s+/g, "_") }));
+    onConfirm(saved, editIdx);
+  }
+  return (
+    <Modal title={editCol ? "Edit Column" : "Add Column"} onClose={onClose}
+      footer={<><button className="ce-btn ce-btn-secondary" onClick={onClose}>Cancel</button><button className="ce-btn ce-btn-primary" onClick={handleSave}>Save Column</button></>}>
+      <div className="ce-form-grid">
+        <div><label className="ce-label">Column ID * <span className="ce-hint">(no spaces)</span></label><input type="text" className="ce-input ce-form-input" value={col.id} onChange={e => setCol(c => ({ ...c, id: e.target.value }))} placeholder="e.g. sub_cat" /></div>
+        <div><label className="ce-label">Header Label *</label><input type="text" className="ce-input ce-form-input" value={col.label} onChange={e => setCol(c => ({ ...c, label: e.target.value }))} placeholder="e.g. Sub-categories" /></div>
+      </div>
+      <div className="ce-form-grid">
+        <div><label className="ce-label">Background Color</label><input type="color" className="ce-input ce-form-input" style={{ height: 38, padding: 2, cursor: "pointer" }} value={col.bgColor||"#ffffff"} onChange={e => setCol(c => ({ ...c, bgColor: e.target.value }))} /></div>
+        <div><label className="ce-label">Text Color</label><input type="color" className="ce-input ce-form-input" style={{ height: 38, padding: 2, cursor: "pointer" }} value={col.textColor||"#000000"} onChange={e => setCol(c => ({ ...c, textColor: e.target.value }))} /></div>
+      </div>
+      <label className="ce-label">Width <span className="ce-hint">(optional, e.g. "150px" or "25%")</span></label>
+      <input type="text" className="ce-input ce-form-input" value={col.width||""} onChange={e => setCol(c => ({ ...c, width: e.target.value }))} placeholder="e.g. 200px" />
+      <label className="ce-label ce-check-label" style={{ marginTop: ".9rem" }}>
+        <input type="checkbox" checked={!!col.isGroup} onChange={e => setCol(c => ({ ...c, isGroup: e.target.checked, children: c.children?.length ? c.children : [] }))} />
+        Group Column <span className="ce-hint">(contains nested sub-columns)</span>
+      </label>
+      {col.isGroup && (
+        <div className="ce-instr-child-col-editor">
+          <div className="ce-section-editor-header" style={{ marginTop: ".75rem" }}>
+            <strong>Sub-columns</strong>
+            <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={addChild}>+ Add Sub-column</button>
+          </div>
+          {!(col.children?.length) && <p className="ce-hint">No sub-columns yet.</p>}
+          {(col.children||[]).map((child, i) => (
+            <div key={i} className="ce-instr-child-col-row">
+              <input className="ce-input" value={child.id} onChange={e => updateChild(i, "id", e.target.value)} placeholder="ID" style={{ width: 72 }} />
+              <input className="ce-input" value={child.label} onChange={e => updateChild(i, "label", e.target.value)} placeholder="Label" style={{ flex: 1 }} />
+              <input className="ce-input" value={child.width||""} onChange={e => updateChild(i, "width", e.target.value)} placeholder="width" style={{ width: 64 }} />
+              <input type="color" title="Background" style={{ width: 32, height: 30, padding: 2, cursor: "pointer", border: "1px solid #e2e8f0", borderRadius: 4 }} value={child.bgColor||"#F5E200"} onChange={e => updateChild(i, "bgColor", e.target.value)} />
+              <input type="color" title="Text color" style={{ width: 32, height: 30, padding: 2, cursor: "pointer", border: "1px solid #e2e8f0", borderRadius: 4 }} value={child.textColor||"#000000"} onChange={e => updateChild(i, "textColor", e.target.value)} />
+              <button className="ce-icon-btn ce-icon-btn-danger" onClick={() => removeChild(i)}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// ── Instruction Table: Cell Modal ─────────────────────────────────────────────
+function InstrCellModal({ cell, colLabel, onClose, onConfirm }) {
+  const [type, setType] = useState(cell?.type || "text");
+  const [value, setValue] = useState(cell?.value || "");
+  const [url, setUrl] = useState(cell?.url || "");
+  const [label, setLabel] = useState(cell?.label || "");
+  const [src, setSrc] = useState(cell?.src || "");
+  const [alt, setAlt] = useState(cell?.alt || "");
+  const [imgMode, setImgMode] = useState(cell?.src?.startsWith("data:") ? "upload" : "url");
+  const [rowspan, setRowspan] = useState(cell?.rowspan || 1);
+  const [imgAlign, setImgAlign] = useState(cell?.imgAlign || "left");
+  const [imgWidth, setImgWidth] = useState(cell?.imgWidth || "100%");
+
+  function handleImageUpload(e) {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setSrc(ev.target.result);
+    reader.readAsDataURL(file);
+  }
+  function handleConfirm() {
+    let result = {};
+    if (type === "text") result = { type: "text", value };
+    else if (type === "url") { if (!url.trim()) { alert("URL required"); return; } result = { type: "url", url: url.trim(), label: label.trim() }; }
+    else if (type === "image") { if (!src) { alert("Image required"); return; } result = { type: "image", src, alt: alt.trim(), imgAlign, imgWidth }; }
+    if (parseInt(rowspan) > 1) result.rowspan = parseInt(rowspan);
+    onConfirm(result);
+  }
+  return (
+    <Modal title={`Edit Cell — ${colLabel}`} onClose={onClose}
+      footer={<><button className="ce-btn ce-btn-secondary" onClick={onClose}>Cancel</button><button className="ce-btn ce-btn-primary" onClick={handleConfirm}>Save Cell</button></>}>
+      <label className="ce-label">Cell Type</label>
+      <select className="ce-select ce-form-input" value={type} onChange={e => setType(e.target.value)}>
+        <option value="text">Text</option>
+        <option value="url">URL / Link</option>
+        <option value="image">Image</option>
+      </select>
+      {type === "text" && (<><label className="ce-label">Content</label><textarea className="ce-input ce-form-input" rows={3} value={value} onChange={e => setValue(e.target.value)} style={{ resize: "vertical" }} /></>)}
+      {type === "url" && (<>
+        <label className="ce-label">URL *</label>
+        <input type="url" className="ce-input ce-form-input" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://example.com" />
+        <label className="ce-label">Display Label <span className="ce-hint">(leave blank to show the URL)</span></label>
+        <input type="text" className="ce-input ce-form-input" value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. Visit website" />
+      </>)}
+      {type === "image" && (<>
+        <div style={{ display: "flex", gap: ".4rem", marginBottom: ".5rem" }}>
+          <button className={`ce-btn ce-btn-sm ${imgMode==="upload"?"ce-btn-primary":"ce-btn-outline"}`} onClick={() => setImgMode("upload")}>Upload File</button>
+          <button className={`ce-btn ce-btn-sm ${imgMode==="url"?"ce-btn-primary":"ce-btn-outline"}`} onClick={() => setImgMode("url")}>Image URL</button>
+        </div>
+        {imgMode==="upload" && <><label className="ce-label">Upload Image</label><input type="file" accept="image/*" style={{ fontSize: ".82rem" }} onChange={handleImageUpload} /></>}
+        {imgMode==="url" && <><label className="ce-label">Image URL</label><input type="url" className="ce-input ce-form-input" value={src.startsWith("data:") ? "" : src} onChange={e => setSrc(e.target.value)} placeholder="https://example.com/image.png" /></>}
+        {src && <img src={src} alt={alt||""} style={{ maxWidth: "100%", maxHeight: 120, marginTop: ".5rem", borderRadius: 6, border: "1px solid #e2e8f0", display: "block" }} />}
+        <label className="ce-label">Alt Text</label>
+        <input type="text" className="ce-input ce-form-input" value={alt} onChange={e => setAlt(e.target.value)} placeholder="Image description" />
+        <div className="ce-form-grid" style={{ marginTop: ".5rem" }}>
+          <div>
+            <label className="ce-label">Alignment</label>
+            <select className="ce-select ce-form-input" value={imgAlign} onChange={e => setImgAlign(e.target.value)}>
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+          <div>
+            <label className="ce-label">Width <span className="ce-hint">(e.g. 120px, 60%)</span></label>
+            <input type="text" className="ce-input ce-form-input" value={imgWidth} onChange={e => setImgWidth(e.target.value)} placeholder="100%" />
+          </div>
+        </div>
+      </>)}
+      <div style={{ marginTop: ".85rem" }}>
+        <label className="ce-label">Row Span <span className="ce-hint">(1 = normal · 2+ = merge rows below)</span></label>
+        <input type="number" className="ce-input ce-form-input" min={1} max={50} value={rowspan} onChange={e => setRowspan(parseInt(e.target.value)||1)} style={{ maxWidth: 90 }} />
+      </div>
+    </Modal>
+  );
+}
+
+// ── Instruction Table: Cell Preview ──────────────────────────────────────────
+function CellPreview({ cell }) {
+  if (!cell || (cell.type==="text" && !cell.value)) return <span className="ce-instr-cell-empty">—</span>;
+  if (cell.type==="image") return <span className="ce-instr-cell-img-badge">🖼 {cell.imgAlign||"left"} · {cell.imgWidth||"auto"}</span>;
+  if (cell.type==="url") return <span className="ce-instr-cell-url-badge">{cell.label||cell.url||"URL"}</span>;
+  const rs = (cell.rowspan||1) > 1 ? ` ↕${cell.rowspan}` : "";
+  return <span className="ce-instr-cell-text-preview">{cell.value}{rs}</span>;
+}
+
+// ── Instruction Table: Table Block Editor ─────────────────────────────────────
+function TableBlockEditor({ block, onUpdate }) {
+  const columns = block.columns || [];
+  const rows = block.rows || [];
+  const [colModal, setColModal] = useState(null);
+  const [cellModal, setCellModal] = useState(null);
+  const leafCols = getLeafColumns(columns);
+  const hasGroups = columns.some(c => c.isGroup);
+
+  function addRow() {
+    const nr = { cells: {} }; leafCols.forEach(c => { nr.cells[c.id] = { type: "text", value: "" }; });
+    onUpdate({ ...block, rows: [...rows, nr] });
+  }
+  function removeRow(ri) { onUpdate({ ...block, rows: rows.filter((_, i) => i !== ri) }); }
+
+  function handleColConfirm(col, idx) {
+    const oldLeafIds = (idx !== null && idx !== undefined) ? getLeafColumns([columns[idx]]).map(c => c.id) : [];
+    const newLeafIds = getLeafColumns([col]).map(c => c.id);
+    let newCols = [...columns];
+    if (idx !== null && idx !== undefined) newCols[idx] = col;
+    else newCols = [...columns, col];
+    const added = newLeafIds.filter(id => !oldLeafIds.includes(id));
+    const removed = oldLeafIds.filter(id => !newLeafIds.includes(id));
+    let newRows = rows;
+    if (added.length || removed.length) {
+      newRows = rows.map(row => {
+        const cells = { ...row.cells };
+        added.forEach(id => { if (!cells[id]) cells[id] = { type: "text", value: "" }; });
+        removed.forEach(id => delete cells[id]);
+        return { ...row, cells };
+      });
+    }
+    // Single onUpdate call — avoids stale-closure overwrite bug
+    onUpdate({ ...block, columns: newCols, rows: newRows });
+    setColModal(null);
+  }
+
+  function removeColumn(idx) {
+    const leafIds = getLeafColumns([columns[idx]]).map(c => c.id);
+    const newCols = columns.filter((_, i) => i !== idx);
+    const newRows = rows.map(row => { const cells = { ...row.cells }; leafIds.forEach(id => delete cells[id]); return { ...row, cells }; });
+    onUpdate({ ...block, columns: newCols, rows: newRows });
+  }
+
+  function handleCellConfirm(cell) {
+    const { rowIdx, colId } = cellModal;
+    const newRows = JSON.parse(JSON.stringify(rows));
+    if (!newRows[rowIdx].cells) newRows[rowIdx].cells = {};
+    newRows[rowIdx].cells[colId] = cell;
+    onUpdate({ ...block, rows: newRows }); setCellModal(null);
+  }
+
+  return (
+    <div>
+      <div className="ce-section-editor-header">
+        <strong>Columns</strong>
+        <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => setColModal({ editCol: null, editIdx: null })}>+ Add Column</button>
+      </div>
+      {columns.length === 0 && <p className="ce-hint" style={{ marginTop: ".4rem" }}>No columns — add at least one.</p>}
+      {columns.map((col, i) => (
+        <div key={i} className="ce-col-row">
+          <span style={{ background: col.bgColor||"#fff", color: col.textColor||"#000", padding: "2px 10px", borderRadius: 4, fontSize: ".78rem", fontWeight: 600, border: "1px solid rgba(0,0,0,.15)" }}>
+            {col.label}{col.isGroup ? <em style={{ fontSize: ".7rem", opacity: .65 }}> ({col.children?.length||0} sub-cols)</em> : ""}
+          </span>
+          <div className="ce-col-info"><span className="ce-col-id">[{col.id}]</span>{col.width && <span className="ce-hint">w:{col.width}</span>}</div>
+          <button className="ce-icon-btn" onClick={() => setColModal({ editCol: col, editIdx: i })}>✏</button>
+          <button className="ce-icon-btn ce-icon-btn-danger" onClick={() => removeColumn(i)}>✕</button>
+        </div>
+      ))}
+
+      {leafCols.length > 0 && (<>
+        <div className="ce-section-editor-header" style={{ marginTop: "1rem" }}>
+          <strong>Rows ({rows.length})</strong>
+          <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={addRow}>+ Add Row</button>
+        </div>
+        {rows.length === 0 && <p className="ce-hint">No rows yet.</p>}
+        {rows.length > 0 && (
+          <div className="ce-instr-editor-wrap">
+            <table className="ce-instr-editor-table">
+              <thead>
+                {hasGroups && (
+                  <tr>
+                    <th className="ce-instr-editor-rownum-th" rowSpan={2}>#</th>
+                    {columns.map(col => col.isGroup
+                      ? <th key={col.id} colSpan={getLeafColumns([col]).length} style={{ background: col.bgColor||"#fff", color: col.textColor||"#000" }}>{col.label}</th>
+                      : <th key={col.id} rowSpan={2} style={{ background: col.bgColor||"#fff", color: col.textColor||"#000", ...(col.width?{width:col.width}:{}) }}>{col.label}</th>
+                    )}
+                    <th rowSpan={2} style={{ width: 36 }}></th>
+                  </tr>
+                )}
+                <tr>
+                  {!hasGroups && <th className="ce-instr-editor-rownum-th">#</th>}
+                  {(hasGroups
+                    ? columns.flatMap(col => col.isGroup ? getLeafColumns([col]) : [])
+                    : leafCols
+                  ).map(col => (
+                    <th key={col.id} style={{ background: col.bgColor||"#F5E200", color: col.textColor||"#000", ...(col.width?{width:col.width}:{}) }}>{col.label}</th>
+                  ))}
+                  {!hasGroups && <th style={{ width: 36 }}></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, ri) => (
+                  <tr key={ri}>
+                    <td className="ce-instr-editor-rownum">{ri + 1}</td>
+                    {leafCols.map(col => {
+                      const cell = row.cells?.[col.id];
+                      return (
+                        <td key={col.id} className="ce-instr-editor-cell" onClick={() => setCellModal({ rowIdx: ri, colId: col.id, colLabel: col.label, cell })}>
+                          <CellPreview cell={cell} /><span className="ce-instr-edit-hint">click to edit</span>
+                        </td>
+                      );
+                    })}
+                    <td><button className="ce-icon-btn ce-icon-btn-danger" onClick={() => removeRow(ri)}>✕</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </>)}
+      {colModal && <InstrColModal editCol={colModal.editCol} editIdx={colModal.editIdx} onClose={() => setColModal(null)} onConfirm={handleColConfirm} />}
+      {cellModal && <InstrCellModal cell={cellModal.cell} colLabel={cellModal.colLabel} onClose={() => setCellModal(null)} onConfirm={handleCellConfirm} />}
+    </div>
+  );
+}
+
+// ── Instruction Table: Blocks Editor ─────────────────────────────────────────
+function InstructionBlocksEditor({ blocks, onBlocksChange }) {
+  function addParagraph() { onBlocksChange([...blocks, { blockType: "paragraph", id: `p_${Date.now()}`, content: "" }]); }
+  function addTable()     { onBlocksChange([...blocks, { blockType: "table",     id: `t_${Date.now()}`, columns: [], rows: [] }]); }
+  function removeBlock(id) { onBlocksChange(blocks.filter(b => b.id !== id)); }
+  function updateBlock(id, updated) { onBlocksChange(blocks.map(b => b.id === id ? updated : b)); }
+  function moveBlock(id, dir) {
+    const idx = blocks.findIndex(b => b.id === id);
+    if ((dir < 0 && idx === 0) || (dir > 0 && idx === blocks.length - 1)) return;
+    const next = [...blocks]; [next[idx], next[idx + dir]] = [next[idx + dir], next[idx]]; onBlocksChange(next);
+  }
+  return (
+    <div>
+      {blocks.length === 0 && <p className="ce-hint" style={{ marginTop: ".5rem" }}>No blocks yet — add a paragraph or table below.</p>}
+      {blocks.map((block, i) => (
+        <div key={block.id} className="ce-instr-block-wrap">
+          <div className="ce-instr-block-bar">
+            <span className="ce-type-badge">{block.blockType === "paragraph" ? "¶ Paragraph" : "⊞ Table"}</span>
+            <div className="ce-instr-block-actions">
+              <button className="ce-icon-btn" onClick={() => moveBlock(block.id, -1)} disabled={i === 0} title="Move up">↑</button>
+              <button className="ce-icon-btn" onClick={() => moveBlock(block.id, 1)} disabled={i === blocks.length - 1} title="Move down">↓</button>
+              <button className="ce-icon-btn ce-icon-btn-danger" onClick={() => removeBlock(block.id)} title="Delete">✕</button>
+            </div>
+          </div>
+          {block.blockType === "paragraph" && (
+            <div style={{ padding: ".35rem 0 .5rem" }}>
+              <textarea className="ce-input ce-form-input" rows={3} style={{ resize: "vertical" }}
+                value={block.content || ""}
+                onChange={e => updateBlock(block.id, { ...block, content: e.target.value })}
+                placeholder="Enter paragraph text…" />
+            </div>
+          )}
+          {block.blockType === "table" && (
+            <div style={{ paddingTop: ".5rem" }}>
+              <TableBlockEditor block={block} onUpdate={updated => updateBlock(block.id, updated)} />
+            </div>
+          )}
+        </div>
+      ))}
+      <div style={{ display: "flex", gap: ".5rem", marginTop: "1rem" }}>
+        <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={addParagraph}>+ Add Paragraph</button>
+        <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={addTable}>+ Add Table</button>
+      </div>
+    </div>
+  );
+}
+
 // ── Section Modal ─────────────────────────────────────────────────────────────
 function SectionModal({ calcId, editSec, allCalcs, allMasters, currentSections, onClose, onSaved, axios }) {
   const [name,setName]=useState(editSec?.name||"");
@@ -293,17 +661,32 @@ function SectionModal({ calcId, editSec, allCalcs, allMasters, currentSections, 
   const [refCalcId,setRefCalcId]=useState(editSec?.config?.ref_calc_id||"");
   const [refSecOrder,setRefSecOrder]=useState(editSec?.config?.ref_section_order||1);
   const [refDesc,setRefDesc]=useState(editSec?.config?.description||"");
+  const [columnGroups,setColumnGroups]=useState(JSON.parse(JSON.stringify(editSec?.config?.column_groups||[])));
   const [colModal,setColModal]=useState(null);
   const [sumModal,setSumModal]=useState(null);
   const [fmlModal,setFmlModal]=useState(null);
+  const [grpModal,setGrpModal]=useState(null);
+  const [instrBlocks,setInstrBlocks]=useState(()=>{
+    const cfg=editSec?.config;
+    if(!cfg||cfg.type!=="instruction_table")return[];
+    if(cfg.blocks)return JSON.parse(JSON.stringify(cfg.blocks));
+    // migrate old format (columns/rows) → single table block
+    if(cfg.columns?.length||cfg.rows?.length){
+      const tbl={blockType:"table",id:`t_${Date.now()}`,columns:cfg.columns||[],rows:cfg.rows||[]};
+      if(cfg.group_header)tbl.group_header=cfg.group_header;
+      return[tbl];
+    }
+    return[];
+  });
 
   async function handleSave(){
     if(!name.trim()){alert("Name required");return;}
     let config={type};
     if(hidden)config.hidden=true;
-    if(type==="input_table"){config.can_add_rows=canAddRows;config.columns=columns;config.summaries=summaries;}
+    if(type==="input_table"){config.can_add_rows=canAddRows;config.columns=columns;config.summaries=summaries;if(columnGroups.length)config.column_groups=columnGroups;}
     else if(type==="formula_display"){config.formulas=formulas;}
     else if(type==="calc_ref"){config.ref_calc_id=refCalcId;config.ref_section_order=parseInt(refSecOrder)||1;config.description=refDesc;}
+    else if(type==="instruction_table"){config.blocks=instrBlocks;}
     try{await axios.post(`${API_BASE}/admin/sections`,{id:editSec?._id||editSec?.id||undefined,calc_id:calcId,name:name.trim(),order_num:parseInt(order)||0,config});onSaved();onClose();}
     catch(e){alert("Save failed: "+e.message);}
   }
@@ -321,6 +704,7 @@ function SectionModal({ calcId, editSec, allCalcs, allMasters, currentSections, 
         <option value="input_table">Input Table</option>
         <option value="formula_display">Formula Display</option>
         <option value="calc_ref">Calculation Reference</option>
+        <option value="instruction_table">Instruction Table</option>
       </select>
 
       {type==="input_table"&&(
@@ -349,6 +733,20 @@ function SectionModal({ calcId, editSec, allCalcs, allMasters, currentSections, 
               <div className="ce-col-info"><strong>{s.label}</strong> <span className="ce-col-id">[{s.id}]</span> <span>{s.formula}</span></div>
               <button className="ce-icon-btn" onClick={()=>setSumModal({editSummary:s,editIdx:i})}>✏</button>
               <button className="ce-icon-btn ce-icon-btn-danger" onClick={()=>setSummaries(a=>a.filter((_,j)=>j!==i))}>✕</button>
+            </div>
+          ))}
+          <div className="ce-section-editor-header" style={{marginTop:"1rem"}}>
+            <strong>Merged Header Groups</strong>
+            <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={()=>setGrpModal({editGroup:null,editIdx:null})}>+ Add Group</button>
+          </div>
+          <p className="ce-hint" style={{marginBottom:".4rem"}}>Group columns under a single merged header cell (colspan). Leave empty for no merged headers.</p>
+          {columnGroups.length===0&&<p className="ce-hint">No groups — table will show a single header row.</p>}
+          {columnGroups.map((g,i)=>(
+            <div key={i} className="ce-col-row">
+              <span style={{background:g.bgColor||"#dbeafe",color:g.textColor||"#1e40af",padding:"2px 10px",borderRadius:4,fontSize:".78rem",fontWeight:600,border:"1px solid rgba(0,0,0,.12)"}}>{g.label}</span>
+              <div className="ce-col-info"><span className="ce-hint">Spans: {g.column_ids.join(", ")}</span></div>
+              <button className="ce-icon-btn" onClick={()=>setGrpModal({editGroup:g,editIdx:i})}>✏</button>
+              <button className="ce-icon-btn ce-icon-btn-danger" onClick={()=>setColumnGroups(gs=>gs.filter((_,j)=>j!==i))}>✕</button>
             </div>
           ))}
         </div>
@@ -386,9 +784,14 @@ function SectionModal({ calcId, editSec, allCalcs, allMasters, currentSections, 
         </div>
       )}
 
+      {type==="instruction_table"&&(
+        <InstructionBlocksEditor blocks={instrBlocks} onBlocksChange={setInstrBlocks} />
+      )}
+
       {colModal&&<ColumnModal editCol={colModal.editCol} editIdx={colModal.editIdx} allMasters={allMasters} allCalcs={allCalcs} editorColumns={columns} onClose={()=>setColModal(null)} onConfirm={(col,idx)=>{if(idx!==null&&idx!==undefined)setColumns(cs=>{const n=[...cs];n[idx]=col;return n;});else setColumns(cs=>[...cs,col]);setColModal(null);}} />}
       {sumModal&&<SummaryModal editSummary={sumModal.editSummary} editIdx={sumModal.editIdx} onClose={()=>setSumModal(null)} onConfirm={(s,idx)=>{if(idx!==null&&idx!==undefined)setSummaries(a=>{const n=[...a];n[idx]=s;return n;});else setSummaries(a=>[...a,s]);setSumModal(null);}} />}
       {fmlModal&&<FormulaModal editFormula={fmlModal.editFormula} editIdx={fmlModal.editIdx} onClose={()=>setFmlModal(null)} onConfirm={(f,idx)=>{if(idx!==null&&idx!==undefined)setFormulas(a=>{const n=[...a];n[idx]=f;return n;});else setFormulas(a=>[...a,f]);setFmlModal(null);}} />}
+      {grpModal&&<GroupModal editGroup={grpModal.editGroup} editIdx={grpModal.editIdx} columns={columns} onClose={()=>setGrpModal(null)} onConfirm={(g,idx)=>{if(idx!==null&&idx!==undefined)setColumnGroups(gs=>{const n=[...gs];n[idx]=g;return n;});else setColumnGroups(gs=>[...gs,g]);setGrpModal(null);}} />}
     </Modal>
   );
 }
@@ -456,6 +859,7 @@ function BuilderPanel({ calcId, calcName, allCalcs, allMasters, onBack, axios })
                 {sec.config?.type==="input_table"&&(sec.config.columns||[]).map((c,i)=><div key={i} className="ce-col-row"><span className="ce-type-badge">{c.type}</span><strong>{c.label}</strong><span className="ce-col-id">[{c.id}]</span></div>)}
                 {sec.config?.type==="formula_display"&&(sec.config.formulas||[]).map((f,i)=><div key={i} className="ce-col-row"><span className="ce-type-badge">expr</span><strong>{f.label}</strong><span className="ce-col-id">{f.expr}</span></div>)}
                 {sec.config?.type==="calc_ref"&&<div className="ce-alert-info">References Calc {sec.config.ref_calc_id}, Section {sec.config.ref_section_order}</div>}
+                {sec.config?.type==="instruction_table"&&<div className="ce-alert-info">Instruction Table — {(sec.config.blocks||[]).length} block(s) · {(sec.config.blocks||[]).filter(b=>b.blockType==="paragraph").length} paragraph(s) · {(sec.config.blocks||[]).filter(b=>b.blockType==="table").length} table(s)</div>}
               </div>
             </div>
           );

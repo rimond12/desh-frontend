@@ -70,6 +70,16 @@
 /* Ref notice */
 .ce-ref-notice { color: #64748b; font-size: .83rem; margin-bottom: .7rem; }
 
+/* Instruction Table (user view) */
+.ce-instr-para { font-size: .9rem; line-height: 1.7; color: #1e293b; margin: 0 0 1rem; white-space: pre-wrap; }
+.ce-instr-table-wrap { overflow-x: auto; margin-bottom: 1rem; }
+.ce-instr-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.ce-instr-col-th { padding: .55rem .75rem; border: 1px solid #c8d6df; font-weight: 700; font-size: .82rem; text-align: center; }
+.ce-instr-row:nth-child(even) td { background: #fafafa; }
+.ce-instr-td { padding: .5rem .75rem; border: 1px solid #d1dce3; vertical-align: middle; font-size: .83rem; color: #1e293b; }
+.ce-instr-link { color: #2563eb; text-decoration: underline; word-break: break-all; line-height: 1.6; display: inline-block; }
+.ce-instr-link:hover { color: #1d4ed8; }
+
 /* Alerts */
 .ce-alert-error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: .65rem .9rem; border-radius: 6px; }
 .ce-alert-info  { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: .65rem .9rem; border-radius: 6px; }

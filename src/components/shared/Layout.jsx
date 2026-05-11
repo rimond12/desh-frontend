@@ -57,8 +57,8 @@ export default function Layout({ children, isAdmin = false, isReviewer = false }
 
         <div className="page-content">
           {children}
+          <PartnerFooter />
         </div>
-        <PartnerFooter />
       </div>
     </div>
   );
