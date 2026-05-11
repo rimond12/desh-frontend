@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api') + '/calc';
+const API_BASE = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api') + '/calc';
 
 export default function CalculationsArchivePage() {
     const [calculations, setCalculations] = useState([]);

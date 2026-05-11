@@ -524,6 +524,26 @@ export default function CalcAdmin() {
     };
     reader.readAsText(file);e.target.value="";
   }
+  async function handleExportDropdowns(){
+    try{const r=await axios.get(`${API_BASE}/admin/export-dropdowns`);const d=r.data.data;const ts=new Date().toISOString().slice(0,19).replace(/[T:]/g,"-");const blob=new Blob([JSON.stringify(d,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`all-dropdowns_${ts}.json`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);}
+    catch(e){alert("Export failed: "+e.message);}
+  }
+  function handleImportDropdowns(e){
+    const file=e.target.files?.[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=async ev=>{
+      try{
+        const p=JSON.parse(ev.target.result);
+        if(p.schema!=="calc-engine-dropdowns")throw new Error("Not a dropdowns export file");
+        if(!window.confirm(`Import ${p.dropdowns?.length||0} dropdown list(s)?\n\nExisting lists with matching names will be overwritten.`))return;
+        const r=await axios.post(`${API_BASE}/admin/import-dropdowns`,p);
+        const{created=[],updated=[]}=r.data.data;
+        alert(`Done.\nCreated: ${created.length} list(s)\nUpdated: ${updated.length} list(s)`);
+        loadMasters();
+      }catch(err){alert("Import failed: "+err.message);}
+    };
+    reader.readAsText(file);e.target.value="";
+  }
 
   // ── View calc engine mode ──
   if(selectedCalc){
@@ -586,7 +606,11 @@ export default function CalcAdmin() {
         <div>
           <div className="ce-tab-header">
             <h2 className="ce-tab-title">Dropdown Lists</h2>
-            <button className="ce-btn ce-btn-primary" onClick={()=>setMasterModal({edit:null})}>+ New List</button>
+            <div className="ce-header-actions">
+              <button className="ce-btn ce-btn-outline" onClick={handleExportDropdowns}>📦 Export All</button>
+              <label className="ce-btn ce-btn-outline" style={{cursor:"pointer"}}>📥 Import All<input type="file" accept=".json" style={{display:"none"}} onChange={handleImportDropdowns}/></label>
+              <button className="ce-btn ce-btn-primary" onClick={()=>setMasterModal({edit:null})}>+ New List</button>
+            </div>
           </div>
           <div className="ce-master-list">
             {masters.length===0&&<div className="ce-empty">No dropdown lists yet.</div>}
