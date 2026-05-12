@@ -126,7 +126,7 @@ export default function Submissions() {
 
       <div className="glass-card overflow-hidden">
         {loading ? <p className="text-center py-8">Loading...</p> : (
-          <table className="premium-table">
+          <div className="table-scroll"><table className="premium-table">
             <thead>
               <tr>
                 <th>Project</th><th>User</th><th>Level</th><th>Score</th>
@@ -183,7 +183,7 @@ export default function Submissions() {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </Layout>

@@ -634,8 +634,9 @@ export default function Modules() {
                   borderRadius: 8, padding: '4px 12px', cursor: 'pointer'
                 }}>+ Add Option</button>
               </div>
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
               {f.options.map((o, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 62px 30px 30px 36px', gap: 6, marginBottom: 8, alignItems: 'center' }}>
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 62px 30px 30px 36px', gap: 6, marginBottom: 8, alignItems: 'center', minWidth: 400 }}>
                   {/* Label */}
                   <input className="input-field" value={o.label}
                     onChange={e => setOpt(i, 'label', e.target.value)}
@@ -712,6 +713,7 @@ export default function Modules() {
                   }}>✕</button>
                 </div>
               ))}
+              </div>
             </div>
           )}
 

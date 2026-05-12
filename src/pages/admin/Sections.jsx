@@ -289,7 +289,7 @@ export default function Sections() {
             <button className="btn-primary-green" onClick={openNew}>+ New Section</button>
           </div>
         ) : (
-          <table className="premium-table">
+          <div className="table-scroll"><table className="premium-table">
             <thead>
               <tr>
                 <th style={{ width: 80 }}>Order</th>
@@ -388,7 +388,7 @@ export default function Sections() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

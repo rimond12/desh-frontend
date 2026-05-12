@@ -231,7 +231,7 @@ export default function Users() {
                 ) : filtered.length === 0 ? (
                     <p style={{ textAlign: 'center', padding: 32, color: 'var(--tx-muted)', fontSize: 13 }}>No users match the current filters.</p>
                 ) : (
-                    <table className="premium-table" style={{ width: '100%' }}>
+                    <div className="table-scroll"><table className="premium-table" style={{ width: '100%' }}>
                         <thead>
                             <tr>
                                 <th style={{ width: 40 }}>#</th>
@@ -289,7 +289,7 @@ export default function Users() {
                                 </tr>
                             ))}
                         </tbody>
-                    </table>
+                    </table></div>
                 )}
             </div>
 

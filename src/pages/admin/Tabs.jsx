@@ -171,7 +171,7 @@ export default function Tabs() {
 
             <div className="glass-card overflow-hidden">
                 {loading ? <p className="text-center py-8">Loading...</p> : (
-                    <table className="premium-table">
+                    <div className="table-scroll"><table className="premium-table">
                         <thead><tr><th>Order</th><th>Icon</th><th>Tab Title</th><th>Status</th><th>Actions</th></tr></thead>
                         <tbody>
                             {tabs.sort((a, b) => a.sortOrder - b.sortOrder).map(t => (
@@ -212,7 +212,7 @@ export default function Tabs() {
                                 </tr>
                             ))}
                         </tbody>
-                    </table>
+                    </table></div>
                 )}
             </div>
         </Layout>

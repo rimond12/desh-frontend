@@ -367,8 +367,12 @@ export default function Login() {
         }
 
         @media (max-width: 480px) {
-          .gov-header { padding: 12px 20px; }
-          .card-box { padding: 28px 20px; }
+          .gov-header { padding: 12px 16px; gap: 8px; flex-wrap: wrap; justify-content: center; }
+          .gov-header img { height: 60px; }
+          .gov-divider { display: none; }
+          .gov-header-text { text-align: center; }
+          .card-box { padding: 24px 16px; }
+          .card-heading { font-size: 22px; }
         }
       `}</style>
 

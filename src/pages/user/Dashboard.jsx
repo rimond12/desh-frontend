@@ -122,7 +122,7 @@ export default function UserDashboard() {
                 </Link>
               </div>
             ) : (
-              <table className="premium-table">
+              <div className="table-scroll"><table className="premium-table">
                 <thead>
                   <tr>
                     <th>Project</th>
@@ -171,7 +171,7 @@ export default function UserDashboard() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             )}
           </div>
         </div>

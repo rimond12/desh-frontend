@@ -45,7 +45,7 @@ export default function Projects() {
 
   return (
     <Layout>
-      <div className="flex items-start justify-between mb-8 fade-in-up">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-8 fade-in-up">
         <div>
           <h1 className="text-3xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>My Projects</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--tx-muted)' }}>

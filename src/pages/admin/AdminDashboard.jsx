@@ -87,7 +87,7 @@ export default function AdminDashboard() {
           {loading ? (
             <p className="text-center py-8">Loading...</p>
           ) : (
-            <table className="premium-table">
+            <div className="table-scroll"><table className="premium-table">
               <thead><tr><th>Project</th><th>User</th><th>Level</th><th>Score</th><th>Date</th></tr></thead>
               <tbody>
                 {submissions.map(s => (
@@ -106,7 +106,7 @@ export default function AdminDashboard() {
                   <tr><td colSpan={5} className="text-center py-8" style={{ color: 'var(--tx-muted)' }}>No submissions yet</td></tr>
                 )}
               </tbody>
-            </table>
+            </table></div>
           )}
         </div>
 

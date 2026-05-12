@@ -43,9 +43,8 @@ export default function PartnerFooter() {
             zIndex: 10,
             borderTop: '1px solid rgba(34,139,60,0.1)',
             background: '#fff',
-            padding: '20px 40px 24px',
+            padding: 'clamp(16px, 4vw, 20px) clamp(12px, 5vw, 40px) 24px',
             marginTop: '20px',
-            
         }}>
             <p style={{
                 textAlign: 'center',
