@@ -56,7 +56,7 @@ export default function Layout({ children, isAdmin = false, isReviewer = false }
         </div>
 
         <div className="page-content">
-          {children}
+          <div style={{ flex: 1 }}>{children}</div>
           <PartnerFooter />
         </div>
       </div>

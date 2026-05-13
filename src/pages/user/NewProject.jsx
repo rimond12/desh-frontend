@@ -1,17 +1,38 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
-import LeafLogo from '../../components/shared/LeafLogo.jsx';
+import { ColoredLeaf } from '../../components/shared/LeafLogo.jsx';
 import toast from 'react-hot-toast';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
+
+const SERVER_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+const DEFAULT_LEAF_LEVELS = [
+  { name: 'Green Leaf',  colorCode: '#22C55E' },
+  { name: 'Yellow Leaf', colorCode: '#F8A514' },
+  { name: 'Orange Leaf', colorCode: '#E2670C' },
+  { name: 'Brown Leaf',  colorCode: '#97542A' },
+];
 
 export default function NewProject() {
   const navigate = useNavigate();
   const axiosSecure = useAxiosSecure();
   const [title, setSectionTitle] = useState('');
   const [sectionId, setSectionId] = useState('');
+  const [buildingType, setBuildingType] = useState('');
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [leafLevels, setLeafLevels] = useState(DEFAULT_LEAF_LEVELS);
+
+  const BUILDING_TYPES = [
+    'Park Design',
+    'Residential Building',
+    'Office Building',
+    'Industrial Building',
+    'School',
+    'Hospital',
+    'Other',
+  ];
 
   useEffect(() => {
     axiosSecure.get('/sections')
@@ -20,6 +41,21 @@ export default function NewProject() {
         setSections(sorted);
       })
       .catch(() => toast.error('Failed to load sections'));
+
+    axiosSecure.get('/settings/eval-rules')
+      .then(r => {
+        const rules = r.data.rules || [];
+        if (rules.length > 0) {
+          setLeafLevels(rules.map(rule => ({
+            name: rule.name,
+            colorCode: rule.colorCode,
+            imageUrl: rule.imageUrl
+              ? (rule.imageUrl.startsWith('/uploads/') ? `${SERVER_URL}${rule.imageUrl}` : rule.imageUrl)
+              : undefined,
+          })));
+        }
+      })
+      .catch(() => {}); // silently fall back to defaults
   }, []);
 
   const regularSections = sections.filter(s => !s.isConstant);
@@ -32,7 +68,7 @@ export default function NewProject() {
     if (!sectionId) { toast.error('Please select a section / stage'); return; }
     setLoading(true);
     try {
-      const res = await axiosSecure.post('/projects', { title, sectionId });
+      const res = await axiosSecure.post('/projects', { title, sectionId, buildingType: buildingType || undefined });
       const projectId = res.data?.project?._id;
       if (!projectId) { toast.error('Project created but ID not found'); return; }
       toast.success('Project created successfully!');
@@ -48,7 +84,29 @@ export default function NewProject() {
     <Layout>
       <div className="max-w-lg mx-auto fade-in-up">
         <div className="text-center mb-10">
-          <div className="inline-block mb-4"><LeafLogo size={56} animated /></div>
+          {/* All 4 leaf levels — visual representation only */}
+          <div style={{
+            display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
+            gap: 16, marginBottom: 20,
+          }}>
+            {leafLevels.map((leaf, i) => {
+              // Scale leaves: middle two slightly larger for a tiered look
+              const sizes = [36, 44, 44, 36];
+              return (
+                <div key={leaf.name} style={{
+                  opacity: 0.85 + (i === 1 || i === 2 ? 0.15 : 0),
+                  transition: 'opacity 0.3s',
+                }}>
+                  <ColoredLeaf
+                    level={leaf.name}
+                    colorCode={leaf.colorCode}
+                    imageUrl={leaf.imageUrl}
+                    size={sizes[i] || 40}
+                  />
+                </div>
+              );
+            })}
+          </div>
           <h1 className="text-3xl font-bold">Start a New Project</h1>
           <p className="mt-2 text-sm text-gray-400">Name your project and choose a section / stage</p>
         </div>
@@ -67,6 +125,22 @@ export default function NewProject() {
               className="input-dark w-full px-4 py-4 mb-5"
               autoFocus
             />
+
+            {/* Building Type */}
+            <label className="block text-xs font-semibold mb-2 text-gray-400 uppercase tracking-widest">
+              Building Type
+            </label>
+            <select
+              value={buildingType}
+              onChange={e => setBuildingType(e.target.value)}
+              className="input-dark w-full px-4 py-4 mb-5"
+              style={{ appearance: 'auto', cursor: 'pointer' }}
+            >
+              <option value="">— Select building type —</option>
+              {BUILDING_TYPES.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
 
             {/* Section / Stage */}
             <label className="block text-xs font-semibold mb-2 text-gray-400 uppercase tracking-widest">

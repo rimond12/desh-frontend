@@ -4,6 +4,7 @@ import Layout from '../../components/shared/Layout.jsx';
 import { LeafBadge } from '../../components/shared/LeafLogo.jsx';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 
 export default function Projects() {
   const axiosSecure = useAxiosSecure();
@@ -100,7 +101,6 @@ function ProjectCard({ project: p, delay, onRename, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(p.title);
   const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const inputRef = useRef(null);
 
   const ringColor = {
@@ -144,23 +144,27 @@ function ProjectCard({ project: p, delay, onRename, onDelete }) {
     if (e.key === 'Escape') cancelEdit(e);
   };
 
-  const handleDeleteClick = (e) => {
+  const handleDeleteClick = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    setConfirmDelete(true);
-  };
-
-  const confirmDeleteAction = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setConfirmDelete(false);
-    await onDelete(p._id);
-  };
-
-  const cancelDelete = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setConfirmDelete(false);
+    const result = await Swal.fire({
+      title: 'Delete Draft Project?',
+      text: `"${p.title}" will be permanently deleted. This action cannot be undone.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Delete',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#EF4444',
+      cancelButtonColor: '#6B7280',
+      focusCancel: true,
+      reverseButtons: true,
+      customClass: {
+        popup: 'swal-desh-popup',
+      },
+    });
+    if (result.isConfirmed) {
+      await onDelete(p._id);
+    }
   };
 
   return (
@@ -259,53 +263,25 @@ function ProjectCard({ project: p, delay, onRename, onDelete }) {
       {/* Delete button — draft only */}
       {p.status === 'draft' && (
         <div onClick={e => e.stopPropagation()}>
-          {confirmDelete ? (
-            <div style={{
-              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
-              borderRadius: 10, padding: '8px 12px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-            }}>
-              <span style={{ fontSize: 12, color: 'rgba(252,165,165,0.9)', fontWeight: 600 }}>
-                Delete this project?
-              </span>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={confirmDeleteAction} style={{
-                  background: 'rgba(239,68,68,0.22)', border: '1px solid rgba(239,68,68,0.45)',
-                  color: '#FCA5A5', borderRadius: 7, padding: '3px 10px',
-                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                }}>
-                  Delete
-                </button>
-                <button onClick={cancelDelete} style={{
-                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                  color: 'rgba(255,255,255,0.5)', borderRadius: 7, padding: '3px 10px',
-                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                }}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button onClick={handleDeleteClick} style={{
-              background: 'transparent', border: '1px solid rgba(239,68,68,0.2)',
-              color: 'rgba(252,165,165,0.5)', borderRadius: 8, padding: '5px 12px',
-              fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%',
-              transition: 'all 0.15s',
+          <button onClick={handleDeleteClick} style={{
+            background: 'transparent', border: '1px solid rgba(239,68,68,0.2)',
+            color: 'rgba(252,165,165,0.5)', borderRadius: 8, padding: '5px 12px',
+            fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%',
+            transition: 'all 0.15s',
+          }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+              e.currentTarget.style.color = 'rgba(252,165,165,0.85)';
+              e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)';
             }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
-                e.currentTarget.style.color = 'rgba(252,165,165,0.85)';
-                e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.color = 'rgba(252,165,165,0.5)';
-                e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)';
-              }}
-            >
-              Delete Draft
-            </button>
-          )}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'rgba(252,165,165,0.5)';
+              e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)';
+            }}
+          >
+            Delete Draft
+          </button>
         </div>
       )}
     </div>
