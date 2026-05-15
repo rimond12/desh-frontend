@@ -128,3 +128,94 @@
 /* ── Settings card ── */
 .ce-settings-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.1rem 1.25rem; max-width: 480px; }
 .ce-settings-card h3 { margin: 0 0 .5rem; font-size: .95rem; font-weight: 700; color: #0f172a; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Cross-Section Reference Picker
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Formula field row: input + toggle button side by side */
+.ce-formula-field-wrap  { display: flex; flex-direction: column; gap: .5rem; }
+.ce-formula-field-row   { display: flex; align-items: flex-start; gap: .4rem; }
+.ce-formula-field-row .ce-input { flex: 1; }
+
+/* 🔗 toggle button */
+.ce-xref-toggle-btn {
+  flex-shrink: 0;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid #e2e8f0; border-radius: 6px;
+  background: #f8fafc; cursor: pointer; font-size: .95rem;
+  transition: background .15s, border-color .15s, box-shadow .15s;
+  line-height: 1;
+}
+.ce-xref-toggle-btn:hover  { background: #e0f2fe; border-color: #38bdf8; }
+.ce-xref-toggle-btn.active { background: #dbeafe; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+
+/* Picker panel */
+.ce-xref-picker {
+  background: linear-gradient(135deg, #f0f9ff 0%, #f0fdf4 100%);
+  border: 1.5px solid #bfdbfe;
+  border-radius: 10px;
+  padding: .85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .7rem;
+  animation: ce-xref-slide-in .15s ease;
+}
+@keyframes ce-xref-slide-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ce-xref-picker-title {
+  display: flex; align-items: center; gap: .4rem;
+  font-size: .8rem; font-weight: 700; color: #1e40af;
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.ce-xref-icon { font-size: 1rem; }
+
+/* Numbered steps */
+.ce-xref-step { display: flex; align-items: flex-start; gap: .6rem; }
+.ce-xref-step-num {
+  flex-shrink: 0;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: #3b82f6; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .72rem; font-weight: 700;
+  margin-top: 1.6rem;   /* align with the label */
+}
+.ce-xref-step-body { flex: 1; }
+
+/* ID chips grid */
+.ce-xref-id-grid {
+  display: flex; flex-wrap: wrap; gap: .35rem;
+  margin-top: .25rem;
+}
+.ce-xref-id-chip {
+  display: flex; flex-direction: column;
+  padding: .28rem .6rem;
+  background: #fff; border: 1.5px solid #e2e8f0; border-radius: 6px;
+  cursor: pointer; text-align: left;
+  transition: border-color .12s, background .12s, box-shadow .12s;
+  min-width: 80px;
+}
+.ce-xref-id-chip:hover  { border-color: #3b82f6; background: #eff6ff; }
+.ce-xref-id-chip.selected {
+  border-color: #2563eb; background: #dbeafe;
+  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+.ce-xref-chip-id    { font-family: monospace; font-size: .78rem; font-weight: 700; color: #1e40af; }
+.ce-xref-chip-label { font-size: .7rem; color: #64748b; margin-top: .05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+
+/* Token preview row */
+.ce-xref-token-row {
+  display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  background: #1e293b; border-radius: 7px; padding: .45rem .75rem;
+  margin-top: .1rem;
+}
+.ce-xref-token {
+  font-family: monospace; font-size: .83rem;
+  color: #86efac;           /* green on dark */
+  flex: 1; word-break: break-all;
+}

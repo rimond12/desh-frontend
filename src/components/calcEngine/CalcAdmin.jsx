@@ -3,7 +3,7 @@
  * All admin API calls use axiosSecure (Bearer token auth).
  * Public reads use plain fetch.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import useAxiosSecure from "../../hooks/useAxiosSecure.jsx";
 import CalcEngine from "./CalcEngine.jsx";
 import "./calcEngine.css";
@@ -160,7 +160,7 @@ function MasterCard({ master, onRefresh, axios }) {
 }
 
 // ── Column Type Fields ────────────────────────────────────────────────────────
-function ColTypeFields({ type, col, allMasters, allCalcs, editorColumns, editingIdx, onChange }) {
+function ColTypeFields({ type, col, allMasters, allCalcs, editorColumns, editingIdx, onChange, currentCalcId, currentCalcOrder }) {
   const set=(key,val)=>onChange({...col,[key]:val});
   if(type==="dropdown")return(
     <div>
@@ -212,11 +212,22 @@ function ColTypeFields({ type, col, allMasters, allCalcs, editorColumns, editing
       <label className="ce-label"><input type="checkbox" checked={!!col.allow_unlock} onChange={e=>set("allow_unlock",e.target.checked)} /> Allow user to unlock &amp; override (🔒/🔓)</label>
     </div>);
   }
-  if(type==="formula")return(<div>
-    <label className="ce-label">Formula Expression *</label>
-    <input type="text" className="ce-input ce-form-input" value={col.expr||""} onChange={e=>set("expr",e.target.value)} placeholder="e.g. ROW.total_area * ROW.coeff" />
-    <p className="ce-hint"><code>SEC(n).summaryId</code> | <code>ROW.colId</code></p>
-  </div>);
+  if(type==="formula")return(
+    <div>
+      <label className="ce-label">Formula Expression *</label>
+      <FormulaInput
+        value={col.expr||""}
+        onChange={v=>set("expr",v)}
+        placeholder="e.g. ROW.total_area * ROW.coeff"
+        currentCalcId={currentCalcId}
+        currentCalcOrder={currentCalcOrder}
+        allCalcs={allCalcs}
+      />
+      <p className="ce-hint">
+        <code>ROW.colId</code> · <code>SEC(n).id</code> · <code>CAL(c).SEC(n).id</code>
+      </p>
+    </div>
+  );
   if(type==="number"){
     const ddCols=editorColumns.filter(c=>c.type==="dropdown");
     return(<div>
@@ -228,7 +239,7 @@ function ColTypeFields({ type, col, allMasters, allCalcs, editorColumns, editing
 }
 
 // ── Column Modal ──────────────────────────────────────────────────────────────
-function ColumnModal({ editCol, editIdx, allMasters, allCalcs, editorColumns, onClose, onConfirm }) {
+function ColumnModal({ editCol, editIdx, allMasters, allCalcs, editorColumns, onClose, onConfirm, currentCalcId, currentCalcOrder }) {
   const [col,setCol]=useState(editCol?JSON.parse(JSON.stringify(editCol)):{id:"",label:"",type:"number"});
   const TYPES=[["number","Number"],["text","Text"],["dropdown","Dropdown"],["section_ref","Section Reference"],["cross_calc_ref","Cross-Calc Reference"],["nested_dropdown","Nested Dropdown"],["locked","Locked (auto-fill)"],["formula","Formula"]];
   return(
@@ -243,7 +254,7 @@ function ColumnModal({ editCol, editIdx, allMasters, allCalcs, editorColumns, on
       <select className="ce-select ce-form-input" value={col.type} onChange={e=>setCol({...col,type:e.target.value})}>
         {TYPES.map(([v,l])=><option key={v} value={v}>{l}</option>)}
       </select>
-      <ColTypeFields type={col.type} col={col} allMasters={allMasters} allCalcs={allCalcs} editorColumns={editorColumns} editingIdx={editIdx} onChange={setCol} />
+      <ColTypeFields type={col.type} col={col} allMasters={allMasters} allCalcs={allCalcs} editorColumns={editorColumns} editingIdx={editIdx} onChange={setCol} currentCalcId={currentCalcId} currentCalcOrder={currentCalcOrder} />
     </Modal>
   );
 }
@@ -287,37 +298,267 @@ function GroupModal({ editGroup, editIdx, columns, onClose, onConfirm }) {
   );
 }
 
-// ── Summary Modal ─────────────────────────────────────────────────────────────
-function SummaryModal({editSummary,editIdx,onClose,onConfirm}){
-  const [s,setS]=useState(editSummary?JSON.parse(JSON.stringify(editSummary)):{id:"",label:"",formula:""});
-  return(<Modal title={editSummary?"Edit Summary":"Add Summary"} onClose={onClose}
-    footer={<><button className="ce-btn ce-btn-secondary" onClick={onClose}>Cancel</button><button className="ce-btn ce-btn-primary" onClick={()=>{if(!s.id||!s.label||!s.formula){alert("All fields required");return;}onConfirm(s,editIdx);}}>Save</button></>}>
-    <div className="ce-form-grid">
-      <div><label className="ce-label">ID *</label><input type="text" className="ce-input ce-form-input" value={s.id} onChange={e=>setS({...s,id:e.target.value})} /></div>
-      <div><label className="ce-label">Label *</label><input type="text" className="ce-input ce-form-input" value={s.label} onChange={e=>setS({...s,label:e.target.value})} /></div>
+// ── Cross-Section Reference Picker ────────────────────────────────────────────
+/**
+ * CrossRefPicker — lets the user browse calcs/sections/summaries and
+ * click to insert a reference token  (SEC(n).id  or  CAL(c).SEC(n).id)
+ * into a formula field.
+ *
+ * Props:
+ *   currentCalcId  – the _id of the calculation being edited (may be null when
+ *                    editing a new, unsaved calc)
+ *   currentCalcOrder – order_num of the current calc
+ *   allCalcs       – array of all calc objects { _id, id, name, order_num }
+ *   onInsert(token) – called with the generated token string
+ */
+function CrossRefPicker({ currentCalcId, currentCalcOrder, allCalcs, onInsert }) {
+  const [selCalcId,  setSelCalcId]  = useState(currentCalcId || "");
+  const [sections,   setSections]   = useState([]);
+  const [loading,    setLoading]    = useState(false);
+  const [selSecOrder, setSelSecOrder] = useState("");
+  const [selId,      setSelId]      = useState("");
+
+  // Derive order_num for selected calc
+  const selCalc = allCalcs.find(c => (c._id||c.id) === selCalcId);
+  const selCalcOrder = selCalc?.order_num ?? currentCalcOrder;
+  const isSameCalc   = selCalcId === currentCalcId;
+
+  // Load sections when selected calc changes
+  useEffect(() => {
+    if (!selCalcId) { setSections([]); return; }
+    setLoading(true);
+    fetch((process.env.REACT_APP_API_URL || "http://localhost:5000/api") + `/calc/calculations/${selCalcId}`)
+      .then(r => r.json())
+      .then(j => {
+        const secs = (j.data?.sections || []).sort((a, b) => a.order_num - b.order_num);
+        setSections(secs);
+        setSelSecOrder("");
+        setSelId("");
+      })
+      .catch(() => setSections([]))
+      .finally(() => setLoading(false));
+  }, [selCalcId]);
+
+  // Items available in the selected section (summary IDs or formula IDs)
+  const selSec = sections.find(s => String(s.order_num) === String(selSecOrder));
+  const availableIds = selSec
+    ? (selSec.config?.summaries || selSec.config?.formulas || []).map(x => ({ id: x.id, label: x.label }))
+    : [];
+
+  function buildToken() {
+    if (!selSecOrder || !selId) return null;
+    if (isSameCalc) return `SEC(${selSecOrder}).${selId}`;
+    return `CAL(${selCalcOrder}).SEC(${selSecOrder}).${selId}`;
+  }
+
+  function handleInsert() {
+    const t = buildToken();
+    if (!t) { alert("Please select a section and a value ID."); return; }
+    onInsert(t);
+  }
+
+  const token = buildToken();
+
+  return (
+    <div className="ce-xref-picker">
+      <div className="ce-xref-picker-title">
+        <span className="ce-xref-icon">🔗</span>
+        Cross-Section Reference Builder
+      </div>
+
+      {/* Step 1 – Calculation */}
+      <div className="ce-xref-step">
+        <div className="ce-xref-step-num">1</div>
+        <div className="ce-xref-step-body">
+          <label className="ce-label" style={{ marginTop: 0 }}>Calculation</label>
+          <select className="ce-select" value={selCalcId} onChange={e => setSelCalcId(e.target.value)}>
+            <option value="">-- Select calculation --</option>
+            {allCalcs.map(c => (
+              <option key={c._id||c.id} value={c._id||c.id}>
+                CAL({c.order_num}) · {c.name}{(c._id||c.id) === currentCalcId ? " ★ (this calc)" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Step 2 – Section */}
+      <div className="ce-xref-step">
+        <div className="ce-xref-step-num">2</div>
+        <div className="ce-xref-step-body">
+          <label className="ce-label" style={{ marginTop: 0 }}>Section</label>
+          {loading ? (
+            <p className="ce-hint" style={{ margin: 0 }}>Loading sections…</p>
+          ) : (
+            <select className="ce-select" value={selSecOrder} onChange={e => { setSelSecOrder(e.target.value); setSelId(""); }} disabled={!selCalcId}>
+              <option value="">-- Select section --</option>
+              {sections
+                .filter(s => ["input_table", "formula_display"].includes(s.config?.type))
+                .map(s => (
+                  <option key={s.order_num} value={s.order_num}>
+                    SEC({s.order_num}) · {s.name} [{s.config?.type}]
+                  </option>
+                ))}
+            </select>
+          )}
+        </div>
+      </div>
+
+      {/* Step 3 – Value ID */}
+      <div className="ce-xref-step">
+        <div className="ce-xref-step-num">3</div>
+        <div className="ce-xref-step-body">
+          <label className="ce-label" style={{ marginTop: 0 }}>Value ID</label>
+          {selSecOrder && availableIds.length === 0 ? (
+            <p className="ce-hint" style={{ margin: 0, color: "#dc2626" }}>No summaries/formulas in this section. Add them first.</p>
+          ) : (
+            <div className="ce-xref-id-grid">
+              {availableIds.map(item => (
+                <button key={item.id}
+                  className={`ce-xref-id-chip${selId === item.id ? " selected" : ""}`}
+                  onClick={() => setSelId(item.id)}
+                  title={item.label}
+                >
+                  <span className="ce-xref-chip-id">{item.id}</span>
+                  <span className="ce-xref-chip-label">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Token preview + Insert */}
+      {token && (
+        <div className="ce-xref-token-row">
+          <code className="ce-xref-token">{token}</code>
+          <button className="ce-btn ce-btn-primary ce-btn-sm" onClick={handleInsert}>
+            ↩ Insert
+          </button>
+        </div>
+      )}
     </div>
-    <label className="ce-label">Formula *</label>
-    <textarea className="ce-input ce-form-input" rows={2} style={{fontFamily:"monospace",resize:"vertical"}} value={s.formula} onChange={e=>setS({...s,formula:e.target.value})} placeholder="e.g. SUM(area)" />
-    <p className="ce-hint"><code>SUM(colId)</code> · <code>AVG(colId)</code> · <code>SEC(n).id</code></p>
-  </Modal>);
+  );
 }
 
-// ── Formula Modal ─────────────────────────────────────────────────────────────
-function FormulaModal({editFormula,editIdx,onClose,onConfirm}){
-  const [f,setF]=useState(editFormula?JSON.parse(JSON.stringify(editFormula)):{id:"",label:"",expr:"",description:""});
-  return(<Modal title={editFormula?"Edit Formula":"Add Formula"} onClose={onClose}
-    footer={<><button className="ce-btn ce-btn-secondary" onClick={onClose}>Cancel</button><button className="ce-btn ce-btn-primary" onClick={()=>{if(!f.id||!f.label||!f.expr){alert("All fields required");return;}onConfirm(f,editIdx);}}>Save</button></>}>
-    <div className="ce-form-grid">
-      <div><label className="ce-label">ID *</label><input type="text" className="ce-input ce-form-input" value={f.id} onChange={e=>setF({...f,id:e.target.value})} /></div>
-      <div><label className="ce-label">Label *</label><input type="text" className="ce-input ce-form-input" value={f.label} onChange={e=>setF({...f,label:e.target.value})} /></div>
+// ── Formula Field with Ref Picker ──────────────────────────────────────────────
+/**
+ * FormulaInput – textarea/input wrapper that adds a toggle button for the
+ * CrossRefPicker inline panel. Handles insertion at cursor position.
+ */
+function FormulaInput({ value, onChange, multiline = false, placeholder, currentCalcId, currentCalcOrder, allCalcs }) {
+  const [showPicker, setShowPicker] = useState(false);
+  const inputRef = useRef(null);
+
+  function handleInsert(token) {
+    const el = inputRef.current;
+    if (!el) { onChange(value + token); return; }
+    const start = el.selectionStart ?? value.length;
+    const end   = el.selectionEnd   ?? value.length;
+    const next  = value.slice(0, start) + token + value.slice(end);
+    onChange(next);
+    // Restore cursor after insertion
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + token.length, start + token.length);
+    });
+  }
+
+  const commonProps = {
+    ref: inputRef,
+    className: "ce-input ce-form-input",
+    value,
+    onChange: e => onChange(e.target.value),
+    placeholder,
+    style: { fontFamily: "monospace" },
+  };
+
+  return (
+    <div className="ce-formula-field-wrap">
+      <div className="ce-formula-field-row">
+        {multiline
+          ? <textarea {...commonProps} rows={2} style={{ ...commonProps.style, resize: "vertical" }} />
+          : <input    type="text" {...commonProps} />
+        }
+        <button
+          type="button"
+          className={`ce-xref-toggle-btn${showPicker ? " active" : ""}`}
+          onClick={() => setShowPicker(p => !p)}
+          title="Insert cross-section reference"
+        >
+          🔗
+        </button>
+      </div>
+      {showPicker && (
+        <CrossRefPicker
+          currentCalcId={currentCalcId}
+          currentCalcOrder={currentCalcOrder}
+          allCalcs={allCalcs}
+          onInsert={t => { handleInsert(t); setShowPicker(false); }}
+        />
+      )}
     </div>
-    <label className="ce-label">Expression *</label>
-    <input type="text" className="ce-input ce-form-input" value={f.expr} onChange={e=>setF({...f,expr:e.target.value})} placeholder="e.g. SEC(2).total_value / SEC(2).total_area" />
-    <p className="ce-hint"><code>SEC(n).summaryId</code> | <code>ROW.colId</code></p>
-    <label className="ce-label">Description <span className="ce-hint">(optional)</span></label>
-    <input type="text" className="ce-input ce-form-input" value={f.description||""} onChange={e=>setF({...f,description:e.target.value})} />
-  </Modal>);
+  );
 }
+
+// ── Summary Modal ─────────────────────────────────────────────────────────────
+function SummaryModal({ editSummary, editIdx, onClose, onConfirm, currentCalcId, currentCalcOrder, allCalcs }) {
+  const [s, setS] = useState(editSummary ? JSON.parse(JSON.stringify(editSummary)) : { id: "", label: "", formula: "" });
+  return (
+    <Modal title={editSummary ? "Edit Summary" : "Add Summary"} onClose={onClose}
+      footer={<><button className="ce-btn ce-btn-secondary" onClick={onClose}>Cancel</button><button className="ce-btn ce-btn-primary" onClick={() => { if (!s.id || !s.label || !s.formula) { alert("All fields required"); return; } onConfirm(s, editIdx); }}>Save</button></>}>
+      <div className="ce-form-grid">
+        <div><label className="ce-label">ID *</label><input type="text" className="ce-input ce-form-input" value={s.id} onChange={e => setS({ ...s, id: e.target.value })} /></div>
+        <div><label className="ce-label">Label *</label><input type="text" className="ce-input ce-form-input" value={s.label} onChange={e => setS({ ...s, label: e.target.value })} /></div>
+      </div>
+      <label className="ce-label">Formula *</label>
+      <FormulaInput
+        multiline
+        value={s.formula}
+        onChange={v => setS({ ...s, formula: v })}
+        placeholder="e.g. SUM(area)"
+        currentCalcId={currentCalcId}
+        currentCalcOrder={currentCalcOrder}
+        allCalcs={allCalcs}
+      />
+      <p className="ce-hint">
+        <code>SUM(colId)</code> · <code>AVG(colId)</code> · <code>COUNT()</code><br />
+        <code>SEC(n).id</code> – same-calc section · <code>CAL(c).SEC(n).id</code> – cross-calc section
+      </p>
+    </Modal>
+  );
+}
+
+
+// ── Formula Modal ─────────────────────────────────────────────────────────────
+function FormulaModal({ editFormula, editIdx, onClose, onConfirm, currentCalcId, currentCalcOrder, allCalcs }) {
+  const [f, setF] = useState(editFormula ? JSON.parse(JSON.stringify(editFormula)) : { id: "", label: "", expr: "", description: "" });
+  return (
+    <Modal title={editFormula ? "Edit Formula" : "Add Formula"} onClose={onClose}
+      footer={<><button className="ce-btn ce-btn-secondary" onClick={onClose}>Cancel</button><button className="ce-btn ce-btn-primary" onClick={() => { if (!f.id || !f.label || !f.expr) { alert("All fields required"); return; } onConfirm(f, editIdx); }}>Save</button></>}>
+      <div className="ce-form-grid">
+        <div><label className="ce-label">ID *</label><input type="text" className="ce-input ce-form-input" value={f.id} onChange={e => setF({ ...f, id: e.target.value })} /></div>
+        <div><label className="ce-label">Label *</label><input type="text" className="ce-input ce-form-input" value={f.label} onChange={e => setF({ ...f, label: e.target.value })} /></div>
+      </div>
+      <label className="ce-label">Expression *</label>
+      <FormulaInput
+        value={f.expr}
+        onChange={v => setF({ ...f, expr: v })}
+        placeholder="e.g. SEC(2).total_area * 0.5"
+        currentCalcId={currentCalcId}
+        currentCalcOrder={currentCalcOrder}
+        allCalcs={allCalcs}
+      />
+      <p className="ce-hint">
+        <code>SEC(n).id</code> – same-calc summary · <code>CAL(c).SEC(n).id</code> – cross-calc summary<br />
+        <code>CAL(c).SEC(n).SUM(colId)</code> – aggregate from another calc
+      </p>
+      <label className="ce-label">Description <span className="ce-hint">(optional)</span></label>
+      <input type="text" className="ce-input ce-form-input" value={f.description || ""} onChange={e => setF({ ...f, description: e.target.value })} />
+    </Modal>
+  );
+}
+
 
 // ── Instruction Table Helpers ─────────────────────────────────────────────────
 function getLeafColumns(columns) {
@@ -649,7 +890,7 @@ function InstructionBlocksEditor({ blocks, onBlocksChange }) {
 }
 
 // ── Section Modal ─────────────────────────────────────────────────────────────
-function SectionModal({ calcId, editSec, allCalcs, allMasters, currentSections, onClose, onSaved, axios }) {
+function SectionModal({ calcId, calcOrder, editSec, allCalcs, allMasters, currentSections, onClose, onSaved, axios }) {
   const [name,setName]=useState(editSec?.name||"");
   const [order,setOrder]=useState(editSec?.order_num??currentSections.length+1);
   const [hidden,setHidden]=useState(editSec?.config?.hidden||false);
@@ -766,7 +1007,9 @@ function SectionModal({ calcId, editSec, allCalcs, allMasters, currentSections, 
               <button className="ce-icon-btn ce-icon-btn-danger" onClick={()=>setFormulas(a=>a.filter((_,j)=>j!==i))}>✕</button>
             </div>
           ))}
-          <p className="ce-hint"><code>SEC(n).summaryId</code> – reference another section's summary value</p>
+          <p className="ce-hint">
+            <code>SEC(n).id</code> – same-calc section · <code>CAL(c).SEC(n).id</code> – cross-calc · <code>CAL(c).SEC(n).SUM(col)</code> – aggregate
+          </p>
         </div>
       )}
 
@@ -788,9 +1031,9 @@ function SectionModal({ calcId, editSec, allCalcs, allMasters, currentSections, 
         <InstructionBlocksEditor blocks={instrBlocks} onBlocksChange={setInstrBlocks} />
       )}
 
-      {colModal&&<ColumnModal editCol={colModal.editCol} editIdx={colModal.editIdx} allMasters={allMasters} allCalcs={allCalcs} editorColumns={columns} onClose={()=>setColModal(null)} onConfirm={(col,idx)=>{if(idx!==null&&idx!==undefined)setColumns(cs=>{const n=[...cs];n[idx]=col;return n;});else setColumns(cs=>[...cs,col]);setColModal(null);}} />}
-      {sumModal&&<SummaryModal editSummary={sumModal.editSummary} editIdx={sumModal.editIdx} onClose={()=>setSumModal(null)} onConfirm={(s,idx)=>{if(idx!==null&&idx!==undefined)setSummaries(a=>{const n=[...a];n[idx]=s;return n;});else setSummaries(a=>[...a,s]);setSumModal(null);}} />}
-      {fmlModal&&<FormulaModal editFormula={fmlModal.editFormula} editIdx={fmlModal.editIdx} onClose={()=>setFmlModal(null)} onConfirm={(f,idx)=>{if(idx!==null&&idx!==undefined)setFormulas(a=>{const n=[...a];n[idx]=f;return n;});else setFormulas(a=>[...a,f]);setFmlModal(null);}} />}
+      {colModal&&<ColumnModal editCol={colModal.editCol} editIdx={colModal.editIdx} allMasters={allMasters} allCalcs={allCalcs} editorColumns={columns} currentCalcId={calcId} currentCalcOrder={calcOrder} onClose={()=>setColModal(null)} onConfirm={(col,idx)=>{if(idx!==null&&idx!==undefined)setColumns(cs=>{const n=[...cs];n[idx]=col;return n;});else setColumns(cs=>[...cs,col]);setColModal(null);}} />}
+      {sumModal&&<SummaryModal editSummary={sumModal.editSummary} editIdx={sumModal.editIdx} currentCalcId={calcId} currentCalcOrder={calcOrder} allCalcs={allCalcs} onClose={()=>setSumModal(null)} onConfirm={(s,idx)=>{if(idx!==null&&idx!==undefined)setSummaries(a=>{const n=[...a];n[idx]=s;return n;});else setSummaries(a=>[...a,s]);setSumModal(null);}} />}
+      {fmlModal&&<FormulaModal editFormula={fmlModal.editFormula} editIdx={fmlModal.editIdx} currentCalcId={calcId} currentCalcOrder={calcOrder} allCalcs={allCalcs} onClose={()=>setFmlModal(null)} onConfirm={(f,idx)=>{if(idx!==null&&idx!==undefined)setFormulas(a=>{const n=[...a];n[idx]=f;return n;});else setFormulas(a=>[...a,f]);setFmlModal(null);}} />}
       {grpModal&&<GroupModal editGroup={grpModal.editGroup} editIdx={grpModal.editIdx} columns={columns} onClose={()=>setGrpModal(null)} onConfirm={(g,idx)=>{if(idx!==null&&idx!==undefined)setColumnGroups(gs=>{const n=[...gs];n[idx]=g;return n;});else setColumnGroups(gs=>[...gs,g]);setGrpModal(null);}} />}
     </Modal>
   );
@@ -801,6 +1044,8 @@ function BuilderPanel({ calcId, calcName, allCalcs, allMasters, onBack, axios })
   const [sections,setSections]=useState([]);
   const [secModal,setSecModal]=useState(null);
   const [dragSrcId,setDragSrcId]=useState(null);
+  // Derive the order_num of the current calc for use in the CrossRefPicker
+  const currentCalcOrder = allCalcs.find(c=>(c._id||c.id)===calcId)?.order_num ?? 1;
 
   async function loadSections(){
     try{const r=await axios.get(`${API_BASE}/calculations/${calcId}`);setSections((r.data.data.sections||[]).sort((a,b)=>a.order_num-b.order_num));}
@@ -865,7 +1110,7 @@ function BuilderPanel({ calcId, calcName, allCalcs, allMasters, onBack, axios })
           );
         })}
       </div>
-      {secModal&&<SectionModal calcId={calcId} editSec={secModal.editSec} allCalcs={allCalcs} allMasters={allMasters} currentSections={sections} onClose={()=>setSecModal(null)} onSaved={loadSections} axios={axios} />}
+      {secModal&&<SectionModal calcId={calcId} calcOrder={currentCalcOrder} editSec={secModal.editSec} allCalcs={allCalcs} allMasters={allMasters} currentSections={sections} onClose={()=>setSecModal(null)} onSaved={loadSections} axios={axios} />}
     </div>
   );
 }

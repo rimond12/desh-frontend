@@ -9,6 +9,7 @@ import {
   buildRefOptions, getRefSourceRows,
   resolveLockedCols, resolveFormulaColumns,
   saveToStorage, loadFromStorage, evalExpr,
+  evalSummaryExpr, calcFormulaSection,
 } from "./calcEngine.js";
 import "./calcEngine.css";
 
@@ -494,18 +495,21 @@ export default function CalcEngine({ calcId }) {
           resolveFormulaColumns(sec.order_num, ri, newRows, sections, newSums, calcOrderMapRef.current, crossCalcCacheRef.current);
         });
         if (!newSums[sec.order_num]) newSums[sec.order_num] = {};
+        // Use shared evalSummaryExpr — supports SEC(n), CAL(n).SEC(n), SUM(), AVG(), etc.
         (cfg.summaries||[]).forEach(s => {
-          const r2 = newRows[sec.order_num]||[];
-          let expr = String(s.formula);
-          const aggrFn = (fn,colId) => { const vs=r2.map(r=>getNum(r[colId])); if(!vs.length)return 0; switch(fn.toUpperCase()){case"SUM":return vs.reduce((a,b)=>a+b,0);case"AVG":return vs.reduce((a,b)=>a+b,0)/vs.length;case"MIN":return Math.min(...vs);case"MAX":return Math.max(...vs);default:return 0;}};
-          expr = expr.replace(/\b(SUM|AVG|MIN|MAX)\((\w+)\)/gi, (_,fn,colId)=>aggrFn(fn,colId));
-          expr = expr.replace(/\bCOUNT\(\)/gi, r2.length);
-          expr = expr.replace(/SEC\((\d+)\)\.(\w+)/gi, (_,n,sid)=>parseFloat(newSums[parseInt(n)]?.[sid]??0)||0);
-          try { if(/[^0-9+\-*/().\s]/.test(expr)){newSums[sec.order_num][s.id]=0;return;} const result=Function('"use strict"; return ('+expr+")")(); newSums[sec.order_num][s.id]=isFinite(result)?result:0; } catch{newSums[sec.order_num][s.id]=0;}
+          newSums[sec.order_num][s.id] = evalSummaryExpr(
+            s.formula, sec.order_num, newRows, newSums,
+            calcOrderMapRef.current, crossCalcCacheRef.current
+          );
         });
       } else if (cfg.type === "formula_display") {
         if (!newSums[sec.order_num]) newSums[sec.order_num] = {};
-        (cfg.formulas||[]).forEach(f => { newSums[sec.order_num][f.id]=evalExpr(f.expr,sec.order_num,undefined,newRows,newSums,calcOrderMapRef.current,crossCalcCacheRef.current); });
+        (cfg.formulas||[]).forEach(f => {
+          newSums[sec.order_num][f.id] = evalExpr(
+            f.expr, sec.order_num, undefined, newRows, newSums,
+            calcOrderMapRef.current, crossCalcCacheRef.current
+          );
+        });
       }
     });
     return { rows: newRows, sums: newSums };
