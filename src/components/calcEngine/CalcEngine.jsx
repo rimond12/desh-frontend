@@ -319,7 +319,77 @@ function FormulaDisplaySection({ sec, summaries }) {
   );
 }
 
-function CalcRefSection({ sec, crossCalcRows }) {
+// ── Editable Calculation Reference Section ────────────────────────────────────
+// Renders a calc_ref section as a fully interactive input_table, using the
+// source section's column/summary config. All edits are written back to the
+// source calculation's localStorage so other calculations see the changes.
+
+function EditableCalcRefSection({
+  sec, srcSec, allSections, refSectionConfigs,
+  sectionRows, setSectionRows, summaries, crossCalcRows, dropdowns, onRecalc
+}) {
+  const refCalcId = sec.config.ref_calc_id;
+  const refSecOrder = sec.config.ref_section_order;
+
+  // Virtual section: keeps this section's order_num but uses the source section's
+  // column/summary/group config, presented as an ordinary input_table.
+  const virtualSec = {
+    ...sec,
+    config: { ...srcSec.config, type: "input_table" },
+  };
+
+  // Virtual sections array used by SectionRefCell / locked-col resolution so
+  // that sibling sections referencing this one resolve data from sectionRows
+  // rather than crossCalcRows.
+  const virtualSections = allSections.map(s => {
+    if (s.order_num === sec.order_num) return virtualSec;
+    if (s.config.type === "calc_ref") {
+      const key = `${s.config.ref_calc_id}_${s.config.ref_section_order}`;
+      const src = refSectionConfigs[key];
+      if (src) return { ...s, config: { ...src.config, type: "input_table" } };
+    }
+    return s;
+  });
+
+  // Wrap setSectionRows: after every state update, persist the updated rows
+  // back into the source calculation's localStorage entry so Calc 01 stays
+  // in sync when it is next opened.
+  function handleSyncedRows(updater) {
+    setSectionRows(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      const refRows = next[sec.order_num] || [];
+      const srcStored = loadFromStorage(refCalcId) || { rows: {}, sums: {} };
+      srcStored.rows = { ...(srcStored.rows || {}), [refSecOrder]: refRows };
+      saveToStorage(refCalcId, srcStored.rows, srcStored.sums || {});
+      return next;
+    });
+  }
+
+  return (
+    <div className="ce-ref-editable-wrapper">
+      <div className="ce-ref-source-badge">
+        <span className="ce-ref-link-icon">🔗</span>
+        <span>
+          Linked from <strong>{srcSec.name || `Section ${refSecOrder}`}</strong>
+        </span>
+        <span className="ce-ref-sync-label">· Edits sync to source calculation</span>
+      </div>
+      <InputTableSection
+        sec={virtualSec}
+        sections={virtualSections}
+        sectionRows={sectionRows}
+        setSectionRows={handleSyncedRows}
+        summaries={summaries}
+        crossCalcRows={crossCalcRows}
+        dropdowns={dropdowns}
+        onRecalc={onRecalc}
+      />
+    </div>
+  );
+}
+
+// Fallback read-only view when source section config hasn't loaded yet
+function CalcRefSectionReadOnly({ sec, crossCalcRows }) {
   const cfg = sec.config;
   const key = `${cfg.ref_calc_id}_${cfg.ref_section_order}`;
   const srcRows = crossCalcRows[key] || [];
@@ -469,6 +539,23 @@ function InstructionTableSection({ sec }) {
   );
 }
 
+// ── Virtual sections helper ───────────────────────────────────────────────────
+// Replaces calc_ref sections with virtual input_table sections (same order_num,
+// source section's column/summary config) so resolveLockedCols and
+// resolveFormulaColumns work transparently across referenced sections.
+
+function buildVirtualSections(sections, refConfigs) {
+  return (sections || []).map(sec => {
+    if (sec.config.type !== "calc_ref") return sec;
+    const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
+    const srcSec = refConfigs?.[key];
+    if (srcSec) {
+      return { ...sec, config: { ...srcSec.config, type: "input_table" } };
+    }
+    return sec;
+  });
+}
+
 // ── Main CalcEngine ───────────────────────────────────────────────────────────
 
 export default function CalcEngine({ calcId }) {
@@ -477,25 +564,29 @@ export default function CalcEngine({ calcId }) {
   const [summaries, setSummaries] = useState({});
   const [dropdowns, setDropdowns] = useState({});
   const [crossCalcRows, setCrossCalcRows] = useState({});
+  const [refSectionConfigs, setRefSectionConfigs] = useState({});
   const [error, setError] = useState(null);
   const calcOrderMapRef = useRef({});
   const crossCalcCacheRef = useRef({});
 
-  function doRecalc(rows, sums, sections) {
+  // doRecalc accepts an optional refConfigs override so init() can pass the
+  // freshly-fetched configs before the state setter has flushed.
+  function doRecalc(rows, sums, sections, refConfigs) {
     if (!sections) return { rows, sums };
+    const configs = refConfigs !== undefined ? refConfigs : refSectionConfigs;
+    const virtSections = buildVirtualSections(sections, configs);
     const newRows = JSON.parse(JSON.stringify(rows));
     const newSums = JSON.parse(JSON.stringify(sums));
     crossCalcCacheRef.current = {};
-    sections.forEach(sec => {
+    virtSections.forEach(sec => {
       const cfg = sec.config;
       if (cfg.type === "input_table") {
         const srs = newRows[sec.order_num] || [];
         srs.forEach((_,ri) => {
-          resolveLockedCols(sec.order_num, ri, newRows, sections);
-          resolveFormulaColumns(sec.order_num, ri, newRows, sections, newSums, calcOrderMapRef.current, crossCalcCacheRef.current);
+          resolveLockedCols(sec.order_num, ri, newRows, virtSections);
+          resolveFormulaColumns(sec.order_num, ri, newRows, virtSections, newSums, calcOrderMapRef.current, crossCalcCacheRef.current);
         });
         if (!newSums[sec.order_num]) newSums[sec.order_num] = {};
-        // Use shared evalSummaryExpr — supports SEC(n), CAL(n).SEC(n), SUM(), AVG(), etc.
         (cfg.summaries||[]).forEach(s => {
           newSums[sec.order_num][s.id] = evalSummaryExpr(
             s.formula, sec.order_num, newRows, newSums,
@@ -532,12 +623,54 @@ export default function CalcEngine({ calcId }) {
         allCalcs.forEach(c => { calcOrderMapRef.current[c.order_num] = c._id||c.id; });
         const cfg = await publicGet(`/calculations/${calcId}`);
         cfg.sections.sort((a,b)=>a.order_num-b.order_num);
+
+        // ── 1. Load source section configs for every calc_ref section ─────────
+        const refSecConfigs = {};
+        const refCalcFetches = {};
+        cfg.sections.forEach(sec => {
+          if (sec.config.type === "calc_ref" && sec.config.ref_calc_id) {
+            if (!refCalcFetches[sec.config.ref_calc_id]) {
+              refCalcFetches[sec.config.ref_calc_id] = publicGet(`/calculations/${sec.config.ref_calc_id}`);
+            }
+          }
+        });
+        const fetchedRefCalcs = {};
+        await Promise.all(
+          Object.entries(refCalcFetches).map(async ([refId, p]) => {
+            fetchedRefCalcs[refId] = await p;
+          })
+        );
+        cfg.sections.forEach(sec => {
+          if (sec.config.type === "calc_ref") {
+            const { ref_calc_id: refId, ref_section_order: refOrd } = sec.config;
+            if (refId && refOrd && fetchedRefCalcs[refId]) {
+              const srcSec = fetchedRefCalcs[refId].sections?.find(s => s.order_num === refOrd);
+              if (srcSec) refSecConfigs[`${refId}_${refOrd}`] = srcSec;
+            }
+          }
+        });
+        setRefSectionConfigs(refSecConfigs);
         setCalcConfig(cfg);
+
+        // ── 2. Collect dropdown master IDs (own sections + source sections) ───
         const masterIds = new Set();
-        cfg.sections.forEach(sec => (sec.config.columns||[]).forEach(col => { if(col.dropdown_master_id) masterIds.add(col.dropdown_master_id); }));
+        cfg.sections.forEach(sec => {
+          (sec.config.columns||[]).forEach(col => {
+            if (col.dropdown_master_id) masterIds.add(col.dropdown_master_id);
+          });
+          if (sec.config.type === "calc_ref") {
+            const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
+            const srcSec = refSecConfigs[key];
+            (srcSec?.config?.columns||[]).forEach(col => {
+              if (col.dropdown_master_id) masterIds.add(col.dropdown_master_id);
+            });
+          }
+        });
         const ddMap = {};
         await Promise.all([...masterIds].map(async mid => { ddMap[mid]=await publicGet(`/dropdowns/${mid}`); }));
         setDropdowns(ddMap);
+
+        // ── 3. Load cross-calc rows from localStorage ─────────────────────────
         const ccRows = {};
         for (const sec of cfg.sections) {
           if (sec.config.type==="calc_ref"||sec.config.cross_calc_fa) {
@@ -548,15 +681,39 @@ export default function CalcEngine({ calcId }) {
           (sec.config.columns||[]).forEach(col => { if(col.type==="cross_calc_ref"){const key=`${col.ref_calc_id}_${col.ref_section_order}`;if(!ccRows[key]){const s=loadFromStorage(col.ref_calc_id);ccRows[key]=s?.rows?.[col.ref_section_order]||[];}} });
         }
         setCrossCalcRows(ccRows);
+
+        // ── 4. Initialise section rows ────────────────────────────────────────
         const stored = loadFromStorage(calcId);
         const initRows={}, initSums={};
         cfg.sections.forEach(sec => {
-          initRows[sec.order_num]=[];
           initSums[sec.order_num]={};
-          if (stored?.rows?.[sec.order_num]) initRows[sec.order_num]=stored.rows[sec.order_num];
-          else if (sec.config.can_add_rows) { const row={}; (sec.config.columns||[]).forEach(c=>{row[c.id]=null;}); initRows[sec.order_num]=[row]; }
+
+          if (sec.config.type === "calc_ref") {
+            // Prefer previously-saved local edits; fall back to source calc data.
+            if (stored?.rows?.[sec.order_num]?.length) {
+              initRows[sec.order_num] = stored.rows[sec.order_num];
+            } else {
+              const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
+              const srcRows = ccRows[key] || [];
+              const srcSecCfg = refSecConfigs[key]?.config;
+              if (srcRows.length > 0) {
+                initRows[sec.order_num] = JSON.parse(JSON.stringify(srcRows));
+              } else {
+                const row = {};
+                (srcSecCfg?.columns || []).forEach(c => { row[c.id] = null; });
+                initRows[sec.order_num] =
+                  srcSecCfg?.can_add_rows !== false && (srcSecCfg?.columns?.length ?? 0) > 0
+                    ? [row]
+                    : [];
+              }
+            }
+          } else {
+            initRows[sec.order_num]=[];
+            if (stored?.rows?.[sec.order_num]) initRows[sec.order_num]=stored.rows[sec.order_num];
+            else if (sec.config.can_add_rows) { const row={}; (sec.config.columns||[]).forEach(c=>{row[c.id]=null;}); initRows[sec.order_num]=[row]; }
+          }
         });
-        const {rows:newRows,sums:newSums}=doRecalc(initRows,initSums,cfg.sections);
+        const {rows:newRows,sums:newSums}=doRecalc(initRows,initSums,cfg.sections,refSecConfigs);
         setSectionRows(newRows); setSummaries(newSums);
       } catch(e) { setError(e.message); }
     }
@@ -568,8 +725,25 @@ export default function CalcEngine({ calcId }) {
     if(!calcConfig) return;
     const initRows={};
     calcConfig.sections.forEach(sec => {
-      initRows[sec.order_num]=[];
-      if(sec.config.can_add_rows){const row={};(sec.config.columns||[]).forEach(c=>{row[c.id]=null;});initRows[sec.order_num]=[row];}
+      if (sec.config.type === "calc_ref") {
+        // Reset to source calc's current data
+        const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
+        const srcRows = crossCalcRows[key] || [];
+        const srcSecCfg = refSectionConfigs[key]?.config;
+        if (srcRows.length > 0) {
+          initRows[sec.order_num] = JSON.parse(JSON.stringify(srcRows));
+        } else {
+          const row = {};
+          (srcSecCfg?.columns || []).forEach(c => { row[c.id] = null; });
+          initRows[sec.order_num] =
+            srcSecCfg?.can_add_rows !== false && (srcSecCfg?.columns?.length ?? 0) > 0
+              ? [row]
+              : [];
+        }
+      } else {
+        initRows[sec.order_num]=[];
+        if(sec.config.can_add_rows){const row={};(sec.config.columns||[]).forEach(c=>{row[c.id]=null;});initRows[sec.order_num]=[row];}
+      }
     });
     const {rows:newRows,sums:newSums}=doRecalc(initRows,{},calcConfig.sections);
     setSectionRows(newRows); setSummaries(newSums); saveToStorage(calcId,newRows,newSums);
@@ -621,22 +795,51 @@ export default function CalcEngine({ calcId }) {
         </div>
       </div>
 
-      {visibleSections.map(sec => (
-        <div key={sec._id||sec.order_num} className="ce-section">
-          <div className="ce-section-header">
-            <div className="ce-section-order">§{sec.order_num}</div>
-            <h3 className="ce-section-title">{sec.name}</h3>
+      {visibleSections.map(sec => {
+        const isCalcRef = sec.config.type === "calc_ref";
+        const refKey = isCalcRef
+          ? `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`
+          : null;
+        const srcSec = refKey ? refSectionConfigs[refKey] : null;
+
+        return (
+          <div key={sec._id||sec.order_num} className="ce-section">
+            <div className="ce-section-header">
+              <div className="ce-section-order">§{sec.order_num}</div>
+              <h3 className="ce-section-title">{sec.name}</h3>
+            </div>
+
+            {sec.config.type==="input_table" && (
+              <InputTableSection sec={sec} sections={calcConfig.sections} sectionRows={sectionRows}
+                setSectionRows={setSectionRows} summaries={summaries} crossCalcRows={crossCalcRows}
+                dropdowns={dropdowns} onRecalc={handleRecalc} />
+            )}
+            {sec.config.type==="formula_display" && (
+              <FormulaDisplaySection sec={sec} summaries={summaries} />
+            )}
+            {isCalcRef && srcSec && (
+              <EditableCalcRefSection
+                sec={sec}
+                srcSec={srcSec}
+                allSections={calcConfig.sections}
+                refSectionConfigs={refSectionConfigs}
+                sectionRows={sectionRows}
+                setSectionRows={setSectionRows}
+                summaries={summaries}
+                crossCalcRows={crossCalcRows}
+                dropdowns={dropdowns}
+                onRecalc={handleRecalc}
+              />
+            )}
+            {isCalcRef && !srcSec && (
+              <CalcRefSectionReadOnly sec={sec} crossCalcRows={crossCalcRows} />
+            )}
+            {sec.config.type==="instruction_table" && (
+              <InstructionTableSection sec={sec} />
+            )}
           </div>
-          {sec.config.type==="input_table" && (
-            <InputTableSection sec={sec} sections={calcConfig.sections} sectionRows={sectionRows}
-              setSectionRows={setSectionRows} summaries={summaries} crossCalcRows={crossCalcRows}
-              dropdowns={dropdowns} onRecalc={handleRecalc} />
-          )}
-          {sec.config.type==="formula_display" && <FormulaDisplaySection sec={sec} summaries={summaries} />}
-          {sec.config.type==="calc_ref" && <CalcRefSection sec={sec} crossCalcRows={crossCalcRows} />}
-          {sec.config.type==="instruction_table" && <InstructionTableSection sec={sec} />}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

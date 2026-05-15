@@ -218,6 +218,9 @@ export function getRefSourceRows(col, sections, sectionRows, crossCalcRows) {
   }
   const srcSec = sections.find(s => s.order_num === col.ref_section_order);
   if (srcSec?.config?.type === "calc_ref") {
+    // Prefer sectionRows when the calc_ref section is editable (rows stored locally)
+    const localRows = sectionRows[col.ref_section_order];
+    if (localRows?.length) return localRows;
     const key = `${srcSec.config.ref_calc_id}_${srcSec.config.ref_section_order}`;
     return crossCalcRows[key] || [];
   }

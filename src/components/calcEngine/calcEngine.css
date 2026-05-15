@@ -67,8 +67,25 @@
 .ce-copy-btn.copied { color: #16a34a; }
 .ce-copy-card { position: absolute; top: .5rem; right: .5rem; }
 
-/* Ref notice */
+/* Ref notice (read-only fallback) */
 .ce-ref-notice { color: #64748b; font-size: .83rem; margin-bottom: .7rem; }
+
+/* Editable calc_ref section */
+.ce-ref-editable-wrapper { }
+.ce-ref-source-badge {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  padding: .45rem .9rem;
+  background: linear-gradient(90deg, #eff6ff, #f0fdf4);
+  border-bottom: 1px solid #bfdbfe;
+  font-size: .8rem;
+  color: #1e40af;
+  flex-wrap: wrap;
+}
+.ce-ref-link-icon { font-size: .9rem; }
+.ce-ref-source-badge strong { color: #1e3a8a; }
+.ce-ref-sync-label { color: #64748b; font-size: .75rem; margin-left: .2rem; }
 
 /* Instruction Table (user view) */
 .ce-instr-para { font-size: .9rem; line-height: 1.7; color: #1e293b; margin: 0 0 1rem; white-space: pre-wrap; }
