@@ -64,27 +64,46 @@ function DropdownCell({ col, row, dropdowns, onChange }) {
   );
 }
 
-function NestedDropdownCell({ col, row, dropdowns, sec }) {
+function NestedDropdownCell({ col, row, dropdowns, sec, onChange }) {
   const parentCell = row[col.parent_col];
   const parentColCfg = sec.config.columns?.find(c => c.id === col.parent_col);
   const allItems = dropdowns[parentColCfg?.dropdown_master_id] || [];
   const cell = row[col.id];
   if (!parentCell?.key) return <select className="ce-select" disabled><option>-- Select {col.parent_col} first --</option></select>;
-  if (parentCell?.isOther) return <span className="ce-locked">Others</span>;
+  if (parentCell?.isOther && col.others_follows_parent) return <span className="ce-locked">Others</span>;
   const parentItem = allItems.find(i => (i.item_key||i.k) === parentCell.key);
   const children = parentItem?.children || [];
   return (
-    <select className="ce-select" value={cell?.key||""} onChange={e => {
-      const key = e.target.value;
-      if (!key) { return; }
-      if (key === "__other__") { return; }
-      const found = children.find(c => (c.item_key||c.k) === key);
-      if (found) return; // handled by parent
-    }}>
-      <option value="">-- Select --</option>
-      {children.map(c => <option key={c._id||c.id||c.item_key||c.k} value={c.item_key||c.k}>{c.item_label||c.l}</option>)}
-      {col.allow_others && <option value="__other__">Others</option>}
-    </select>
+    <div>
+      <select className="ce-select" value={cell?.key||""} onChange={e => {
+        const key = e.target.value;
+        if (!key) { onChange(col.id, null); return; }
+        if (key === "__other__") {
+          onChange(col.id, { key: "__other__", label: "Others", numValue: 0, isOther: true, otherText: "" });
+          return;
+        }
+        const found = children.find(c => (c.item_key||c.k) === key);
+        if (found) {
+          onChange(col.id, {
+            key: found.item_key||found.k,
+            label: found.item_label||found.l,
+            numValue: found.num_value ?? found.v ?? 0,
+            isOther: false,
+            ...(found.extra_values||{})
+          });
+        } else {
+          onChange(col.id, null);
+        }
+      }}>
+        <option value="">-- Select --</option>
+        {children.map(c => <option key={c._id||c.id||c.item_key||c.k} value={c.item_key||c.k}>{c.item_label||c.l}</option>)}
+        {col.allow_others && <option value="__other__">Others</option>}
+      </select>
+      {cell?.key === "__other__" && (
+        <input type="text" className="ce-others-input" placeholder="Enter option..."
+          value={cell?.otherText||""} onChange={e => onChange(col.id, {...cell, otherText: e.target.value})} />
+      )}
+    </div>
   );
 }
 
@@ -153,7 +172,7 @@ function TableRow({ sec, rowIdx, sections, sectionRows, summaries, crossCalcRows
     const cell = row[col.id];
     switch(col.type) {
       case "dropdown": return <DropdownCell col={col} row={row} dropdowns={dropdowns} onChange={handleChange} />;
-      case "nested_dropdown": return <NestedDropdownCell col={col} row={row} dropdowns={dropdowns} sec={sec} />;
+      case "nested_dropdown": return <NestedDropdownCell col={col} row={row} dropdowns={dropdowns} sec={sec} onChange={handleChange} />;
       case "section_ref": case "cross_calc_ref":
         return <SectionRefCell col={col} row={row} sections={sections} sectionRows={sectionRows} crossCalcRows={crossCalcRows} onChange={handleChange} />;
       case "locked": return <LockedCell col={col} row={row} onUnlockEdit={handleUnlockEdit} onToggleLock={handleToggleLock} />;
