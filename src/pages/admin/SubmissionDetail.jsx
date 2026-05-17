@@ -219,6 +219,7 @@ export default function SubmissionDetail() {
   const [showEdit, setShowEdit] = useState(false);
   // comment counts per inputId (pre-fetched for badges)
   const [commentCounts, setCommentCounts] = useState({});
+  const [projectComments, setProjectComments] = useState([]);
   // per-question locked inputs
   const [lockedInputsSet, setLockedInputsSet] = useState(new Set());
   const [togglingInput, setTogglingInput] = useState(null);
@@ -238,6 +239,7 @@ export default function SubmissionDetail() {
         setGlobalSections(secRes.data.sections || []);
         setLeafRules(rulesRes.data.rules || []);
         setLockedInputsSet(new Set((detailRes.data.project.lockedInputs || []).map(String)));
+        setProjectComments(commentsRes.data.comments || []);
         // Build a count map: { inputId: count }
         const counts = {};
         (commentsRes.data.comments || []).forEach(c => {
@@ -341,6 +343,52 @@ export default function SubmissionDetail() {
     const submittedDate = project?.updatedAt ? new Date(project.updatedAt).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}) : '';
     const pctFill = Math.min(project?.scorePercent || 0, 100);
 
+    const getCommentsHtml = (inputId) => {
+      const list = (projectComments || []).filter(c => String(c.inputId) === String(inputId));
+      if (list.length === 0) return '';
+
+      const roots = list.filter(c => !c.parentId).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      let html = `<div class="inp-comments">
+        <div class="comment-hdr">💬 Comments (${list.length})</div>
+        <div class="comment-thread">`;
+
+      roots.forEach(root => {
+        const rootRole = root.role || 'user';
+        const rootRoleClass = rootRole === 'admin' ? 'r-admin' : rootRole === 'reviewer' ? 'r-reviewer' : 'r-user';
+        const rootRoleLabel = rootRole === 'admin' ? 'Admin' : rootRole === 'reviewer' ? 'Reviewer' : 'User';
+        const rootTime = new Date(root.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+        html += `<div class="comment-box">
+          <div class="comment-meta">
+            <span class="comment-role ${rootRoleClass}">${rootRoleLabel}</span>
+            <span class="comment-author">${esc(root.authorName || 'Anonymous')}</span>
+            <span class="comment-time">${rootTime}</span>
+          </div>
+          <div class="comment-text">${esc(root.text)}</div>
+        </div>`;
+
+        const replies = list.filter(c => String(c.parentId) === String(root._id)).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        replies.forEach(reply => {
+          const repRole = reply.role || 'user';
+          const repRoleClass = repRole === 'admin' ? 'r-admin' : repRole === 'reviewer' ? 'r-reviewer' : 'r-user';
+          const repRoleLabel = repRole === 'admin' ? 'Admin' : repRole === 'reviewer' ? 'Reviewer' : 'User';
+          const repTime = new Date(reply.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+          html += `<div class="comment-box reply">
+            <div class="comment-meta">
+              <span class="comment-role ${repRoleClass}">${repRoleLabel}</span>
+              <span class="comment-author">${esc(reply.authorName || 'Anonymous')}</span>
+              <span class="comment-time">${repTime}</span>
+            </div>
+            <div class="comment-text">${esc(reply.text)}</div>
+          </div>`;
+        });
+      });
+
+      html += `</div></div>`;
+      return html;
+    };
+
     let body = '';
 
     body += `<div class="rpt-cover">
@@ -424,6 +472,7 @@ export default function SubmissionDetail() {
               ${inp.points > 0 ? `<span class="inp-pts">${inp.points.toFixed(1)} pts</span>` : ''}
             </div>
             <div class="inp-val">${val}</div>
+            ${getCommentsHtml(inp._id)}
           </div>`;
           }); // end group.inputs.forEach
         }); // end stageGroups.forEach
@@ -488,7 +537,20 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 .print-btn{display:flex;align-items:center;gap:7px;padding:9px 22px;background:#22A84B;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;white-space:nowrap;flex-shrink:0;box-shadow:0 2px 8px rgba(34,168,75,.28)}
 .body-offset{padding-top:62px}
 .stage-hdr{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#145C28;padding:8px 15px 6px;background:linear-gradient(90deg,#F0FDF4,#fff);border-left:3px solid #22A84B;margin:8px -1px 0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-@media print{.print-bar{display:none!important}.body-offset{padding-top:0!important}.tab-sec+.tab-sec{page-break-before:always}.mod{page-break-inside:avoid}.tab-hdr{page-break-after:avoid}.stage-hdr{background:#F0FDF4!important}}`;
+.inp-comments{grid-column:span 2;margin-top:10px;background:#f9fbf9;border:1px solid #e6efe8;border-radius:8px;padding:10px 12px}
+.comment-hdr{font-family:'Montserrat',sans-serif;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#145C28;margin-bottom:6px;display:flex;align-items:center;gap:4px}
+.comment-thread{display:flex;flex-direction:column;gap:8px}
+.comment-box{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;box-shadow:0 1px 2px rgba(0,0,0,0.02)}
+.comment-box.reply{margin-left:20px;border-left:3px solid #22A84B;background:#fafcfb}
+.comment-meta{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.comment-role{font-size:7.5px;font-weight:800;padding:1px 5px;border-radius:99px;text-transform:uppercase;font-family:'Montserrat',sans-serif;letter-spacing:.02em}
+.r-user{background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE}
+.r-admin{background:#D6F5E3;color:#145C28;border:1px solid #A8EFC0}
+.r-reviewer{background:#EDE9FE;color:#5B21B6;border:1px solid #C4B5FD}
+.comment-author{font-size:11px;font-weight:700;color:#374151}
+.comment-time{font-size:10px;color:#9CA3AF;margin-left:auto}
+.comment-text{font-size:11.5px;color:#1f2937;line-height:1.5;white-space:pre-wrap}
+@media print{.print-bar{display:none!important}.body-offset{padding-top:0!important}.tab-sec+.tab-sec{page-break-before:always}.mod{page-break-inside:avoid}.tab-hdr{page-break-after:avoid}.stage-hdr{background:#F0FDF4!important}.comment-box{page-break-inside:avoid}}`;
 
     win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
 <title>${esc(project?.title)} — Submission Report</title>
