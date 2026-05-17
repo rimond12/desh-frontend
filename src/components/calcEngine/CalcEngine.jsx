@@ -12,6 +12,8 @@ import {
   evalSummaryExpr, calcFormulaSection,
 } from "./calcEngine.js";
 import "./calcEngine.css";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const API_BASE = (process.env.REACT_APP_API_URL || "http://localhost:5000/api") + "/calc";
 
@@ -44,24 +46,28 @@ function DropdownCell({ col, row, dropdowns, onChange }) {
   const items = dropdowns[col.dropdown_master_id] || [];
   const cell = row[col.id];
   const selKey = cell?.key || "";
+  const selectedLabel = cell?.label || (selKey === "__other__" ? cell?.otherText : "") || "";
   return (
-    <div>
-      <select className="ce-select" value={selKey} onChange={e => {
-        const key = e.target.value;
-        if (key === "__other__") { onChange(col.id, { key: "__other__", label: "Others", numValue: 0, isOther: true, otherText: "" }); return; }
-        const item = items.find(i => (i.item_key || i.k) === key);
-        if (item) onChange(col.id, { key: item.item_key||item.k, label: item.item_label||item.l, numValue: item.num_value ?? item.v ?? 0, isOther: false, ...(item.extra_values||{}) });
-        else onChange(col.id, null);
-      }}>
-        <option value="">-- Select --</option>
-        {items.map(it => <option key={it._id||it.id||it.item_key||it.k} value={it.item_key||it.k}>{it.item_label||it.l}</option>)}
-        {col.allow_others && <option value="__other__">Others</option>}
-      </select>
-      {selKey === "__other__" && (
-        <input type="text" className="ce-others-input" placeholder="Enter option..."
-          value={cell?.otherText||""} onChange={e => onChange(col.id, {...cell, otherText: e.target.value})} />
-      )}
-    </div>
+    <>
+      <div className="ce-cell-interactive">
+        <select className="ce-select" value={selKey} onChange={e => {
+          const key = e.target.value;
+          if (key === "__other__") { onChange(col.id, { key: "__other__", label: "Others", numValue: 0, isOther: true, otherText: "" }); return; }
+          const item = items.find(i => (i.item_key || i.k) === key);
+          if (item) onChange(col.id, { key: item.item_key||item.k, label: item.item_label||item.l, numValue: item.num_value ?? item.v ?? 0, isOther: false, ...(item.extra_values||{}) });
+          else onChange(col.id, null);
+        }}>
+          <option value="">-- Select --</option>
+          {items.map(it => <option key={it._id||it.id||it.item_key||it.k} value={it.item_key||it.k}>{it.item_label||it.l}</option>)}
+          {col.allow_others && <option value="__other__">Others</option>}
+        </select>
+        {selKey === "__other__" && (
+          <input type="text" className="ce-others-input" placeholder="Enter option..."
+            value={cell?.otherText||""} onChange={e => onChange(col.id, {...cell, otherText: e.target.value})} />
+        )}
+      </div>
+      <span className="ce-cell-print-only">{selectedLabel || "-"}</span>
+    </>
   );
 }
 
@@ -70,41 +76,59 @@ function NestedDropdownCell({ col, row, dropdowns, sec, onChange }) {
   const parentColCfg = sec.config.columns?.find(c => c.id === col.parent_col);
   const allItems = dropdowns[parentColCfg?.dropdown_master_id] || [];
   const cell = row[col.id];
-  if (!parentCell?.key) return <select className="ce-select" disabled><option>-- Select {col.parent_col} first --</option></select>;
-  if (parentCell?.isOther && col.others_follows_parent) return <span className="ce-locked">Others</span>;
+  const selectedLabel = cell?.label || (cell?.key === "__other__" ? cell?.otherText : "") || "";
+  if (!parentCell?.key) return (
+    <>
+      <div className="ce-cell-interactive">
+        <select className="ce-select" disabled><option>-- Select {col.parent_col} first --</option></select>
+      </div>
+      <span className="ce-cell-print-only">-</span>
+    </>
+  );
+  if (parentCell?.isOther && col.others_follows_parent) return (
+    <>
+      <div className="ce-cell-interactive">
+        <span className="ce-locked">Others</span>
+      </div>
+      <span className="ce-cell-print-only">Others</span>
+    </>
+  );
   const parentItem = allItems.find(i => (i.item_key||i.k) === parentCell.key);
   const children = parentItem?.children || [];
   return (
-    <div>
-      <select className="ce-select" value={cell?.key||""} onChange={e => {
-        const key = e.target.value;
-        if (!key) { onChange(col.id, null); return; }
-        if (key === "__other__") {
-          onChange(col.id, { key: "__other__", label: "Others", numValue: 0, isOther: true, otherText: "" });
-          return;
-        }
-        const found = children.find(c => (c.item_key||c.k) === key);
-        if (found) {
-          onChange(col.id, {
-            key: found.item_key||found.k,
-            label: found.item_label||found.l,
-            numValue: found.num_value ?? found.v ?? 0,
-            isOther: false,
-            ...(found.extra_values||{})
-          });
-        } else {
-          onChange(col.id, null);
-        }
-      }}>
-        <option value="">-- Select --</option>
-        {children.map(c => <option key={c._id||c.id||c.item_key||c.k} value={c.item_key||c.k}>{c.item_label||c.l}</option>)}
-        {col.allow_others && <option value="__other__">Others</option>}
-      </select>
-      {cell?.key === "__other__" && (
-        <input type="text" className="ce-others-input" placeholder="Enter option..."
-          value={cell?.otherText||""} onChange={e => onChange(col.id, {...cell, otherText: e.target.value})} />
-      )}
-    </div>
+    <>
+      <div className="ce-cell-interactive">
+        <select className="ce-select" value={cell?.key||""} onChange={e => {
+          const key = e.target.value;
+          if (!key) { onChange(col.id, null); return; }
+          if (key === "__other__") {
+            onChange(col.id, { key: "__other__", label: "Others", numValue: 0, isOther: true, otherText: "" });
+            return;
+          }
+          const found = children.find(c => (c.item_key||c.k) === key);
+          if (found) {
+            onChange(col.id, {
+              key: found.item_key||found.k,
+              label: found.item_label||found.l,
+              numValue: found.num_value ?? found.v ?? 0,
+              isOther: false,
+              ...(found.extra_values||{})
+            });
+          } else {
+            onChange(col.id, null);
+          }
+        }}>
+          <option value="">-- Select --</option>
+          {children.map(c => <option key={c._id||c.id||c.item_key||c.k} value={c.item_key||c.k}>{c.item_label||c.l}</option>)}
+          {col.allow_others && <option value="__other__">Others</option>}
+        </select>
+        {cell?.key === "__other__" && (
+          <input type="text" className="ce-others-input" placeholder="Enter option..."
+            value={cell?.otherText||""} onChange={e => onChange(col.id, {...cell, otherText: e.target.value})} />
+        )}
+      </div>
+      <span className="ce-cell-print-only">{selectedLabel || "-"}</span>
+    </>
   );
 }
 
@@ -113,19 +137,25 @@ function SectionRefCell({ col, row, sections, sectionRows, crossCalcRows, onChan
   const opts = buildRefOptions(sourceRows);
   const cell = row[col.id];
   const selIdx = cell?.rowIndex !== undefined ? cell.rowIndex : -1;
+  const selectedLabel = cell?.label || "";
   return (
-    <select className="ce-select" value={selIdx === -1 ? "" : selIdx} onChange={e => {
-      const val = e.target.value;
-      if (val === "") { onChange(col.id, null); return; }
-      const rowIndex = parseInt(val);
-      const srcRow = sourceRows[rowIndex] || {};
-      const area = getNum(srcRow["area"]);
-      const opt = opts.find(o => o.rowIndex === rowIndex);
-      onChange(col.id, { rowIndex, label: opt?.label||"", area, numValue: area, _sourceRow: srcRow });
-    }}>
-      <option value="">-- Select --</option>
-      {opts.map(o => <option key={o.rowIndex} value={o.rowIndex}>{o.label}</option>)}
-    </select>
+    <>
+      <div className="ce-cell-interactive">
+        <select className="ce-select" value={selIdx === -1 ? "" : selIdx} onChange={e => {
+          const val = e.target.value;
+          if (val === "") { onChange(col.id, null); return; }
+          const rowIndex = parseInt(val);
+          const srcRow = sourceRows[rowIndex] || {};
+          const area = getNum(srcRow["area"]);
+          const opt = opts.find(o => o.rowIndex === rowIndex);
+          onChange(col.id, { rowIndex, label: opt?.label||"", area, numValue: area, _sourceRow: srcRow });
+        }}>
+          <option value="">-- Select --</option>
+          {opts.map(o => <option key={o.rowIndex} value={o.rowIndex}>{o.label}</option>)}
+        </select>
+      </div>
+      <span className="ce-cell-print-only">{selectedLabel || "-"}</span>
+    </>
   );
 }
 
@@ -137,19 +167,29 @@ function LockedCell({ col, row, onUnlockEdit, onToggleLock }) {
   const isUnlocked = cell?.unlocked === true;
   if (col.allow_unlock && isUnlocked) {
     return (
-      <div className="ce-locked-wrap">
-        <input type="number" className="ce-input ce-input-num" value={Number.isFinite(numVal) ? numVal : 0} step="any"
-          onChange={e => onUnlockEdit(col.id, parseFloat(e.target.value)||0)} />
-        <button className="ce-lock-btn unlocked" onClick={() => onToggleLock(col.id)} title="Re-lock">🔓</button>
-      </div>
+      <>
+        <div className="ce-cell-interactive">
+          <div className="ce-locked-wrap">
+            <input type="number" className="ce-input ce-input-num" value={Number.isFinite(numVal) ? numVal : 0} step="any"
+              onChange={e => onUnlockEdit(col.id, parseFloat(e.target.value)||0)} />
+            <button className="ce-lock-btn unlocked" onClick={() => onToggleLock(col.id)} title="Re-lock">🔓</button>
+          </div>
+        </div>
+        <span className="ce-cell-print-only ce-locked">{display}</span>
+      </>
     );
   }
   if (col.allow_unlock) {
     return (
-      <div className="ce-locked-wrap">
-        <span className="ce-locked">{display}</span>
-        <button className="ce-lock-btn" onClick={() => onToggleLock(col.id)} title="Unlock">🔒</button>
-      </div>
+      <>
+        <div className="ce-cell-interactive">
+          <div className="ce-locked-wrap">
+            <span className="ce-locked">{display}</span>
+            <button className="ce-lock-btn" onClick={() => onToggleLock(col.id)} title="Unlock">🔒</button>
+          </div>
+        </div>
+        <span className="ce-cell-print-only ce-locked">{display}</span>
+      </>
     );
   }
   return <span className="ce-locked">{display || "-"}</span>;
@@ -178,8 +218,24 @@ function TableRow({ sec, rowIdx, sections, sectionRows, summaries, crossCalcRows
         return <SectionRefCell col={col} row={row} sections={sections} sectionRows={sectionRows} crossCalcRows={crossCalcRows} onChange={handleChange} />;
       case "locked": return <LockedCell col={col} row={row} onUnlockEdit={handleUnlockEdit} onToggleLock={handleToggleLock} />;
       case "formula": { const val = cell?.numValue ?? 0; return <span className="ce-formula">{isNaN(val)?"-":fmtNum(val)}</span>; }
-      case "number": return <input type="number" className="ce-input ce-input-num" value={cell?.numValue??""} step="any" onChange={e=>handleChange(col.id,{numValue:parseFloat(e.target.value)||0})} />;
-      case "text": return <input type="text" className="ce-input" value={cell?.text??""} onChange={e=>handleChange(col.id,{text:e.target.value,numValue:0})} />;
+      case "number":
+        return (
+          <>
+            <div className="ce-cell-interactive">
+              <input type="number" className="ce-input ce-input-num" value={cell?.numValue??""} step="any" onChange={e=>handleChange(col.id,{numValue:parseFloat(e.target.value)||0})} />
+            </div>
+            <span className="ce-cell-print-only">{cell?.numValue !== undefined ? fmtNum(cell.numValue) : "-"}</span>
+          </>
+        );
+      case "text":
+        return (
+          <>
+            <div className="ce-cell-interactive">
+              <input type="text" className="ce-input" value={cell?.text??""} onChange={e=>handleChange(col.id,{text:e.target.value,numValue:0})} />
+            </div>
+            <span className="ce-cell-print-only">{cell?.text || "-"}</span>
+          </>
+        );
       default: return <span>?</span>;
     }
   }
@@ -566,6 +622,8 @@ export default function CalcEngine({ calcId }) {
   const [crossCalcRows, setCrossCalcRows] = useState({});
   const [refSectionConfigs, setRefSectionConfigs] = useState({});
   const [error, setError] = useState(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const dropdownRef = useRef(null);
   const calcOrderMapRef = useRef({});
   const crossCalcCacheRef = useRef({});
 
@@ -615,6 +673,19 @@ export default function CalcEngine({ calcId }) {
       return newRows;
     });
   }
+
+  // Handle clicking outside the export dropdown to close it
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setExportOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     async function init() {
@@ -758,6 +829,520 @@ export default function CalcEngine({ calcId }) {
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }
 
+  function handleExportCSV() {
+    if (!calcConfig) return;
+    
+    let csvContent = "";
+    
+    // 1. Report Header
+    csvContent += `DESH CALCULATION REPORT\n`;
+    csvContent += `Calculation Name,"${calcConfig.name?.replace(/"/g, '""') || ""}"\n`;
+    if (calcConfig.description) {
+      csvContent += `Description,"${calcConfig.description?.replace(/"/g, '""')}"\n`;
+    }
+    csvContent += `Calculation ID,${calcId}\n`;
+    csvContent += `Exported At,${new Date().toLocaleString()}\n\n`;
+    
+    const visibleSecs = calcConfig.sections.filter(sec => !isHidden(sec.config||{}));
+    
+    visibleSecs.forEach(sec => {
+      csvContent += `================================================================================\n`;
+      csvContent += `SECTION ${sec.order_num}: ${sec.name || ""}\n`;
+      csvContent += `================================================================================\n\n`;
+      
+      const isCalcRef = sec.config.type === "calc_ref";
+      
+      if (sec.config.type === "input_table" || isCalcRef) {
+        // Resolve target config columns (virtual if calc_ref)
+        let cols = sec.config.columns || [];
+        if (isCalcRef) {
+          const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
+          const srcSec = refSectionConfigs[key];
+          if (srcSec?.config?.columns) cols = srcSec.config.columns;
+        }
+        
+        const visibleCols = cols.filter(c => !isHidden(c));
+        const rows = sectionRows[sec.order_num] || [];
+        
+        // Headers
+        if (visibleCols.length > 0) {
+          csvContent += visibleCols.map(c => `"${c.label?.replace(/"/g, '""')}"`).join(",") + "\n";
+          
+          // Row data
+          rows.forEach(row => {
+            const rowCells = visibleCols.map(col => {
+              const cell = row[col.id];
+              let valStr = "";
+              
+              if (col.type === "dropdown" || col.type === "nested_dropdown" || col.type === "section_ref") {
+                valStr = cell?.label || (cell?.key === "__other__" ? cell?.otherText : "") || "";
+              } else if (col.type === "locked") {
+                const rawVal = cell ? (cell.rawValue ?? cell.text ?? cell.numValue ?? cell.v ?? 0) : 0;
+                const numVal = parseFloat(rawVal);
+                valStr = Number.isFinite(numVal) ? fmtNum(numVal) : String(rawVal ?? "");
+              } else if (col.type === "formula") {
+                const val = cell?.numValue ?? 0;
+                valStr = isNaN(val) ? "-" : fmtNum(val);
+              } else if (col.type === "number") {
+                valStr = cell?.numValue !== undefined ? fmtNum(cell.numValue) : "";
+              } else if (col.type === "text") {
+                valStr = cell?.text || "";
+              }
+              
+              return `"${valStr.replace(/"/g, '""')}"`;
+            });
+            csvContent += rowCells.join(",") + "\n";
+          });
+        } else {
+          csvContent += "No columns configured\n";
+        }
+        
+        csvContent += "\n";
+        
+        // Summaries
+        let sums = sec.config.summaries || [];
+        if (isCalcRef) {
+          const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
+          const srcSec = refSectionConfigs[key];
+          if (srcSec?.config?.summaries) sums = srcSec.config.summaries;
+        }
+        const visibleSums = sums.filter(s => !isHidden(s));
+        
+        if (visibleSums.length > 0) {
+          csvContent += `--- SECTION SUMMARIES ---\n`;
+          visibleSums.forEach(s => {
+            const val = summaries[sec.order_num]?.[s.id] ?? 0;
+            csvContent += `"${s.label?.replace(/"/g, '""')}",${fmtNum(val)}\n`;
+          });
+        }
+        
+      } else if (sec.config.type === "formula_display") {
+        const formulas = sec.config.formulas || [];
+        const visibleFormulas = formulas.filter(f => !isHidden(f));
+        
+        if (visibleFormulas.length > 0) {
+          csvContent += `Formula,Value,Description\n`;
+          visibleFormulas.forEach(f => {
+            const val = summaries[sec.order_num]?.[f.id] ?? 0;
+            const display = !isFinite(val) ? "N/A" : fmtNum(val);
+            csvContent += `"${f.label?.replace(/"/g, '""')}",${display},"${(f.description || "").replace(/"/g, '""')}"\n`;
+          });
+        }
+      } else if (sec.config.type === "instruction_table") {
+        csvContent += `[Instruction Table - Visual component only]\n`;
+      }
+      
+      csvContent += "\n\n";
+    });
+    
+    // Create download link
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const safe = (calcConfig?.name || `calc-${calcId}`).replace(/[^\w-]+/g, "_");
+    a.href = url;
+    a.download = `${safe}_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleExportPDF() {
+    if (!calcConfig) return;
+
+    // Create custom A4 PDF report in portrait mode (210mm x 297mm)
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4"
+    });
+
+    // ── 1. Document Branding Header (Page 1) ──────────────────────────────────
+    // Forest Green top stripe (brand colors)
+    doc.setFillColor(13, 59, 26);
+    doc.rect(0, 0, 210, 8, "F");
+
+    // Stylized Vector Leaf logo (draws instantly, no slow CORS/network fetches)
+    doc.setFillColor(34, 197, 94); // Light accent green
+    doc.ellipse(18, 20, 4, 6, "F");
+    doc.setFillColor(13, 59, 26); // Dark forest green
+    doc.ellipse(18, 20, 2, 4, "F");
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(0.5);
+    doc.line(18, 14, 18, 26);
+
+    // Brand Name & Subtitle
+    doc.setTextColor(13, 59, 26);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("DESH", 25, 20);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text("GREEN BUILDING ASSESSMENT SYSTEM", 25, 24);
+
+    // Document Title
+    doc.setTextColor(13, 59, 26);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("CALCULATION REPORT", 14, 38);
+
+    // ── 2. Metadata Information Block ──────────────────────────────────────────
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(14, 44, 182, 24, "FD");
+
+    // Column 1
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "normal");
+    doc.text("Calculation Name:", 18, 50);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.text(calcConfig.name || "N/A", 48, 50);
+
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "normal");
+    doc.text("Calculation ID:", 18, 56);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.text(String(calcId || "N/A"), 48, 56);
+
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "normal");
+    doc.text("Description:", 18, 62);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "normal");
+    const descText = calcConfig.description || "No description provided.";
+    const splitDesc = doc.splitTextToSize(descText, 140);
+    doc.text(splitDesc, 48, 62);
+
+    // Column 2
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "normal");
+    doc.text("Exported On:", 130, 50);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.text(new Date().toLocaleDateString(), 155, 50);
+
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "normal");
+    doc.text("Exported At:", 130, 56);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.text(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), 155, 56);
+
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "normal");
+    doc.text("Status:", 130, 62);
+    doc.setTextColor(22, 163, 74);
+    doc.setFont("helvetica", "bold");
+    doc.text("Verified", 155, 62);
+
+    let y = 76; // Start coordinates for first section
+    const visibleSecs = calcConfig.sections.filter(sec => !isHidden(sec.config || {}));
+
+    // ── 3. Render Calculation Sections ────────────────────────────────────────
+    visibleSecs.forEach(sec => {
+      // Check space before adding section (trigger page break if near bottom)
+      if (y > 235) {
+        doc.addPage();
+        y = 25;
+      }
+
+      // Draw Section Order Circular Badge
+      doc.setFillColor(34, 197, 94);
+      doc.circle(18, y - 2, 3.5, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.text(String(sec.order_num), 18, y - 0.7, { align: "center" });
+
+      // Draw Section Title Text
+      doc.setFontSize(10.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(13, 59, 26);
+      doc.text(sec.name || "", 25, y - 0.7);
+
+      // Section underline
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.5);
+      doc.line(14, y + 2.5, 196, y + 2.5);
+
+      y += 7; // Advance cursor past section header
+
+      const isCalcRef = sec.config.type === "calc_ref";
+
+      if (sec.config.type === "input_table" || isCalcRef) {
+        // Resolve target config columns (virtual if calc_ref)
+        let cols = sec.config.columns || [];
+        if (isCalcRef) {
+          const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
+          const srcSec = refSectionConfigs[key];
+          if (srcSec?.config?.columns) cols = srcSec.config.columns;
+        }
+
+        const visibleCols = cols.filter(c => !isHidden(c));
+        const rows = sectionRows[sec.order_num] || [];
+
+        if (visibleCols.length > 0) {
+          // Resolve Column Groups (if present)
+          let columnGroups = sec.config.column_groups || [];
+          if (isCalcRef) {
+            const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
+            const srcSec = refSectionConfigs[key];
+            if (srcSec?.config?.column_groups) columnGroups = srcSec.config.column_groups;
+          }
+
+          const colToGroup = {};
+          columnGroups.forEach(g => g.column_ids.forEach(id => { colToGroup[id] = g; }));
+
+          // Compile Headers (Virtual Group name prepended via newline)
+          const headers = visibleCols.map(col => {
+            const grp = colToGroup[col.id];
+            return grp ? `${grp.label}\n${col.label}` : col.label;
+          });
+
+          // Compile Table Rows
+          const body = rows.map(row => {
+            return visibleCols.map(col => {
+              const cell = row[col.id];
+              let valStr = "";
+
+              if (col.type === "dropdown" || col.type === "nested_dropdown" || col.type === "section_ref" || col.type === "cross_calc_ref") {
+                valStr = cell?.label || (cell?.key === "__other__" ? cell?.otherText : "") || "";
+              } else if (col.type === "locked") {
+                const rawVal = cell ? (cell.rawValue ?? cell.text ?? cell.numValue ?? cell.v ?? 0) : 0;
+                const numVal = parseFloat(rawVal);
+                valStr = Number.isFinite(numVal) ? fmtNum(numVal) : String(rawVal ?? "");
+              } else if (col.type === "formula") {
+                const val = cell?.numValue ?? 0;
+                valStr = isNaN(val) ? "-" : fmtNum(val);
+              } else if (col.type === "number") {
+                valStr = cell?.numValue !== undefined ? fmtNum(cell.numValue) : "";
+              } else if (col.type === "text") {
+                valStr = cell?.text || "";
+              }
+              return valStr;
+            });
+          });
+
+          // Draw AutoTable
+          autoTable(doc, {
+            startY: y,
+            margin: { left: 14, right: 14 },
+            theme: "grid",
+            head: [headers],
+            body: body,
+            styles: { fontSize: 7.5, cellPadding: 2, font: "helvetica", textColor: [15, 23, 42] },
+            headStyles: { fillColor: [13, 59, 26], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.5, halign: "left", cellPadding: 2.5 },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+            didParseCell: function (data) {
+              if (data.section === "body") {
+                const colCfg = visibleCols[data.column.index];
+                if (colCfg?.type === "formula") {
+                  data.cell.styles.fontStyle = "bold";
+                  data.cell.styles.textColor = [29, 78, 216]; // Blue for formulas
+                }
+              }
+            }
+          });
+
+          y = doc.lastAutoTable.finalY + 4;
+        } else {
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(8);
+          doc.setTextColor(148, 163, 184);
+          doc.text("No columns configured for this section.", 14, y);
+          y += 5;
+        }
+
+        // Render Section Summaries Card (if visible summaries exist)
+        let sums = sec.config.summaries || [];
+        if (isCalcRef) {
+          const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
+          const srcSec = refSectionConfigs[key];
+          if (srcSec?.config?.summaries) sums = srcSec.config.summaries;
+        }
+        const visibleSums = sums.filter(s => !isHidden(s));
+
+        if (visibleSums.length > 0) {
+          const blockHeight = 6 + (visibleSums.length * 4.5) + 3;
+          if (y + blockHeight > 275) {
+            doc.addPage();
+            y = 25;
+          }
+
+          doc.setFillColor(248, 250, 252);
+          doc.setDrawColor(226, 232, 240);
+          doc.rect(14, y, 182, blockHeight, "FD");
+
+          let sumY = y + 5;
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+          doc.setTextColor(13, 59, 26);
+          doc.text("Section Summaries:", 18, sumY);
+          sumY += 4.5;
+
+          visibleSums.forEach(s => {
+            const val = summaries[sec.order_num]?.[s.id] ?? 0;
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7.5);
+            doc.setTextColor(100, 116, 139);
+            doc.text(`${s.label}:`, 20, sumY);
+
+            const labelWidth = doc.getTextWidth(`${s.label}:`);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(22, 163, 74);
+            doc.text(`  ${fmtNum(val)}`, 20 + labelWidth, sumY);
+
+            sumY += 4.5;
+          });
+
+          y += blockHeight + 6;
+        } else {
+          y += 4;
+        }
+
+      } else if (sec.config.type === "formula_display") {
+        const formulas = sec.config.formulas || [];
+        const visibleFormulas = formulas.filter(f => !isHidden(f));
+
+        if (visibleFormulas.length > 0) {
+          const body = visibleFormulas.map(f => {
+            const val = summaries[sec.order_num]?.[f.id] ?? 0;
+            const display = !isFinite(val) ? "N/A" : fmtNum(val);
+            return [
+              f.label || "",
+              display,
+              f.description || ""
+            ];
+          });
+
+          autoTable(doc, {
+            startY: y,
+            margin: { left: 14, right: 14 },
+            theme: "striped",
+            head: [["Formula Parameter", "Result Value", "Description"]],
+            body: body,
+            styles: { fontSize: 7.5, cellPadding: 2.5, font: "helvetica", textColor: [15, 23, 42] },
+            headStyles: { fillColor: [13, 59, 26], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8 },
+            columnStyles: {
+              1: { fontStyle: "bold", textColor: [22, 163, 74], fontSize: 8.5 } // Emerald bold green
+            }
+          });
+
+          y = doc.lastAutoTable.finalY + 6;
+        } else {
+          y += 2;
+        }
+
+      } else if (sec.config.type === "instruction_table") {
+        let blocks = sec.config.blocks;
+        if (!blocks) {
+          blocks = [];
+          if (sec.config.columns?.length || sec.config.rows?.length) {
+            blocks = [{ blockType: "table", columns: sec.config.columns || [], rows: sec.config.rows || [], group_header: sec.config.group_header }];
+          }
+        }
+
+        if (blocks && blocks.length > 0) {
+          const getLeafCols = (columnsList) => {
+            const leaves = [];
+            (columnsList || []).forEach(col => {
+              if (col.isGroup && col.children?.length) leaves.push(...getLeafCols(col.children));
+              else leaves.push(col);
+            });
+            return leaves;
+          };
+
+          for (const block of blocks) {
+            if (block.blockType === "paragraph") {
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(8);
+              doc.setTextColor(51, 65, 85);
+              const splitText = doc.splitTextToSize(block.content, 182);
+
+              if (y + splitText.length * 4 > 270) {
+                doc.addPage();
+                y = 25;
+              }
+
+              doc.text(splitText, 14, y);
+              y += splitText.length * 4 + 4;
+            } else if (block.blockType === "table") {
+              const leafCols = getLeafCols(block.columns);
+              if (leafCols.length > 0) {
+                const headers = leafCols.map(col => col.label || "");
+                const tableRows = (block.rows || []).map(row => {
+                  return leafCols.map(col => {
+                    const cell = row.cells?.[col.id];
+                    if (!cell) return "";
+                    if (cell.type === "url") return cell.label || cell.url || "";
+                    if (cell.type === "image") return "[Image]";
+                    return String(cell.value || "");
+                  });
+                });
+
+                autoTable(doc, {
+                  startY: y,
+                  margin: { left: 14, right: 14 },
+                  theme: "grid",
+                  head: [headers],
+                  body: tableRows,
+                  styles: { fontSize: 7, cellPadding: 2, font: "helvetica", textColor: [71, 85, 105] },
+                  headStyles: { fillColor: [71, 85, 105], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.5 },
+                  alternateRowStyles: { fillColor: [250, 250, 250] },
+                });
+
+                y = doc.lastAutoTable.finalY + 6;
+              }
+            }
+          }
+        }
+      }
+      y += 4; // Buffer space between sections
+    });
+
+    // ── 4. Footers and Dynamic Page Numbering ────────────────────────────────
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+
+      // Clean top header bar (pages 2+)
+      if (i > 1) {
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.5);
+        doc.line(14, 14, 196, 14);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(148, 163, 184);
+        doc.text(`DESH Green Assessment System  ·  ${calcConfig.name || ""}`, 14, 11);
+      }
+
+      // Thin bottom divider
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.5);
+      doc.line(14, 282, 196, 282);
+
+      // Bottom footer text
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text("DESH Green Building System  |  Calculation Engine Report", 14, 287);
+
+      // Page numbering right-aligned
+      doc.text(`Page ${i} of ${pageCount}`, 196, 287, { align: "right" });
+    }
+
+    // Trigger vector PDF download
+    const safeName = (calcConfig?.name || `calc-${calcId}`).replace(/[^\w-]+/g, "_");
+    doc.save(`${safeName}_report_${new Date().toISOString().slice(0, 10)}.pdf`);
+  }
+
   function handleImport(e) {
     const file=e.target.files?.[0]; if(!file) return;
     const reader=new FileReader();
@@ -781,13 +1366,58 @@ export default function CalcEngine({ calcId }) {
 
   return (
     <div className="ce-root">
+      {/* Printable Report Header Block */}
+      <div className="ce-print-header">
+        <div className="ce-print-header-top">
+          <img src="/images/DESH_Picture1.png" alt="DESH Logo" className="ce-print-logo" />
+          <div className="ce-print-header-text">
+            <h1 className="ce-print-main-title">DESH CALCULATION REPORT</h1>
+            <div className="ce-print-meta-row">
+              <span><strong>Date:</strong> {new Date().toLocaleDateString()}</span>
+              <span><strong>Calculation:</strong> {calcConfig.name}</span>
+              <span><strong>ID:</strong> {calcId}</span>
+            </div>
+          </div>
+        </div>
+        <hr className="ce-print-divider" />
+      </div>
+
       <div className="ce-calc-hero">
         <div>
           <h2 className="ce-calc-title">{calcConfig.name}</h2>
           {calcConfig.description && <p className="ce-calc-desc">{calcConfig.description}</p>}
         </div>
         <div className="ce-actions">
-          <button className="ce-btn ce-btn-outline" onClick={handleExport}>📥 Export</button>
+          <div className="ce-export-dropdown-container" ref={dropdownRef}>
+            <button className="ce-btn ce-btn-outline ce-export-trigger" onClick={() => setExportOpen(!exportOpen)}>
+              📥 Export <span className={`ce-chevron ${exportOpen ? 'open' : ''}`}>▼</span>
+            </button>
+            {exportOpen && (
+              <div className="ce-export-dropdown-menu">
+                <button className="ce-dropdown-item" onClick={() => { handleExportPDF(); setExportOpen(false); }}>
+                  <span className="ce-item-icon">📄</span>
+                  <div className="ce-item-text">
+                    <div className="ce-item-title">PDF Report</div>
+                    <div className="ce-item-desc">Print or save a beautiful vector PDF document</div>
+                  </div>
+                </button>
+                <button className="ce-dropdown-item" onClick={() => { handleExportCSV(); setExportOpen(false); }}>
+                  <span className="ce-item-icon">📊</span>
+                  <div className="ce-item-text">
+                    <div className="ce-item-title">CSV Spreadsheet</div>
+                    <div className="ce-item-desc">Extract tabular data into an Excel-friendly file</div>
+                  </div>
+                </button>
+                <button className="ce-dropdown-item" onClick={() => { handleExport(); setExportOpen(false); }}>
+                  <span className="ce-item-icon">⚙️</span>
+                  <div className="ce-item-text">
+                    <div className="ce-item-title">JSON Data</div>
+                    <div className="ce-item-desc">Download calculation backup for re-importing</div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
           <label className="ce-btn ce-btn-outline" style={{cursor:"pointer"}}>
             📤 Import <input type="file" accept=".json" style={{display:"none"}} onChange={handleImport} />
           </label>
