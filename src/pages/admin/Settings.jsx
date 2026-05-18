@@ -27,10 +27,10 @@ export default function Settings() {
 
     // Auth page branding state
     const [authBranding, setAuthBranding] = useState({
-        authHeaderLogo:    '/images/bdLogo.jpg',
+        authHeaderLogo: '/images/bdLogo.jpg',
         authHeaderTitleBn: 'গণপ্রজাতন্ত্রী বাংলাদেশ সরকার',
         authHeaderTitleEn: "Government of the People's Republic of Bangladesh",
-        authSystemLabel:   'Green Building Assessment System',
+        authSystemLabel: 'Sustainable Design Assessment System',
     });
     const [authCardLogos, setAuthCardLogos] = useState([]);
     const [authCardLogoFile, setAuthCardLogoFile] = useState(null);
@@ -60,14 +60,14 @@ export default function Settings() {
                 setSite({ siteName: s.siteName, maxFileSize: s.maxFileSize || 10, allowedTypes: s.allowedTypes || 'pdf,jpg,jpeg,png' });
                 if (s.footerLabel) setFooterLabel(s.footerLabel);
                 if (s.footerPartnerLogos) setFooterLogos(s.footerPartnerLogos);
-                if (s.calcBtnName)  setCalcBtnName(s.calcBtnName);
+                if (s.calcBtnName) setCalcBtnName(s.calcBtnName);
                 if (s.calcBtnColor) setCalcBtnColor(s.calcBtnColor);
                 setAuthBranding(prev => ({
                     ...prev,
-                    ...(s.authHeaderLogo    && { authHeaderLogo:    s.authHeaderLogo }),
+                    ...(s.authHeaderLogo && { authHeaderLogo: s.authHeaderLogo }),
                     ...(s.authHeaderTitleBn && { authHeaderTitleBn: s.authHeaderTitleBn }),
                     ...(s.authHeaderTitleEn && { authHeaderTitleEn: s.authHeaderTitleEn }),
-                    ...(s.authSystemLabel   && { authSystemLabel:   s.authSystemLabel }),
+                    ...(s.authSystemLabel && { authSystemLabel: s.authSystemLabel }),
                 }));
                 if (s.authCardLogos && s.authCardLogos.length > 0) setAuthCardLogos(s.authCardLogos);
                 else setAuthCardLogos(['/images/0_HBRI_Picture3-removebg-preview.png', '/images/logo (1).png']);
@@ -90,7 +90,7 @@ export default function Settings() {
             await axiosSecure.put('/settings', {
                 authHeaderTitleBn: authBranding.authHeaderTitleBn,
                 authHeaderTitleEn: authBranding.authHeaderTitleEn,
-                authSystemLabel:   authBranding.authSystemLabel,
+                authSystemLabel: authBranding.authSystemLabel,
             });
             toast.success('Auth branding saved!');
         } catch { toast.error('Failed to save'); }
@@ -349,7 +349,7 @@ export default function Settings() {
                         <input value={authBranding.authSystemLabel}
                             onChange={e => setAuthBranding(prev => ({ ...prev, authSystemLabel: e.target.value }))}
                             className="input-dark w-full px-4 py-3 text-sm"
-                            placeholder="e.g. Green Building Assessment System" />
+                            placeholder="e.g. Sustainable Design Assessment System" />
                     </div>
 
                     <button onClick={saveAuthBranding} disabled={savingAuth} className="btn-primary-green text-sm">

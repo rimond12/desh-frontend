@@ -65,6 +65,7 @@ export const NAV_CONFIG = [
                     { key: 'adminNav_modules',    defaultLabel: 'Modules',     path: '/admin/modules',    icon: '◈' },
                     { key: 'adminNav_sections',   defaultLabel: 'Sections',    path: '/admin/sections',   icon: '▦' },
                     { key: 'adminNav_evaluation', defaultLabel: 'Leaf Levels', path: '/admin/evaluation', icon: '🍃' },
+                    { key: 'adminNav_resources',  defaultLabel: 'Resources',   path: '/admin/resources',  icon: '📚' },
                 ],
             },
             {

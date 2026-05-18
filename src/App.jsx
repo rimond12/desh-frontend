@@ -32,6 +32,7 @@ import ActivityLogs     from './pages/admin/ActivityLogs.jsx';
 import Settings         from './pages/admin/Settings.jsx';
 import ImportExport     from './pages/admin/ImportExport.jsx';
 import CalcEnginePage   from './pages/admin/CalcEnginePage.jsx';
+import Resources        from './pages/admin/Resources.jsx';
 
 // ── Route guards — role checked from dbUser (MongoDB), not email lists ──
 
@@ -129,6 +130,7 @@ function AppRoutes() {
       <Route path="/admin/settings"         element={<AdminRoute><Settings/></AdminRoute>} />
       <Route path="/admin/import-export"   element={<AdminRoute><ImportExport/></AdminRoute>} />
       <Route path="/admin/calc-engine"     element={<AdminRoute><CalcEnginePage/></AdminRoute>} />
+      <Route path="/admin/resources"       element={<AdminRoute><Resources/></AdminRoute>} />
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
