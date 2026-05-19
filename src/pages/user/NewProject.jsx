@@ -90,18 +90,16 @@ export default function NewProject() {
             gap: 16, marginBottom: 20,
           }}>
             {leafLevels.map((leaf, i) => {
-              // Scale leaves: middle two slightly larger for a tiered look
-              const sizes = [36, 44, 44, 36];
               return (
                 <div key={leaf.name} style={{
-                  opacity: 0.85 + (i === 1 || i === 2 ? 0.15 : 0),
+                  opacity: 1,
                   transition: 'opacity 0.3s',
                 }}>
                   <ColoredLeaf
                     level={leaf.name}
                     colorCode={leaf.colorCode}
                     imageUrl={leaf.imageUrl}
-                    size={sizes[i] || 40}
+                    size={40}
                   />
                 </div>
               );

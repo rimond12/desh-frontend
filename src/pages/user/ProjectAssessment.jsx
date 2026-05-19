@@ -559,18 +559,24 @@ export default function ProjectAssessment() {
             <span class="mod-name">${esc((ti + 1) + '.' + (mi + 1) + ' ' + mod.title)}</span>
             ${modMax > 0 ? `<span class="mod-pts">${modEarned.toFixed(1)} / ${modMax} pts</span>` : ''}
           </div>`;
-        // Group inputs by stage (sectionId)
-        const stageGroups = [];
-        const seenStages = new Map();
+        // Group inputs by stage (sectionId) sorted by global section sortOrder
+        const grouped = {};
         inputs.forEach(inp => {
           const sid = String(inp.sectionId || 'none');
-          if (!seenStages.has(sid)) {
-            const sec = (globalSections || []).find(s => String(s._id) === sid);
-            seenStages.set(sid, stageGroups.length);
-            stageGroups.push({ title: sec?.title || '', inputs: [] });
-          }
-          stageGroups[seenStages.get(sid)].inputs.push(inp);
+          if (!grouped[sid]) grouped[sid] = [];
+          grouped[sid].push(inp);
         });
+
+        const sortedGlobalSections = [...globalSections].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        const stageGroups = [
+          ...sortedGlobalSections
+            .filter(s => grouped[String(s._id)])
+            .map(s => ({
+              title: s.title || '',
+              inputs: grouped[String(s._id)],
+            })),
+          ...(grouped['none'] ? [{ title: '', inputs: grouped['none'] }] : []),
+        ];
         stageGroups.forEach(group => {
           if (group.title) body += `<div class="stage-hdr">${esc(group.title)}</div>`;
           group.inputs.forEach(inp => {

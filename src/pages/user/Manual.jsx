@@ -57,9 +57,31 @@ function VideoIcon() {
     );
 }
 
+// ── Google Drive URL helpers ────────────────────────────────────
+function getGDriveFileId(url) {
+    if (!url) return null;
+    // Format: /file/d/{id}/
+    let m = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (m) return m[1];
+    // Format: ?id={id} or &id={id}  (open?id=… or uc?id=…)
+    m = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (m) return m[1];
+    return null;
+}
+
+function toGDriveEmbed(url) {
+    const id = getGDriveFileId(url);
+    if (!id) return null;
+    return `https://drive.google.com/file/d/${id}/preview`;
+}
+
+function isGDriveUrl(url) {
+    return url && /drive\.google\.com/i.test(url);
+}
+
 export default function Manual() {
     const axiosSecure = useAxiosSecure();
-    const [activeTab, setActiveTab] = useState('guide');
+    const [activeTab, setActiveTab] = useState('resources');
     const [resources, setResources] = useState([]);
     const [loadingResources, setLoadingResources] = useState(true);
     const [filter, setFilter] = useState('all'); // 'all' | 'pdf' | 'video'
@@ -98,6 +120,16 @@ export default function Manual() {
         return link;
     };
 
+    // For video resources: use the /preview URL for Google Drive links so the
+    // video plays directly in the new tab instead of triggering a download.
+    const getVideoLink = (res) => {
+        const raw = getResourceLink(res);
+        if (res.type === 'video' && isGDriveUrl(raw)) {
+            return toGDriveEmbed(raw); // e.g. /preview — plays in browser
+        }
+        return raw;
+    };
+
     return (
         <Layout>
             <div className="max-w-4xl mx-auto fade-in-up">
@@ -111,15 +143,13 @@ export default function Manual() {
                         ) : evalRules.length === 0 ? (
                             <LeafLogo size={64} animated />
                         ) : (
-                            /* Real leaf level icons — smallest at edges, tallest in centre */
+                            /* Real leaf level icons — all in same size */
                             [...evalRules]
                                 .sort((a, b) => a.minPercent - b.minPercent)
-                                .map((l, i, arr) => {
+                                .map((l, i) => {
                                     const imgUrl = l.imageUrl ? `${BASE_URL}${l.imageUrl}` : null;
                                     const color = l.colorCode || '#94A3B8';
-                                    const mid = (arr.length - 1) / 2;
-                                    const dist = Math.abs(i - mid);
-                                    const size = Math.round(72 - dist * 14);
+                                    const size = 60;
                                     return (
                                         <div
                                             key={l._id || i}
@@ -153,17 +183,18 @@ export default function Manual() {
                 {/* Tab switcher */}
                 <div className="tab-bar mb-10 max-w-sm mx-auto">
                     <button
-                        className={`tab-btn flex-1 ${activeTab === 'guide' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('guide')}
-                    >
-                        📖 System Guide
-                    </button>
-                    <button
                         className={`tab-btn flex-1 ${activeTab === 'resources' ? 'active' : ''}`}
                         onClick={() => setActiveTab('resources')}
                     >
                         🌿 Eco-Park Resources
                     </button>
+                    <button
+                        className={`tab-btn flex-1 ${activeTab === 'guide' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('guide')}
+                    >
+                        📖 System Guide
+                    </button>
+
                 </div>
 
                 {/* ──────────────── TAB 1: SYSTEM GUIDE ──────────────── */}
@@ -582,7 +613,7 @@ export default function Manual() {
 
                                                 {/* Action button */}
                                                 <a
-                                                    href={link}
+                                                    href={isPdf ? link : getVideoLink(res)}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold transition-all"
@@ -598,7 +629,7 @@ export default function Manual() {
                                                     }}
                                                     onMouseEnter={e => {
                                                         e.currentTarget.style.transform = 'scale(1.02)';
-                                                        e.currentTarget.style.opacity = '0.92';
+                                                        e.currentTarget.style.opacity = '0.92)';
                                                     }}
                                                     onMouseLeave={e => {
                                                         e.currentTarget.style.transform = 'scale(1)';
