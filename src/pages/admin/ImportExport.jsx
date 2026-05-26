@@ -44,16 +44,26 @@ function sniffCSV(text) {
 // ── Flush collection definitions ──────────────────────────────────────────────
 
 const FLUSH_COLLECTIONS = [
-  { key: 'tabs',      label: 'Tabs',          icon: '📁', color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE',
-    warn: 'Removing tabs will cascade-break all linked modules and inputs.' },
-  { key: 'modules',   label: 'Modules',        icon: '📦', color: '#5B21B6', bg: '#EDE9FE', border: '#C4B5FD',
-    warn: 'Removing modules will leave inputs without a parent.' },
-  { key: 'sections',  label: 'Sections',       icon: '🗂', color: '#92400E', bg: '#FEF9C3', border: '#FDE68A',
-    warn: 'Sections are required for inputs — removing them will break input linkage.' },
-  { key: 'inputs',    label: 'Input Fields',   icon: '📝', color: '#145C28', bg: '#D6F5E3', border: '#A8EFC0',
-    warn: 'All question fields will be removed from every module.' },
-  { key: 'evalRules', label: 'Leaf Levels',    icon: '🍃', color: '#C2410C', bg: '#FFF7ED', border: '#FED7AA',
-    warn: 'Leaf level evaluation rules will be deleted.' },
+  {
+    key: 'tabs', label: 'Tabs', icon: '📁', color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE',
+    warn: 'Removing tabs will cascade-break all linked modules and inputs.'
+  },
+  {
+    key: 'modules', label: 'Modules', icon: '📦', color: '#5B21B6', bg: '#EDE9FE', border: '#C4B5FD',
+    warn: 'Removing modules will leave inputs without a parent.'
+  },
+  {
+    key: 'sections', label: 'Sections', icon: '🗂', color: '#92400E', bg: '#FEF9C3', border: '#FDE68A',
+    warn: 'Sections are required for inputs — removing them will break input linkage.'
+  },
+  {
+    key: 'inputs', label: 'Input Fields', icon: '📝', color: '#145C28', bg: '#D6F5E3', border: '#A8EFC0',
+    warn: 'All question fields will be removed from every module.'
+  },
+  {
+    key: 'evalRules', label: 'Leaf Levels', icon: '🍃', color: '#C2410C', bg: '#FFF7ED', border: '#FED7AA',
+    warn: 'Leaf level evaluation rules will be deleted.'
+  },
 ];
 
 // ── main component ────────────────────────────────────────────────────────────
@@ -62,22 +72,22 @@ export default function ImportExport() {
   const ax = useAxiosSecure();
 
   // Export
-  const [dbStats, setDbStats]     = useState(null);
+  const [dbStats, setDbStats] = useState(null);
   const [exporting, setExporting] = useState(false);
 
   // Import
-  const fileRef               = useRef(null);
-  const [file, setFile]       = useState(null);
+  const fileRef = useRef(null);
+  const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [importing, setImporting] = useState(false);
-  const [result, setResult]   = useState(null);
+  const [result, setResult] = useState(null);
 
   // Flush
   const [flushSelected, setFlushSelected] = useState({
     tabs: false, modules: false, sections: false, inputs: false, evalRules: false,
   });
   const [flushConfirmText, setFlushConfirmText] = useState('');
-  const [flushing, setFlushing]     = useState(false);
+  const [flushing, setFlushing] = useState(false);
   const [flushResult, setFlushResult] = useState(null);
   const [flushExpanded, setFlushExpanded] = useState(false);
 
@@ -92,11 +102,11 @@ export default function ImportExport() {
       ax.get('/settings/eval-rules'),
     ]).then(([tabsRes, secRes, rulesRes]) => {
       setDbStats({
-        tabs:     (tabsRes.data.tabs || []).length,
+        tabs: (tabsRes.data.tabs || []).length,
         sections: (secRes.data.sections || []).length,
-        evals:    (rulesRes.data.rules  || []).length,
+        evals: (rulesRes.data.rules || []).length,
       });
-    }).catch(() => {});
+    }).catch(() => { });
   };
 
   useEffect(loadStats, [result, flushResult]);
@@ -108,8 +118,8 @@ export default function ImportExport() {
     try {
       const res = await ax.get('/admin/export', { responseType: 'blob' });
       const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }));
-      const a   = document.createElement('a');
-      a.href    = url;
+      const a = document.createElement('a');
+      a.href = url;
       a.download = `desh_export_${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
@@ -122,8 +132,8 @@ export default function ImportExport() {
     try {
       const res = await ax.get('/admin/template', { responseType: 'blob' });
       const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }));
-      const a   = document.createElement('a');
-      a.href    = url;
+      const a = document.createElement('a');
+      a.href = url;
       a.download = 'desh_import_template.csv';
       a.click();
       URL.revokeObjectURL(url);
@@ -224,11 +234,11 @@ export default function ImportExport() {
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {[
-              { type: 'TAB',     desc: 'tab_title, tab_sortOrder, tab_isActive',                                                              color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
-              { type: 'MODULE',  desc: 'tab_title (link), module_title, module_readDetails, module_sortOrder',                                color: '#5B21B6', bg: '#EDE9FE', border: '#C4B5FD' },
-              { type: 'SECTION', desc: 'section_title, section_sortOrder, section_isActive',                                                  color: '#92400E', bg: '#FEF9C3', border: '#FDE68A' },
-              { type: 'INPUT',   desc: 'tab_title, module_title, section_title, input_label, input_type, options (checkbox), line (number)',  color: '#145C28', bg: '#D6F5E3', border: '#A8EFC0' },
-              { type: 'EVAL',    desc: 'eval_name, eval_minPercent, eval_maxPercent, eval_color, eval_sortOrder',                              color: '#92400E', bg: '#FEF9C3', border: '#FDE68A' },
+              { type: 'TAB', desc: 'tab_title, tab_sortOrder, tab_isActive', color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
+              { type: 'MODULE', desc: 'tab_title (link), module_title, module_readDetails, module_sortOrder', color: '#5B21B6', bg: '#EDE9FE', border: '#C4B5FD' },
+              { type: 'SECTION', desc: 'section_title, section_sortOrder, section_isActive', color: '#92400E', bg: '#FEF9C3', border: '#FDE68A' },
+              { type: 'INPUT', desc: 'tab_title, module_title, section_title, input_label, input_type, options (checkbox), line (number)', color: '#145C28', bg: '#D6F5E3', border: '#A8EFC0' },
+              { type: 'EVAL', desc: 'eval_name, eval_minPercent, eval_maxPercent, eval_color, eval_sortOrder', color: '#92400E', bg: '#FEF9C3', border: '#FDE68A' },
             ].map(({ type, desc, color, bg, border }) => (
               <div key={type} style={{
                 display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 12px',
@@ -256,7 +266,7 @@ export default function ImportExport() {
           <div style={{ border: '1.5px solid var(--border)', borderRadius: 18, background: '#fff', overflow: 'hidden', boxShadow: 'var(--sh-xs)' }}>
             <div style={{ padding: '18px 22px', background: 'linear-gradient(135deg,var(--g700),var(--g500))', borderBottom: '1px solid var(--g600)' }}>
               <p style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 15, color: '#fff', margin: 0 }}>
-                ↓ Export Data
+                ↓ Download Data
               </p>
               <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: '3px 0 0' }}>
                 Download all current data as a CSV file
@@ -266,9 +276,9 @@ export default function ImportExport() {
             <div style={{ padding: '22px' }}>
               {dbStats && (
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 22 }}>
-                  <StatPill label="Tabs"     value={dbStats.tabs}     />
+                  <StatPill label="Tabs" value={dbStats.tabs} />
                   <StatPill label="Sections" value={dbStats.sections} />
-                  <StatPill label="Leaf Lvl" value={dbStats.evals}    />
+                  <StatPill label="Leaf Lvl" value={dbStats.evals} />
                 </div>
               )}
 
@@ -291,7 +301,7 @@ export default function ImportExport() {
                   transition: 'all 0.15s',
                 }}
               >
-                {exporting ? '⏳ Preparing…' : '⬇ Export All Data (.csv)'}
+                {exporting ? '⏳ Preparing…' : '⬇ Download All Data (.csv)'}
               </button>
 
               <div style={{ height: 1, background: 'var(--border)', margin: '20px 0' }} />
@@ -440,12 +450,12 @@ export default function ImportExport() {
                 Created
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
-                <StatPill label="Tabs"      value={result.tabs}      color="#1D4ED8" bg="#EFF6FF" border="#BFDBFE" />
-                <StatPill label="Modules"   value={result.modules}   color="#5B21B6" bg="#EDE9FE" border="#C4B5FD" />
-                <StatPill label="Sections"  value={result.sections}  color="#92400E" bg="#FEF9C3" border="#FDE68A" />
-                <StatPill label="Inputs"    value={result.inputs}    color="#145C28" bg="#D6F5E3" border="#A8EFC0" />
+                <StatPill label="Tabs" value={result.tabs} color="#1D4ED8" bg="#EFF6FF" border="#BFDBFE" />
+                <StatPill label="Modules" value={result.modules} color="#5B21B6" bg="#EDE9FE" border="#C4B5FD" />
+                <StatPill label="Sections" value={result.sections} color="#92400E" bg="#FEF9C3" border="#FDE68A" />
+                <StatPill label="Inputs" value={result.inputs} color="#145C28" bg="#D6F5E3" border="#A8EFC0" />
                 <StatPill label="Leaf Lvls" value={result.evalRules} color="#C2410C" bg="#FFF7ED" border="#FED7AA" />
-                <StatPill label="Updated"   value={result.updated}   color="var(--tx-muted)" bg="var(--bg-soft)" border="var(--border)" />
+                <StatPill label="Updated" value={result.updated} color="var(--tx-muted)" bg="var(--bg-soft)" border="var(--border)" />
               </div>
               {result.errors?.length > 0 && (
                 <>

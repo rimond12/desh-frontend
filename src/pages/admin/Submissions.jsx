@@ -9,22 +9,22 @@ const LEVELS = ['All', 'Green Leaf', 'Yellow Leaf', 'Orange Leaf', 'Brown Leaf']
 
 const REVIEW_STATUS_CFG = {
   under_review: { label: 'Under Review', color: '#92400E', bg: '#FEF9C3', dot: '#D97706' },
-  verified:     { label: 'Verified',     color: '#145C28', bg: '#D6F5E3', dot: '#22A84B' },
-  cancelled:    { label: 'Cancelled',    color: '#991B1B', bg: '#FEE2E2', dot: '#EF4444' },
+  verified: { label: 'Verified', color: '#145C28', bg: '#D6F5E3', dot: '#22A84B' },
+  cancelled: { label: 'Cancelled', color: '#991B1B', bg: '#FEE2E2', dot: '#EF4444' },
 };
 
 function IconEye() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
 function IconTrash() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-      <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+      <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
     </svg>
   );
 }
@@ -57,12 +57,12 @@ function SectionStatusSummary({ sectionStatuses }) {
 
 export default function Submissions() {
   const axiosSecure = useAxiosSecure();
-  const navigate    = useNavigate();
+  const navigate = useNavigate();
 
   const [projects, setProjects] = useState([]);
-  const [search, setSearch]     = useState('');
+  const [search, setSearch] = useState('');
   const [levelFilter, setLevelFilter] = useState('All');
-  const [loading, setLoading]   = useState(true);
+  const [loading, setLoading] = useState(true);
 
   const fetchSubmissions = () => {
     axiosSecure.get('/submissions')
@@ -120,7 +120,7 @@ export default function Submissions() {
         <button onClick={exportCSV}
           className="ml-auto flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold"
           style={{ borderColor: 'var(--border-md)', color: 'var(--g600)', background: 'var(--g50)' }}>
-          ↓ Export CSV
+          ↓ Download CSV
         </button>
       </div>
 

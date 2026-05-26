@@ -4,19 +4,19 @@ import toast from 'react-hot-toast';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 
 const ROLE_CFG = {
-    admin:    { label: 'Admin',    bg: 'rgba(249,115,22,0.12)', color: '#C2410C', border: 'rgba(249,115,22,0.25)' },
+    admin: { label: 'Admin', bg: 'rgba(249,115,22,0.12)', color: '#C2410C', border: 'rgba(249,115,22,0.25)' },
     reviewer: { label: 'Reviewer', bg: 'rgba(139,92,246,0.12)', color: '#6D28D9', border: 'rgba(139,92,246,0.25)' },
-    user:     { label: 'User',     bg: 'rgba(34,168,75,0.12)',  color: '#145C28', border: 'rgba(34,168,75,0.25)'  },
+    user: { label: 'User', bg: 'rgba(34,168,75,0.12)', color: '#145C28', border: 'rgba(34,168,75,0.25)' },
 };
 
 const TYPE_CFG = {
-    student:      { label: 'Student',       bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
-    professional: { label: 'Professional',  bg: '#F0FDF4', color: '#15803D', border: '#BBF7D0' },
-    owner:        { label: 'Building Owner',bg: '#FEF9C3', color: '#92400E', border: '#FDE68A' },
-    architect:    { label: 'Architect',     bg: '#FDF4FF', color: '#7E22CE', border: '#E9D5FF' },
-    engineer:     { label: 'Engineer',      bg: '#FFF7ED', color: '#C2410C', border: '#FED7AA' },
-    researcher:   { label: 'Researcher',    bg: '#F0F9FF', color: '#0369A1', border: '#BAE6FD' },
-    other:        { label: 'Other',         bg: '#F9FAFB', color: '#6B7280', border: '#E5E7EB' },
+    student: { label: 'Student', bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
+    professional: { label: 'Professional', bg: '#F0FDF4', color: '#15803D', border: '#BBF7D0' },
+    owner: { label: 'Building Owner', bg: '#FEF9C3', color: '#92400E', border: '#FDE68A' },
+    architect: { label: 'Architect', bg: '#FDF4FF', color: '#7E22CE', border: '#E9D5FF' },
+    engineer: { label: 'Engineer', bg: '#FFF7ED', color: '#C2410C', border: '#FED7AA' },
+    researcher: { label: 'Researcher', bg: '#F0F9FF', color: '#0369A1', border: '#BAE6FD' },
+    other: { label: 'Other', bg: '#F9FAFB', color: '#6B7280', border: '#E5E7EB' },
 };
 
 function RoleBadge({ role }) {
@@ -44,12 +44,12 @@ function TypeBadge({ userType }) {
 
 export default function Users() {
     const axiosSecure = useAxiosSecure();
-    const [users, setUsers]       = useState([]);
-    const [search, setSearch]     = useState('');
-    const [roleFilter, setRoleFilter]     = useState('all');
-    const [typeFilter, setTypeFilter]     = useState('all');
+    const [users, setUsers] = useState([]);
+    const [search, setSearch] = useState('');
+    const [roleFilter, setRoleFilter] = useState('all');
+    const [typeFilter, setTypeFilter] = useState('all');
     const [selected, setSelected] = useState(null);
-    const [loading, setLoading]   = useState(true);
+    const [loading, setLoading] = useState(true);
 
     const fetchUsers = () => {
         axiosSecure.get('/users')
@@ -114,21 +114,21 @@ export default function Users() {
     const countByType = (t) => users.filter(u => u.userType === t).length;
 
     const ROLE_FILTERS = [
-        { key: 'all',      label: 'All',      count: users.length },
-        { key: 'user',     label: 'User',     count: countByRole('user') },
+        { key: 'all', label: 'All', count: users.length },
+        { key: 'user', label: 'User', count: countByRole('user') },
         { key: 'reviewer', label: 'Reviewer', count: countByRole('reviewer') },
-        { key: 'admin',    label: 'Admin',    count: countByRole('admin') },
+        { key: 'admin', label: 'Admin', count: countByRole('admin') },
     ];
 
     const TYPE_FILTERS = [
-        { key: 'all',         label: 'All Types',      count: users.length },
-        { key: 'student',     label: 'Student',        count: countByType('student') },
-        { key: 'professional',label: 'Professional',   count: countByType('professional') },
-        { key: 'owner',       label: 'Building Owner', count: countByType('owner') },
-        { key: 'architect',   label: 'Architect',      count: countByType('architect') },
-        { key: 'engineer',    label: 'Engineer',       count: countByType('engineer') },
-        { key: 'researcher',  label: 'Researcher',     count: countByType('researcher') },
-        { key: 'other',       label: 'Other',          count: countByType('other') },
+        { key: 'all', label: 'All Types', count: users.length },
+        { key: 'student', label: 'Student', count: countByType('student') },
+        { key: 'professional', label: 'Professional', count: countByType('professional') },
+        { key: 'owner', label: 'Building Owner', count: countByType('owner') },
+        { key: 'architect', label: 'Architect', count: countByType('architect') },
+        { key: 'engineer', label: 'Engineer', count: countByType('engineer') },
+        { key: 'researcher', label: 'Researcher', count: countByType('researcher') },
+        { key: 'other', label: 'Other', count: countByType('other') },
     ];
 
     return (
@@ -146,7 +146,7 @@ export default function Users() {
                     border: '1.5px solid var(--g200)', background: 'var(--g50)', color: 'var(--g700)',
                     fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif',
                 }}>
-                    ↓ Export CSV
+                    ↓ Download CSV
                     {(roleFilter !== 'all' || typeFilter !== 'all') && (
                         <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, background: 'var(--g200)', color: 'var(--g800)' }}>
                             filtered

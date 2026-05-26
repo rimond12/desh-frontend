@@ -824,86 +824,86 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
         }}>
           {/* Project title + section — stacked left */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, flex: 1 }}>
-          <div style={{ minWidth: 0 }}>
-            {editingTitle ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-                <input
-                  ref={titleInputRef}
-                  value={editTitle}
-                  onChange={e => setEditTitle(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') saveTitleEdit();
-                    if (e.key === 'Escape') cancelTitleEdit();
-                  }}
-                  maxLength={120}
-                  disabled={savingTitle}
-                  style={{
-                    padding: '5px 10px', borderRadius: 8, fontSize: 14,
-                    fontFamily: 'Montserrat,sans-serif', fontWeight: 700,
-                    border: '1.5px solid var(--g300)', background: '#fff',
-                    color: 'var(--tx)', outline: 'none', minWidth: 0, maxWidth: 380, width: '100%',
-                  }}
-                />
-                <button onClick={saveTitleEdit} disabled={savingTitle || !editTitle.trim()} style={{
-                  background: 'rgba(34,168,75,0.12)', border: '1px solid rgba(34,168,75,0.4)',
-                  color: 'var(--g700)', borderRadius: 7, padding: '4px 10px',
-                  fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
-                  opacity: savingTitle || !editTitle.trim() ? 0.5 : 1, flexShrink: 0,
-                }}>{savingTitle ? '…' : 'Save'}</button>
-                <button onClick={cancelTitleEdit} style={{
-                  background: 'rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.12)',
-                  color: 'var(--tx-muted)', borderRadius: 7, padding: '4px 10px',
-                  fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
-                }}>Cancel</button>
-              </div>
-            ) : (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
-                <h2 style={{
-                  fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
-                  fontSize: 15, color: 'var(--tx)', margin: 0,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            <div style={{ minWidth: 0 }}>
+              {editingTitle ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                  <input
+                    ref={titleInputRef}
+                    value={editTitle}
+                    onChange={e => setEditTitle(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') saveTitleEdit();
+                      if (e.key === 'Escape') cancelTitleEdit();
+                    }}
+                    maxLength={120}
+                    disabled={savingTitle}
+                    style={{
+                      padding: '5px 10px', borderRadius: 8, fontSize: 14,
+                      fontFamily: 'Montserrat,sans-serif', fontWeight: 700,
+                      border: '1.5px solid var(--g300)', background: '#fff',
+                      color: 'var(--tx)', outline: 'none', minWidth: 0, maxWidth: 380, width: '100%',
+                    }}
+                  />
+                  <button onClick={saveTitleEdit} disabled={savingTitle || !editTitle.trim()} style={{
+                    background: 'rgba(34,168,75,0.12)', border: '1px solid rgba(34,168,75,0.4)',
+                    color: 'var(--g700)', borderRadius: 7, padding: '4px 10px',
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+                    opacity: savingTitle || !editTitle.trim() ? 0.5 : 1, flexShrink: 0,
+                  }}>{savingTitle ? '…' : 'Save'}</button>
+                  <button onClick={cancelTitleEdit} style={{
+                    background: 'rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.12)',
+                    color: 'var(--tx-muted)', borderRadius: 7, padding: '4px 10px',
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+                  }}>Cancel</button>
+                </div>
+              ) : (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
+                  <h2 style={{
+                    fontFamily: 'Montserrat,sans-serif', fontWeight: 900,
+                    fontSize: 15, color: 'var(--tx)', margin: 0,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {project?.title}
+                  </h2>
+                  {project?.status !== 'submitted' && !isLocked && (
+                    <button onClick={startTitleEdit} title="Rename project" style={{
+                      background: 'transparent', border: 'none', cursor: 'pointer',
+                      color: 'var(--g500)', fontSize: 14, padding: '2px 4px',
+                      borderRadius: 5, lineHeight: 1, flexShrink: 0,
+                      transition: 'color 0.15s',
+                    }}
+                      onMouseEnter={e => e.currentTarget.style.color = 'var(--g700)'}
+                      onMouseLeave={e => e.currentTarget.style.color = 'var(--g500)'}
+                    >✎</button>
+                  )}
+                </div>
+              )}
+            </div>
+            {/* Section dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <span style={{
+                fontSize: 10, fontWeight: 800, letterSpacing: '0.1em',
+                textTransform: 'uppercase', color: 'var(--g700)',
+                fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+              }}>Section</span>
+              <select
+                value={selectedSection}
+                onChange={e => setSelectedSection(e.target.value)}
+                style={{
+                  padding: '6px 12px', borderRadius: 8,
+                  border: '1.5px solid var(--g200)', background: '#fff',
+                  fontSize: 13, fontWeight: 600, color: 'var(--tx)',
+                  cursor: 'pointer', outline: 'none', maxWidth: 260,
                 }}>
-                  {project?.title}
-                </h2>
-                {project?.status !== 'submitted' && !isLocked && (
-                  <button onClick={startTitleEdit} title="Rename project" style={{
-                    background: 'transparent', border: 'none', cursor: 'pointer',
-                    color: 'var(--g500)', fontSize: 14, padding: '2px 4px',
-                    borderRadius: 5, lineHeight: 1, flexShrink: 0,
-                    transition: 'color 0.15s',
-                  }}
-                    onMouseEnter={e => e.currentTarget.style.color = 'var(--g700)'}
-                    onMouseLeave={e => e.currentTarget.style.color = 'var(--g500)'}
-                  >✎</button>
-                )}
-              </div>
-            )}
-          </div>
-          {/* Section dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            <span style={{
-              fontSize: 10, fontWeight: 800, letterSpacing: '0.1em',
-              textTransform: 'uppercase', color: 'var(--g700)',
-              fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
-            }}>Section</span>
-            <select
-              value={selectedSection}
-              onChange={e => setSelectedSection(e.target.value)}
-              style={{
-                padding: '6px 12px', borderRadius: 8,
-                border: '1.5px solid var(--g200)', background: '#fff',
-                fontSize: 13, fontWeight: 600, color: 'var(--tx)',
-                cursor: 'pointer', outline: 'none', maxWidth: 260,
-              }}>
-              <option value="">— Overall Score —</option>
-              {regularSections.map(s => (
-                <option key={s._id} value={s._id}>{s.title}</option>
-              ))}
-            </select>
-          </div>
+                <option value="">— Overall Score —</option>
+                {regularSections.map(s => (
+                  <option key={s._id} value={s._id}>{s.title}</option>
+                ))}
+              </select>
+            </div>
           </div>{/* end column wrapper */}
 
-          
+
 
           {/* Collapsed mini-summary — shown only when card is closed */}
           {!scoreOpen && (
@@ -945,7 +945,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
               fontWeight: 700, fontSize: 13, fontFamily: 'Montserrat,sans-serif',
               whiteSpace: 'nowrap', transition: 'all 0.15s',
             }}>
-              ⬇ Export PDF
+              ⬇ Download PDF
             </button>
             {project?.status !== 'submitted' && (
               <button className="btn-primary-green" onClick={submitProject} disabled={submitting}>
@@ -1897,7 +1897,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                                           padding: '7px 12px', background: 'var(--g50)',
                                                           border: '1px solid var(--g200)', borderRadius: 9,
                                                         }}
-                                                        className="file-row-hover"
+                                                          className="file-row-hover"
                                                         >
                                                           <a
                                                             href={viewable ? `${SERVER_URL}/uploads/documents/${doc.filename}` : '#'}
@@ -1929,7 +1929,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                                               textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                                               transition: 'color 0.2s ease'
                                                             }}
-                                                            className="file-name-text"
+                                                              className="file-name-text"
                                                             >
                                                               {doc.originalName || 'Uploaded file'}
                                                             </span>
@@ -1944,7 +1944,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                                               fontFamily: 'Montserrat,sans-serif',
                                                               transition: 'all 0.2s ease',
                                                             }}
-                                                            className="file-action-badge"
+                                                              className="file-action-badge"
                                                             >
                                                               {viewable ? 'View ↗' : 'Download ↓'}
                                                             </span>

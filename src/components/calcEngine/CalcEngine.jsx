@@ -948,8 +948,21 @@ export default function CalcEngine({ calcId }) {
     URL.revokeObjectURL(url);
   }
 
-  function handleExportPDF() {
+  async function handleExportPDF() {
     if (!calcConfig) return;
+
+    // Load the logo image first
+    let logoImg = null;
+    try {
+      logoImg = await new Promise((resolve) => {
+        const img = new Image();
+        img.src = "/images/DESH_Picture1.png";
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+      });
+    } catch (err) {
+      console.error("Failed to load PDF logo:", err);
+    }
 
     // Create custom A4 PDF report in portrait mode (210mm x 297mm)
     const doc = new jsPDF({
@@ -963,24 +976,31 @@ export default function CalcEngine({ calcId }) {
     doc.setFillColor(13, 59, 26);
     doc.rect(0, 0, 210, 8, "F");
 
-    // Stylized Vector Leaf logo (draws instantly, no slow CORS/network fetches)
-    doc.setFillColor(34, 197, 94); // Light accent green
-    doc.ellipse(18, 20, 4, 6, "F");
-    doc.setFillColor(13, 59, 26); // Dark forest green
-    doc.ellipse(18, 20, 2, 4, "F");
-    doc.setDrawColor(255, 255, 255);
-    doc.setLineWidth(0.5);
-    doc.line(18, 14, 18, 26);
+    let textX = 14;
+    if (logoImg) {
+      try {
+        const imgHeight = 12;
+        const aspect = logoImg.naturalWidth && logoImg.naturalHeight 
+          ? logoImg.naturalWidth / logoImg.naturalHeight 
+          : 1.535;
+        const imgWidth = imgHeight * aspect;
+        doc.addImage(logoImg, "PNG", 14, 12, imgWidth, imgHeight);
+        textX = 14 + imgWidth + 4;
+      } catch (err) {
+        console.error("Failed to add image to jsPDF:", err);
+        textX = 14;
+      }
+    }
 
     // Brand Name & Subtitle
     doc.setTextColor(13, 59, 26);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.text("DESH", 25, 20);
+    doc.text("DESH", textX, 19);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(100, 116, 139);
-    doc.text("Sustainable Design Assessment System", 25, 24);
+    doc.text("Sustainable Design Assessment System", textX, 23.5);
 
     // Document Title
     doc.setTextColor(13, 59, 26);
@@ -1390,7 +1410,7 @@ export default function CalcEngine({ calcId }) {
         <div className="ce-actions">
           <div className="ce-export-dropdown-container" ref={dropdownRef}>
             <button className="ce-btn ce-btn-outline ce-export-trigger" onClick={() => setExportOpen(!exportOpen)}>
-              📥 Download please <span className={`ce-chevron ${exportOpen ? 'open' : ''}`}>▼</span>
+              📥 Download<span className={`ce-chevron ${exportOpen ? 'open' : ''}`}>▼</span>
             </button>
             {exportOpen && (
               <div className="ce-export-dropdown-menu">

@@ -160,9 +160,9 @@ export default function ReviewerSubmissionDetail() {
     if (!win) { toast.error('Please allow popups to export PDF'); return; }
 
     const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const fIcon = (name) => { const e = (name||'').split('.').pop().toLowerCase(); return e==='pdf'?'📄':['jpg','jpeg','png','gif','webp','svg'].includes(e)?'🖼️':'📎'; };
-    const typeClass = (t) => ({number:'t-num',text:'t-txt',checkbox:'t-chk',file:'t-fil'}[t]||'t-txt');
-    const submittedDate = project?.updatedAt ? new Date(project.updatedAt).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}) : '';
+    const fIcon = (name) => { const e = (name || '').split('.').pop().toLowerCase(); return e === 'pdf' ? '📄' : ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(e) ? '🖼️' : '📎'; };
+    const typeClass = (t) => ({ number: 't-num', text: 't-txt', checkbox: 't-chk', file: 't-fil' }[t] || 't-txt');
+    const submittedDate = project?.updatedAt ? new Date(project.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
     const pctFill = Math.min(project?.scorePercent || 0, 100);
 
     const getCommentsHtml = (inputId) => {
@@ -221,13 +221,13 @@ export default function ReviewerSubmissionDetail() {
       </div>
     </div>
     <div class="score-strip">
-      <div class="sc-num">${project?.scorePercent||0}<span class="sc-pct">%</span></div>
+      <div class="sc-num">${project?.scorePercent || 0}<span class="sc-pct">%</span></div>
       <div class="sc-vline"></div>
       <div>
-        <div class="sc-pts">${Math.round(project?.totalPoints||0)} / ${Math.round(project?.maxPoints||0)} pts</div>
+        <div class="sc-pts">${Math.round(project?.totalPoints || 0)} / ${Math.round(project?.maxPoints || 0)} pts</div>
         <div class="sc-level">
           ${project?.leafLevel ? `<span class="sc-pill p-green">${esc(project.leafLevel)}</span>` : ''}
-          <span class="sc-pill ${project?.status==='submitted'?'p-green':'p-amber'}">${project?.status==='submitted'?'✓ Submitted':'● Draft'}</span>
+          <span class="sc-pill ${project?.status === 'submitted' ? 'p-green' : 'p-amber'}">${project?.status === 'submitted' ? '✓ Submitted' : '● Draft'}</span>
         </div>
       </div>
       <div class="sc-bar-wrap">
@@ -252,7 +252,7 @@ export default function ReviewerSubmissionDetail() {
         const modMax = inputs.reduce((s, i) => s + calcInputMax(i), 0);
         body += `<div class="mod">
           <div class="mod-hdr">
-            <span class="mod-name">${esc((ti+1)+'.'+(mi+1)+' '+mod.title)}</span>
+            <span class="mod-name">${esc((ti + 1) + '.' + (mi + 1) + ' ' + mod.title)}</span>
             ${modMax > 0 ? `<span class="mod-pts">${modEarned.toFixed(1)} / ${modMax} pts</span>` : ''}
           </div>`;
         // Group inputs by stage (sectionId) sorted by global section sortOrder
@@ -276,23 +276,23 @@ export default function ReviewerSubmissionDetail() {
         stageGroups.forEach(group => {
           if (group.title) body += `<div class="stage-hdr">${esc(group.title)}</div>`;
           group.inputs.forEach(inp => {
-          let val = '';
-          if (inp.inputType === 'file') {
-            const linked = (docs || []).filter(d => String(d.inputId) === String(inp._id));
-            val = linked.length > 0
-              ? linked.map(doc => { const url = getDownloadUrl(doc); const name = doc.originalName || doc.filename || 'file'; return `<a href="${url}" target="_blank" class="file-link">${fIcon(name)} ${esc(name)}</a>`; }).join('<br>')
-              : '<span class="val-empty">No file uploaded</span>';
-          } else if (inp.inputType === 'checkbox') {
-            const sel = Array.isArray(inp.value) ? inp.value : [];
-            const opts = inp.options || [];
-            const list = opts.length > 0 ? opts : sel.map(l => ({ label: l, points: 0 }));
-            val = list.length > 0
-              ? `<div class="cb-wrap">${list.map(o => { const on = sel.includes(o.label); return `<span class="cb-chip ${on?'cb-on':'cb-off'}">${on?'✓ ':''}${esc(o.label)}${o.points?` (${o.points}pts)`:''}</span>`; }).join('')}</div>`
-              : '<span class="val-empty">—</span>';
-          } else {
-            val = inp.value ? esc(String(inp.value)) : '<span class="val-empty">—</span>';
-          }
-          body += `<div class="inp">
+            let val = '';
+            if (inp.inputType === 'file') {
+              const linked = (docs || []).filter(d => String(d.inputId) === String(inp._id));
+              val = linked.length > 0
+                ? linked.map(doc => { const url = getDownloadUrl(doc); const name = doc.originalName || doc.filename || 'file'; return `<a href="${url}" target="_blank" class="file-link">${fIcon(name)} ${esc(name)}</a>`; }).join('<br>')
+                : '<span class="val-empty">No file uploaded</span>';
+            } else if (inp.inputType === 'checkbox') {
+              const sel = Array.isArray(inp.value) ? inp.value : [];
+              const opts = inp.options || [];
+              const list = opts.length > 0 ? opts : sel.map(l => ({ label: l, points: 0 }));
+              val = list.length > 0
+                ? `<div class="cb-wrap">${list.map(o => { const on = sel.includes(o.label); return `<span class="cb-chip ${on ? 'cb-on' : 'cb-off'}">${on ? '✓ ' : ''}${esc(o.label)}${o.points ? ` (${o.points}pts)` : ''}</span>`; }).join('')}</div>`
+                : '<span class="val-empty">—</span>';
+            } else {
+              val = inp.value ? esc(String(inp.value)) : '<span class="val-empty">—</span>';
+            }
+            body += `<div class="inp">
             <div class="inp-lbl">
               <span class="inp-type ${typeClass(inp.inputType)}">${inp.inputType}</span>
               ${esc(inp.label)}${inp.isRequired ? '<span class="inp-req"> *</span>' : ''}
@@ -440,12 +440,12 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
           </p>
         </div>
 
-        {/* Export PDF */}
+        {/* Download PDF */}
         <button onClick={exportPdf} style={{
           display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 12,
           border: '1.5px solid #BFDBFE', background: '#EFF6FF', color: '#1D4ED8',
           fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif', flexShrink: 0,
-        }}>⬇ Export PDF</button>
+        }}>⬇ Download PDF</button>
 
         {/* Lock / Unlock buttons */}
         {isLocked ? (
