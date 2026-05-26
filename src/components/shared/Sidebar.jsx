@@ -57,7 +57,7 @@ export default function Sidebar({
             background: 'white', border: '1px solid rgba(255,255,255,0.15)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}>
-            <img src="/images/logo (1).png" alt="DESH"
+            <img src="/images/DESH_Picture1.png" alt="DESH"
               style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} />
           </div>
 

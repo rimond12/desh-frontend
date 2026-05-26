@@ -70,7 +70,7 @@ export default function Settings() {
                     ...(s.authSystemLabel && { authSystemLabel: s.authSystemLabel }),
                 }));
                 if (s.authCardLogos && s.authCardLogos.length > 0) setAuthCardLogos(s.authCardLogos);
-                else setAuthCardLogos(['/images/0_HBRI_Picture3-removebg-preview.png', '/images/logo (1).png']);
+                else setAuthCardLogos(['/images/0_HBRI_Picture3-removebg-preview.png', '/images/DESH_Picture1.png']);
                 if (s.navLabels) setNavLabels(prev => ({ ...prev, ...s.navLabels }));
             }).catch(console.error);
     }, []);

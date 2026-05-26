@@ -106,7 +106,7 @@ function CommentItem({ comment, currentUserId, currentRole, onReply, onEdit, onD
                 border: 'none', cursor: 'pointer', padding: '1px 0',
               }}>✎ Edit</button>
             )}
-            {isAdmin && (
+            {(isOwn || isAdmin) && (
               <button onClick={() => onDelete(comment._id)} style={{
                 fontSize: 11, fontWeight: 700, color: '#EF4444', background: 'none',
                 border: 'none', cursor: 'pointer', padding: '1px 0',

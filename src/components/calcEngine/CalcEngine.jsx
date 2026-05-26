@@ -1390,7 +1390,7 @@ export default function CalcEngine({ calcId }) {
         <div className="ce-actions">
           <div className="ce-export-dropdown-container" ref={dropdownRef}>
             <button className="ce-btn ce-btn-outline ce-export-trigger" onClick={() => setExportOpen(!exportOpen)}>
-              📥 Export <span className={`ce-chevron ${exportOpen ? 'open' : ''}`}>▼</span>
+              📥 Download please <span className={`ce-chevron ${exportOpen ? 'open' : ''}`}>▼</span>
             </button>
             {exportOpen && (
               <div className="ce-export-dropdown-menu">

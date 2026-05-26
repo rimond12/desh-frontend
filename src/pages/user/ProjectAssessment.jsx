@@ -346,6 +346,25 @@ export default function ProjectAssessment() {
     } catch (e) { toast.error(e.response?.data?.message || 'Failed to remove file'); }
   };
 
+  const triggerDownload = async (filename, originalName) => {
+    try {
+      const response = await fetch(`${SERVER_URL}/uploads/documents/${filename}`);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = originalName || 'file';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download failed:', error);
+      // Fallback: open in new tab
+      window.open(`${SERVER_URL}/uploads/documents/${filename}`, '_blank');
+    }
+  };
+
   const submitProject = async () => {
     if (!window.confirm('Submit for review? You cannot edit after this.')) return;
     setSubmitting(true);
@@ -698,6 +717,36 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 
   return (
     <Layout>
+      <style>{`
+        .file-row-hover {
+          transition: all 0.2s ease !important;
+        }
+        .file-row-hover:hover {
+          background-color: var(--g100) !important;
+          border-color: var(--g300) !important;
+          box-shadow: var(--sh-xs) !important;
+        }
+        .file-row-hover:hover .file-icon-hover {
+          transform: scale(1.18);
+        }
+        .file-row-hover:hover .file-name-text {
+          color: var(--g950) !important;
+        }
+        .file-row-hover:hover .file-action-badge {
+          background-color: var(--g300) !important;
+          color: var(--g900) !important;
+          box-shadow: 0 2px 6px rgba(34,168,75,0.15) !important;
+        }
+        .file-download-btn {
+          transition: all 0.2s ease !important;
+        }
+        .file-download-btn:hover {
+          background-color: var(--g600) !important;
+          color: #fff !important;
+          border-color: var(--g600) !important;
+          box-shadow: 0 2px 6px rgba(34,168,75,0.2) !important;
+        }
+      `}</style>
       {/* ── Instruction Popup Modal ── */}
       {instrModal.open && (
         <div
@@ -1839,38 +1888,116 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                               <div>
                                                 {inp.documents && inp.documents.length > 0 && (
                                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 8 }}>
-                                                    {inp.documents.map((doc, di) => (
-                                                      <div key={doc.filename || di} style={{
-                                                        display: 'flex', alignItems: 'center', gap: 8,
-                                                        padding: '7px 12px', background: 'var(--g50)',
-                                                        border: '1px solid var(--g200)', borderRadius: 9,
-                                                      }}>
-                                                        <span style={{ color: 'var(--g600)', fontSize: 14, flexShrink: 0 }}>📎</span>
-                                                        <span style={{
-                                                          fontSize: 12.5, fontWeight: 600,
-                                                          color: 'var(--g700)', flex: 1, overflow: 'hidden',
-                                                          textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                                                        }}>
-                                                          {doc.originalName || 'Uploaded file'}
-                                                        </span>
-                                                        <span style={{ fontSize: 10, color: 'var(--g500)', flexShrink: 0 }}>#{di + 1}</span>
-                                                        {isInputEditable(inp) && (
-                                                          <button
-                                                            onClick={() => handleDeleteFile(inp._id, doc.filename)}
-                                                            title="Remove this file"
-                                                            style={{
-                                                              flexShrink: 0, width: 20, height: 20,
-                                                              borderRadius: '50%', border: 'none',
-                                                              background: 'rgba(239,68,68,0.1)',
-                                                              color: '#EF4444', fontSize: 13, fontWeight: 700,
-                                                              cursor: 'pointer', display: 'flex',
-                                                              alignItems: 'center', justifyContent: 'center',
-                                                              lineHeight: 1, padding: 0,
+                                                    {inp.documents.map((doc, di) => {
+                                                      const ext = (doc.originalName || '').split('.').pop().toLowerCase();
+                                                      const viewable = ext === 'pdf' || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+                                                      return (
+                                                        <div key={doc.filename || di} style={{
+                                                          display: 'flex', alignItems: 'center', gap: 8,
+                                                          padding: '7px 12px', background: 'var(--g50)',
+                                                          border: '1px solid var(--g200)', borderRadius: 9,
+                                                        }}
+                                                        className="file-row-hover"
+                                                        >
+                                                          <a
+                                                            href={viewable ? `${SERVER_URL}/uploads/documents/${doc.filename}` : '#'}
+                                                            target={viewable ? "_blank" : undefined}
+                                                            rel={viewable ? "noopener noreferrer" : undefined}
+                                                            onClick={e => {
+                                                              if (!viewable) {
+                                                                e.preventDefault();
+                                                                triggerDownload(doc.filename, doc.originalName);
+                                                              }
                                                             }}
-                                                          >×</button>
-                                                        )}
-                                                      </div>
-                                                    ))}
+                                                            style={{
+                                                              display: 'flex',
+                                                              alignItems: 'center',
+                                                              gap: 8,
+                                                              flex: 1,
+                                                              minWidth: 0,
+                                                              textDecoration: 'none',
+                                                              cursor: 'pointer',
+                                                            }}
+                                                            title={viewable ? "Click to preview" : "Click to download"}
+                                                          >
+                                                            <span style={{ color: 'var(--g600)', fontSize: 14, flexShrink: 0, transition: 'transform 0.2s ease' }} className="file-icon-hover">
+                                                              {ext === 'pdf' ? '📄' : ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) ? '🖼️' : '📎'}
+                                                            </span>
+                                                            <span style={{
+                                                              fontSize: 12.5, fontWeight: 600,
+                                                              color: 'var(--g700)', flex: 1, overflow: 'hidden',
+                                                              textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                              transition: 'color 0.2s ease'
+                                                            }}
+                                                            className="file-name-text"
+                                                            >
+                                                              {doc.originalName || 'Uploaded file'}
+                                                            </span>
+                                                            <span style={{
+                                                              fontSize: 10,
+                                                              fontWeight: 800,
+                                                              padding: '2px 7px',
+                                                              borderRadius: 5,
+                                                              background: 'var(--g200)',
+                                                              color: 'var(--g800)',
+                                                              flexShrink: 0,
+                                                              fontFamily: 'Montserrat,sans-serif',
+                                                              transition: 'all 0.2s ease',
+                                                            }}
+                                                            className="file-action-badge"
+                                                            >
+                                                              {viewable ? 'View ↗' : 'Download ↓'}
+                                                            </span>
+                                                          </a>
+                                                          {viewable && (
+                                                            <button
+                                                              type="button"
+                                                              onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                triggerDownload(doc.filename, doc.originalName);
+                                                              }}
+                                                              style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                padding: '2px 8px',
+                                                                borderRadius: 5,
+                                                                background: 'var(--g50)',
+                                                                border: '1px solid var(--g200)',
+                                                                color: 'var(--g800)',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.2s ease',
+                                                                fontSize: 10,
+                                                                fontWeight: 800,
+                                                                fontFamily: 'Montserrat,sans-serif',
+                                                                flexShrink: 0,
+                                                              }}
+                                                              className="file-download-btn"
+                                                              title="Download file directly"
+                                                            >
+                                                              Download ↓
+                                                            </button>
+                                                          )}
+                                                          <span style={{ fontSize: 10, color: 'var(--g500)', flexShrink: 0 }}>#{di + 1}</span>
+                                                          {isInputEditable(inp) && (
+                                                            <button
+                                                              onClick={() => handleDeleteFile(inp._id, doc.filename)}
+                                                              title="Remove this file"
+                                                              style={{
+                                                                flexShrink: 0, width: 20, height: 20,
+                                                                borderRadius: '50%', border: 'none',
+                                                                background: 'rgba(239,68,68,0.1)',
+                                                                color: '#EF4444', fontSize: 13, fontWeight: 700,
+                                                                cursor: 'pointer', display: 'flex',
+                                                                alignItems: 'center', justifyContent: 'center',
+                                                                lineHeight: 1, padding: 0,
+                                                              }}
+                                                            >×</button>
+                                                          )}
+                                                        </div>
+                                                      );
+                                                    })}
                                                   </div>
                                                 )}
                                                 {isInputEditable(inp) && (

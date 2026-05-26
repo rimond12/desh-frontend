@@ -9,8 +9,8 @@ const DEFAULTS = {
     authHeaderTitleBn: 'গণপ্রজাতন্ত্রী বাংলাদেশ সরকার',
     authHeaderTitleEn: "Government of the People's Republic of Bangladesh",
     authCardLogoLeft: '/images/0_HBRI_Picture3-removebg-preview.png',
-    authCardLogoRight: '/images/logo (1).png',
-    authCardLogos: ['/images/0_HBRI_Picture3-removebg-preview.png', '/images/logo (1).png'],
+    authCardLogoRight: '/images/DESH_Picture1.png',
+    authCardLogos: ['/images/0_HBRI_Picture3-removebg-preview.png', '/images/DESH_Picture1.png'],
     authSystemLabel: 'Sustainable Design Assessment System',
 };
 
