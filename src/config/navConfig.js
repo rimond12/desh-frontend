@@ -61,6 +61,7 @@ export const NAV_CONFIG = [
                 sectionKey: 'adminSection_CONTENT',
                 sectionDefault: 'CONTENT',
                 items: [
+                    { key: 'adminNav_categories', defaultLabel: 'Categories',  path: '/admin/categories',  icon: '📁' },
                     { key: 'adminNav_tabs',       defaultLabel: 'Tabs',        path: '/admin/tabs',       icon: '◧' },
                     { key: 'adminNav_modules',    defaultLabel: 'Modules',     path: '/admin/modules',    icon: '◈' },
                     { key: 'adminNav_sections',   defaultLabel: 'Sections',    path: '/admin/sections',   icon: '▦' },

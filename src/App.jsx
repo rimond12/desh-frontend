@@ -25,6 +25,7 @@ import Submissions      from './pages/admin/Submissions.jsx';
 import SubmissionDetail from './pages/admin/SubmissionDetail.jsx';
 import Modules          from './pages/admin/Modules.jsx';
 import Tabs             from './pages/admin/Tabs.jsx';
+import Categories       from './pages/admin/Categories.jsx';
 import Sections         from './pages/admin/Sections.jsx';
 import LeafLevels       from './pages/admin/LeafLevels.jsx';
 import Users            from './pages/admin/Users.jsx';
@@ -122,6 +123,7 @@ function AppRoutes() {
       <Route path="/admin/submissions"      element={<AdminRoute><Submissions/></AdminRoute>} />
       <Route path="/admin/submissions/:id"  element={<AdminRoute><SubmissionDetail/></AdminRoute>} />
       <Route path="/admin/modules"          element={<AdminRoute><Modules/></AdminRoute>} />
+      <Route path="/admin/categories"       element={<AdminRoute><Categories/></AdminRoute>} />
       <Route path="/admin/tabs"             element={<AdminRoute><Tabs/></AdminRoute>} />
       <Route path="/admin/sections"         element={<AdminRoute><Sections/></AdminRoute>} />
       <Route path="/admin/evaluation"       element={<AdminRoute><LeafLevels/></AdminRoute>} />

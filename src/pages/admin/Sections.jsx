@@ -155,39 +155,27 @@ export default function Sections() {
 
       {/* Form modal */}
       {showForm && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 50,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 16, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)'
-        }}>
-          <div className="glass-card fade-in-up" style={{ width: '100%', maxWidth: 440, padding: 28 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <h3 style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 17, color: 'var(--tx)', margin: 0 }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="glass-card w-full max-w-md p-6 fade-in-up border border-white/10" style={{ background: 'rgba(20, 20, 20, 0.95)', boxShadow: '0 20px 45px rgba(0,0,0,0.6)' }}>
+            <div className="flex items-center justify-between mb-5 pb-3 border-b border-white/5">
+              <h2 className="font-bold text-lg text-[#34C961]" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                 {editItem ? 'Edit Section' : 'New Section'}
-              </h3>
-              <button className="btn-icon" onClick={() => setShowForm(false)}>✕</button>
+              </h2>
+              <button onClick={() => setShowForm(false)} className="text-white/40 hover:text-white transition-colors text-lg">✕</button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="space-y-4">
               <div>
-                <label style={{
-                  display: 'block', fontSize: 11, fontWeight: 800, letterSpacing: '0.09em',
-                  textTransform: 'uppercase', color: 'var(--tx-muted)', marginBottom: 6,
-                  fontFamily: 'Montserrat,sans-serif'
-                }}>Section Name *</label>
-                <input className="input-field" value={form.title}
+                <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>Section Name *</label>
+                <input className="w-full px-4 py-3 text-sm rounded-xl border outline-none bg-black/30 border-white/10 text-white placeholder-white/30 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all" value={form.title}
                   onChange={e => setForm({ ...form, title: e.target.value })}
                   placeholder="e.g. Site & Environment, Before Construction"
                   autoFocus />
               </div>
               <div>
-                <label style={{
-                  display: 'block', fontSize: 11, fontWeight: 800, letterSpacing: '0.09em',
-                  textTransform: 'uppercase', color: 'var(--tx-muted)', marginBottom: 6,
-                  fontFamily: 'Montserrat,sans-serif'
-                }}>Sort Order</label>
+                <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>Sort Order</label>
                 <input
                   type="number" min="1"
-                  className="input-field"
+                  className="w-full px-4 py-3 text-sm rounded-xl border outline-none bg-black/30 border-white/10 text-white placeholder-white/30 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all"
                   value={form.sortOrder}
                   onChange={e => setForm({ ...form, sortOrder: Number(e.target.value) })}
                   placeholder="e.g. 1, 2, 3…"
@@ -195,28 +183,24 @@ export default function Sections() {
                 />
               </div>
               <div>
-                <label style={{
-                  display: 'block', fontSize: 11, fontWeight: 800, letterSpacing: '0.09em',
-                  textTransform: 'uppercase', color: 'var(--tx-muted)', marginBottom: 6,
-                  fontFamily: 'Montserrat,sans-serif'
-                }}>Section Icon</label>
+                <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>Section Icon</label>
                 {iconPreview && (
                   <div style={{ marginBottom: 8 }}>
                     <img src={iconPreview} alt="icon preview"
                       onError={e => { e.currentTarget.style.display = 'none'; }}
                       style={{
                         height: 48, width: 48, objectFit: 'contain',
-                        borderRadius: 8, border: '1px solid var(--border-md)',
-                        background: 'var(--bg-subtle)', padding: 4, display: 'block'
+                        borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)',
+                        background: 'rgba(0,0,0,0.25)', padding: 4, display: 'block'
                       }} />
                   </div>
                 )}
                 <label style={{
                   display: 'inline-flex', alignItems: 'center', gap: 8,
-                  cursor: 'pointer', padding: '8px 14px', borderRadius: 10,
-                  border: '1.5px dashed var(--border-md)', background: 'var(--bg-subtle)',
-                  fontSize: 12, color: 'var(--tx-muted)', fontWeight: 600
-                }}>
+                  cursor: 'pointer', padding: '10px 16px', borderRadius: 12,
+                  border: '1px dashed rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.25)',
+                  fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 600
+                }} className="hover:bg-white/5 hover:text-white transition-all">
                   <span>📎</span>
                   <span>{iconFile ? iconFile.name : (iconPreview ? 'Replace icon…' : 'Upload icon…')}</span>
                   <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleIconChange} />
@@ -226,39 +210,40 @@ export default function Sections() {
               <div style={{
                 display: 'flex', alignItems: 'flex-start', gap: 14,
                 padding: '14px 16px', borderRadius: 12,
-                background: form.isConstant ? 'linear-gradient(135deg,#FFF7ED,#FFEDD5)' : 'var(--bg-soft)',
-                border: `1.5px solid ${form.isConstant ? '#FED7AA' : 'var(--border)'}`,
+                background: form.isConstant ? 'rgba(234,179,8,0.15)' : 'rgba(0,0,0,0.25)',
+                border: `1.5px solid ${form.isConstant ? 'rgba(234,179,8,0.3)' : 'rgba(255,255,255,0.1)'}`,
                 cursor: 'pointer', transition: 'all 0.2s',
               }} onClick={() => setForm({ ...form, isConstant: !form.isConstant })}>
                 <div style={{
                   width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: 1,
-                  border: `2px solid ${form.isConstant ? '#EA580C' : 'var(--border-md)'}`,
-                  background: form.isConstant ? '#EA580C' : '#fff',
+                  border: `2px solid ${form.isConstant ? '#F8A514' : 'rgba(255,255,255,0.2)'}`,
+                  background: form.isConstant ? '#F8A514' : 'transparent',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'all 0.15s',
                 }}>
                   {form.isConstant && <span style={{ color: '#fff', fontSize: 12, lineHeight: 1, fontWeight: 900 }}>✓</span>}
                 </div>
                 <div>
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: form.isConstant ? '#9A3412' : 'var(--tx)' }}>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: form.isConstant ? '#F8A514' : '#fff' }}>
                     Constant Section
                     {form.isConstant && (
-                      <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 99, background: '#EA580C', color: '#fff', verticalAlign: 'middle' }}>
+                      <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 99, background: '#F8A514', color: '#000', verticalAlign: 'middle' }}>
                         ⚡ ON
                       </span>
                     )}
                   </p>
-                  <p style={{ margin: '3px 0 0', fontSize: 12, color: form.isConstant ? '#C2410C' : 'var(--tx-muted)', lineHeight: 1.4 }}>
+                  <p style={{ margin: '3px 0 0', fontSize: 12, color: form.isConstant ? 'rgba(248,165,20,0.7)' : 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>
                     Always visible alongside other sections. Its score is added to every section's total. Not shown in section filter dropdown.
                   </p>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                <button className="btn-primary-green" onClick={save} style={{ flex: 1, justifyContent: 'center' }}>
+              <div className="flex gap-3 pt-3 border-t border-white/5 mt-6">
+                <button onClick={save} className="btn-primary-green flex-1 justify-center text-sm py-3">
                   {editItem ? 'Save Changes' : 'Create Section'}
                 </button>
-                <button className="btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
+                <button className="flex-1 py-2.5 rounded-xl border text-sm font-semibold transition-all hover:bg-white/5 hover:text-white"
+                  style={{ borderColor: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)' }} onClick={() => setShowForm(false)}>Cancel</button>
               </div>
             </div>
           </div>

@@ -57,22 +57,22 @@ function DropZone({ accept, onChange, currentFileName, label }) {
             onDragOver={e => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
             onDrop={handleDrop}
-            className="w-full rounded-xl cursor-pointer transition-all flex flex-col items-center justify-center gap-2 py-8"
+            className="w-full rounded-xl cursor-pointer transition-all flex flex-col items-center justify-center gap-2 py-8 text-white"
             style={{
-                border: `2px dashed ${dragging ? 'var(--g500)' : 'var(--border-md)'}`,
-                background: dragging ? 'var(--g100)' : 'var(--bg-soft)',
+                border: `2px dashed ${dragging ? 'var(--g500)' : 'rgba(255,255,255,0.15)'}`,
+                background: dragging ? 'rgba(52,201,97,0.15)' : 'rgba(0,0,0,0.25)',
             }}
         >
             <span style={{ fontSize: 28 }}>{currentFileName ? '📎' : '📂'}</span>
             {currentFileName ? (
                 <div className="text-center">
-                    <p className="text-xs font-semibold" style={{ color: 'var(--g600)' }}>{currentFileName}</p>
-                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--tx-muted)' }}>Click or drop to replace</p>
+                    <p className="text-xs font-semibold text-[#5DD882]">{currentFileName}</p>
+                    <p className="text-[11px] mt-0.5 text-white/40">Click or drop to replace</p>
                 </div>
             ) : (
                 <div className="text-center">
-                    <p className="text-sm font-semibold" style={{ color: 'var(--tx)' }}>{label}</p>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--tx-muted)' }}>Click to browse or drag and drop here</p>
+                    <p className="text-sm font-semibold text-white/95">{label}</p>
+                    <p className="text-xs mt-0.5 text-white/40">Click to browse or drag and drop here</p>
                 </div>
             )}
             <input ref={inputRef} type="file" accept={accept} style={{ display: 'none' }}
@@ -253,28 +253,28 @@ export default function Resources() {
 
             {/* ── Delete confirmation modal ── */}
             {deleteConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-                    <div className="glass-card w-full max-w-sm p-6 fade-in-up text-center">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+                    <div className="glass-card w-full max-w-sm p-6 fade-in-up text-center border border-white/10" style={{ background: 'rgba(20, 20, 20, 0.95)', boxShadow: '0 20px 45px rgba(0,0,0,0.6)' }}>
                         <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl"
                             style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
                             🗑️
                         </div>
-                        <h3 className="font-bold text-lg mb-1" style={{ fontFamily: 'Montserrat, sans-serif' }}>Delete Resource?</h3>
-                        <p className="text-sm mb-6" style={{ color: 'var(--tx-muted)' }}>
+                        <h3 className="font-bold text-lg mb-1 text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>Delete Resource?</h3>
+                        <p className="text-sm mb-6 text-white/60">
                             This will permanently remove the resource and its file from the server. This cannot be undone.
                         </p>
                         <div className="flex gap-3">
                             <button
                                 onClick={confirmDelete}
                                 disabled={deleting}
-                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
+                                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:bg-red-600"
                                 style={{ background: '#EF4444', opacity: deleting ? 0.7 : 1 }}>
                                 {deleting ? 'Deleting…' : 'Yes, Delete'}
                             </button>
                             <button
                                 onClick={() => setDeleteConfirm(null)}
-                                className="flex-1 py-2.5 rounded-xl border text-sm font-semibold"
-                                style={{ borderColor: 'var(--border-md)', color: 'var(--tx-muted)' }}>
+                                className="flex-1 py-2.5 rounded-xl border text-sm font-semibold transition-all hover:bg-white/5 hover:text-white"
+                                style={{ borderColor: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)' }}>
                                 Cancel
                             </button>
                         </div>
@@ -284,62 +284,58 @@ export default function Resources() {
 
             {/* ── Add / Edit Modal ── */}
             {showForm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-                    <div className="glass-card w-full max-w-lg fade-in-up overflow-y-auto" style={{ maxHeight: '92vh' }}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+                    <div className="glass-card w-full max-w-lg fade-in-up border border-white/10 overflow-y-auto" style={{ background: 'rgba(20, 20, 20, 0.95)', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', maxHeight: '92vh' }}>
 
                         {/* Modal header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base"
-                                    style={{ background: 'var(--g100)' }}>
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold"
+                                    style={{ background: 'rgba(52,201,97,0.15)', color: '#34c961' }}>
                                     {editItem ? '✎' : '+'}
                                 </div>
-                                <h2 className="font-bold text-base" style={{ fontFamily: 'Montserrat, sans-serif', color: 'var(--tx)' }}>
+                                <h2 className="font-bold text-lg text-[#34C961]" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                                     {editItem ? 'Edit Resource' : 'Add New Resource'}
                                 </h2>
                             </div>
-                            <button onClick={closeForm}
-                                className="w-8 h-8 rounded-lg flex items-center justify-center text-sm hover:bg-red-500/10 transition-colors"
-                                style={{ color: 'var(--tx-muted)', border: '1px solid var(--border)' }}>
-                                ✕
-                            </button>
+                            <button onClick={closeForm} className="text-white/40 hover:text-white transition-colors text-lg">✕</button>
                         </div>
 
                         <div className="p-6 space-y-5">
 
                             {/* Title */}
                             <div>
-                                <label className="block text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: 'var(--tx-muted)' }}>
+                                <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>
                                     Resource Title *
                                 </label>
                                 <input
                                     value={form.title}
                                     onChange={e => setForm({ ...form, title: e.target.value })}
                                     placeholder="e.g. Wetland Buffer Strip Planting Guidelines"
-                                    className="input-dark w-full px-4 py-3 text-sm"
+                                    className="w-full px-4 py-3 text-sm rounded-xl border outline-none bg-black/30 border-white/10 text-white placeholder-white/30 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all"
                                     autoFocus
                                 />
                             </div>
 
                             {/* Type selector — visual cards */}
                             <div>
-                                <label className="block text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: 'var(--tx-muted)' }}>
+                                <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>
                                     Resource Type *
                                 </label>
                                 <div className="grid grid-cols-2 gap-3">
                                     {[
-                                        { value: 'pdf', icon: '📄', label: 'PDF Document', color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
-                                        { value: 'video', icon: '🎥', label: 'Video Tutorial', color: '#EA580C', bg: '#FFF7ED', border: '#FED7AA' },
+                                        { value: 'pdf', icon: '📄', label: 'PDF Document', color: '#5DD882', bg: 'rgba(52,201,97,0.15)', border: 'rgba(52,201,97,0.3)' },
+                                        { value: 'video', icon: '🎥', label: 'Video Tutorial', color: '#F8A514', bg: 'rgba(248,165,20,0.15)', border: 'rgba(248,165,20,0.3)' },
                                     ].map(t => (
                                         <button
                                             key={t.value}
                                             type="button"
                                             onClick={() => setForm({ ...form, type: t.value })}
-                                            className="flex items-center gap-3 p-3 rounded-xl text-left transition-all"
+                                            className="flex items-center gap-3 p-3 rounded-xl text-left transition-all border"
                                             style={{
-                                                background: form.type === t.value ? t.bg : 'var(--bg-soft)',
-                                                border: `2px solid ${form.type === t.value ? t.border : 'var(--border)'}`,
-                                                color: form.type === t.value ? t.color : 'var(--tx-muted)',
+                                                background: form.type === t.value ? t.bg : 'rgba(0,0,0,0.25)',
+                                                borderColor: form.type === t.value ? t.border : 'rgba(255,255,255,0.1)',
+                                                color: form.type === t.value ? t.color : 'rgba(255,255,255,0.6)',
                                             }}
                                         >
                                             <span className="text-xl">{t.icon}</span>
@@ -351,24 +347,24 @@ export default function Resources() {
 
                             {/* Description */}
                             <div>
-                                <label className="block text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: 'var(--tx-muted)' }}>
+                                <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>
                                     Short Description
                                 </label>
                                 <textarea
                                     value={form.description}
                                     onChange={e => setForm({ ...form, description: e.target.value })}
                                     placeholder="Brief explanation of what this resource covers…"
-                                    className="input-dark w-full px-4 py-3 text-sm resize-none"
+                                    className="w-full px-4 py-3 text-sm rounded-xl border outline-none bg-black/30 border-white/10 text-white placeholder-white/30 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all resize-none"
                                     rows={3}
                                 />
                             </div>
 
                             {/* Source type toggle */}
                             <div>
-                                <label className="block text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: 'var(--tx-muted)' }}>
+                                <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>
                                     Resource Source
                                 </label>
-                                <div className="flex rounded-xl overflow-hidden" style={{ border: '1.5px solid var(--border)', background: 'var(--bg-soft)' }}>
+                                <div className="flex rounded-xl overflow-hidden border border-white/10 bg-black/30">
                                     {[{ v: 'upload', l: '📂 Upload File' }, { v: 'link', l: '🔗 External Link' }].map(s => (
                                         <button
                                             key={s.v}
@@ -377,7 +373,7 @@ export default function Resources() {
                                             className="flex-1 py-2.5 text-sm font-semibold transition-all"
                                             style={{
                                                 background: form.sourceType === s.v ? 'var(--g600)' : 'transparent',
-                                                color: form.sourceType === s.v ? '#fff' : 'var(--tx-muted)',
+                                                color: form.sourceType === s.v ? '#fff' : 'rgba(255,255,255,0.6)',
                                             }}
                                         >
                                             {s.l}
@@ -389,50 +385,52 @@ export default function Resources() {
                             {/* Conditional: file upload or link */}
                             {form.sourceType === 'upload' ? (
                                 <div>
-                                    <label className="block text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: 'var(--tx-muted)' }}>
+                                    <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>
                                         {editItem?.fileUrl ? 'Replace File (optional)' : 'Upload File *'}
                                     </label>
-                                    <DropZone
-                                        accept={form.type === 'pdf' ? '.pdf' : 'video/*'}
-                                        onChange={f => { setResourceFile(f); setFilePreviewName(f.name); }}
-                                        currentFileName={filePreviewName || null}
-                                        label={`Drop your ${form.type === 'pdf' ? 'PDF' : 'video'} file here`}
-                                    />
+                                    <div className="rounded-xl overflow-hidden border border-white/10 p-1 bg-black/20">
+                                        <DropZone
+                                            accept={form.type === 'pdf' ? '.pdf' : 'video/*'}
+                                            onChange={f => { setResourceFile(f); setFilePreviewName(f.name); }}
+                                            currentFileName={filePreviewName || null}
+                                            label={`Drop your ${form.type === 'pdf' ? 'PDF' : 'video'} file here`}
+                                        />
+                                    </div>
                                     {editItem?.fileUrl && !resourceFile && (
-                                        <p className="text-[11px] mt-2" style={{ color: 'var(--tx-muted)' }}>
-                                            Current: <span style={{ color: 'var(--g600)' }}>{editItem.fileUrl.split('/').pop()}</span>
+                                        <p className="text-[11px] mt-2 text-white/40">
+                                            Current: <span className="text-[#34c961]">{editItem.fileUrl.split('/').pop()}</span>
                                             {' · '}Leave blank to keep existing file.
                                         </p>
                                     )}
                                 </div>
                             ) : (
                                 <div>
-                                    <label className="block text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: 'var(--tx-muted)' }}>
+                                    <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>
                                         External URL *
                                     </label>
                                     <input
                                         value={form.linkUrl}
                                         onChange={e => setForm({ ...form, linkUrl: e.target.value })}
                                         placeholder="https://www.youtube.com/watch?v=..."
-                                        className="input-dark w-full px-4 py-3 text-sm"
+                                        className="w-full px-4 py-3 text-sm rounded-xl border outline-none bg-black/30 border-white/10 text-white placeholder-white/30 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all"
                                     />
                                 </div>
                             )}
 
                             {/* Footer buttons */}
-                            <div className="flex gap-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+                            <div className="flex gap-3 pt-3 border-t border-white/5 mt-6">
                                 <button
                                     onClick={save}
                                     disabled={saving}
-                                    className="btn-primary-green flex-1 justify-center text-sm"
+                                    className="btn-primary-green flex-1 justify-center text-sm py-3"
                                     style={{ opacity: saving ? 0.7 : 1 }}
                                 >
                                     {saving ? 'Saving…' : (editItem ? '✓ Save Changes' : '+ Add Resource')}
                                 </button>
                                 <button
                                     onClick={closeForm}
-                                    className="flex-1 py-2.5 rounded-xl border text-sm font-semibold transition-colors hover:bg-red-500/5"
-                                    style={{ borderColor: 'var(--border-md)', color: 'var(--tx-muted)' }}
+                                    className="flex-1 py-2.5 rounded-xl border text-sm font-semibold transition-all hover:bg-white/5 hover:text-white"
+                                    style={{ borderColor: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)' }}
                                 >
                                     Cancel
                                 </button>

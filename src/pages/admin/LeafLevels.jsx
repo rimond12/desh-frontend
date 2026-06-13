@@ -154,53 +154,54 @@ export default function LeafLevels() {
 
             {/* ── Create / Edit Modal ── */}
             {showForm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-                    <div className="glass-card w-full max-w-md p-6 fade-in-up" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className="font-bold text-lg">{editItem ? 'Edit Level' : 'New Level'}</h2>
-                            <button onClick={() => setShowForm(false)} style={{ color: 'var(--tx-muted)' }}>✕</button>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+                    <div className="glass-card w-full max-w-md p-6 fade-in-up border border-white/10" style={{ background: 'rgba(20, 20, 20, 0.95)', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', maxHeight: '90vh', overflowY: 'auto' }}>
+                        <div className="flex items-center justify-between mb-5 pb-3 border-b border-white/5">
+                            <h2 className="font-bold text-lg text-[#34C961]" style={{ fontFamily: 'Montserrat, sans-serif' }}>{editItem ? 'Edit Level' : 'New Level'}</h2>
+                            <button onClick={() => setShowForm(false)} className="text-white/40 hover:text-white transition-colors text-lg">✕</button>
                         </div>
                         <div className="space-y-4">
                             {/* Name */}
                             <div>
-                                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>LEVEL NAME *</label>
+                                <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>LEVEL NAME *</label>
                                 <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                                    placeholder="e.g. Green Leaf" className="input-dark w-full px-4 py-3 text-sm" autoFocus />
+                                    placeholder="e.g. Green Leaf" 
+                                    className="w-full px-4 py-3 text-sm rounded-xl border outline-none bg-black/30 border-white/10 text-white placeholder-white/30 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all" autoFocus />
                             </div>
 
                             {/* Percent range */}
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>MIN %</label>
+                                    <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>MIN %</label>
                                     <input type="number" value={form.minPercent} onChange={e => setForm({ ...form, minPercent: e.target.value })}
-                                        className="input-dark w-full px-4 py-3 text-sm" />
+                                        className="w-full px-4 py-3 text-sm rounded-xl border outline-none bg-black/30 border-white/10 text-white placeholder-white/30 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>MAX %</label>
+                                    <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>MAX %</label>
                                     <input type="number" value={form.maxPercent} onChange={e => setForm({ ...form, maxPercent: e.target.value })}
-                                        className="input-dark w-full px-4 py-3 text-sm" />
+                                        className="w-full px-4 py-3 text-sm rounded-xl border outline-none bg-black/30 border-white/10 text-white placeholder-white/30 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all" />
                                 </div>
                             </div>
 
                             {/* Color */}
                             <div>
-                                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>COLOR</label>
+                                <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>COLOR</label>
                                 <div className="flex items-center gap-3">
                                     <input type="color" value={form.colorCode} onChange={e => setForm({ ...form, colorCode: e.target.value })}
                                         className="w-12 h-10 rounded-lg cursor-pointer border-0 bg-transparent" />
                                     <input value={form.colorCode} onChange={e => setForm({ ...form, colorCode: e.target.value })}
-                                        className="input-dark flex-1 px-4 py-3 text-sm font-mono" />
+                                        className="px-4 py-3 text-sm font-mono rounded-xl border outline-none bg-black/30 border-white/10 text-white placeholder-white/30 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all flex-1" />
                                     <span className="px-3 py-1.5 rounded-full text-xs font-bold"
                                         style={{ background: form.colorCode, color: '#fff' }}>{form.name || 'Preview'}</span>
                                 </div>
-                                <p style={{ fontSize: 11, color: 'var(--tx-faint)', marginTop: 4 }}>
+                                <p className="text-[11px] mt-1.5 text-white/40">
                                     Color is shown when no image is uploaded.
                                 </p>
                             </div>
 
                             {/* Image upload */}
                             <div>
-                                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>
+                                <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>
                                     LEAF IMAGE <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional — replaces color display)</span>
                                 </label>
 
@@ -209,21 +210,21 @@ export default function LeafLevels() {
                                     <div style={{
                                         display: 'flex', alignItems: 'center', gap: 12,
                                         padding: '10px 14px', borderRadius: 12,
-                                        background: 'var(--g50)', border: '1.5px solid var(--g200)', marginBottom: 8,
+                                        background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)', marginBottom: 8,
                                     }}>
                                         <img src={currentImageUrl} alt="leaf preview"
-                                            style={{ width: 40, height: 50, objectFit: 'contain', borderRadius: 6, background: '#fff' }} />
+                                            style={{ width: 40, height: 50, objectFit: 'contain', borderRadius: 6, background: 'rgba(255,255,255,0.05)' }} />
                                         <div style={{ flex: 1 }}>
-                                            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--tx)', margin: 0 }}>
+                                            <p className="text-xs font-semibold text-white m-0">
                                                 {imageFile ? imageFile.name : 'Current image'}
                                             </p>
-                                            <p style={{ fontSize: 11, color: 'var(--tx-muted)', margin: '2px 0 0' }}>
+                                            <p className="text-[11px] text-white/40 m-0" style={{ marginTop: 2 }}>
                                                 Image will be shown instead of the leaf color
                                             </p>
                                         </div>
                                         <button
                                             onClick={() => { setImageFile(null); setImagePreview(null); if (editItem?.imageUrl) setRemoveImage(true); }}
-                                            style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#EF4444', cursor: 'pointer', fontWeight: 600 }}>
+                                            className="text-[11px] px-2.5 py-1 rounded-md border border-red-500/30 bg-red-500/10 text-red-400 font-semibold cursor-pointer hover:bg-red-500/20 transition-all">
                                             Remove
                                         </button>
                                     </div>
@@ -231,11 +232,11 @@ export default function LeafLevels() {
                                     <label style={{
                                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                                         padding: '14px', borderRadius: 12, cursor: 'pointer',
-                                        border: '1.5px dashed var(--border-md)', background: 'var(--bg-soft)',
+                                        border: '1.5px dashed rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.25)',
                                         marginBottom: 8,
-                                    }}>
-                                        <span style={{ fontSize: 20 }}>🖼️</span>
-                                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--tx-muted)' }}>
+                                    }} className="hover:bg-white/5 hover:text-white transition-all text-white/60">
+                                        <span className="text-xl">🖼️</span>
+                                        <span className="text-sm font-semibold">
                                             {removeImage ? 'Image removed — click to re-upload' : 'Upload leaf image (PNG, JPG, SVG)'}
                                         </span>
                                         <input type="file" style={{ display: 'none' }}
@@ -246,13 +247,13 @@ export default function LeafLevels() {
                             </div>
 
                             {/* Buttons */}
-                            <div className="flex gap-3 pt-2">
-                                <button onClick={save} disabled={saving} className="btn-primary-green flex-1 justify-center text-sm">
+                            <div className="flex gap-3 pt-3 border-t border-white/5 mt-6">
+                                <button onClick={save} disabled={saving} className="btn-primary-green flex-1 justify-center text-sm py-3">
                                     {saving ? 'Saving…' : editItem ? 'Save Changes' : 'Create Level'}
                                 </button>
                                 <button onClick={() => setShowForm(false)}
-                                    className="flex-1 py-2.5 rounded-xl border text-sm font-semibold"
-                                    style={{ borderColor: 'var(--border-md)', color: 'var(--tx-muted)' }}>Cancel</button>
+                                    className="flex-1 py-2.5 rounded-xl border text-sm font-semibold transition-all hover:bg-white/5 hover:text-white"
+                                    style={{ borderColor: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)' }}>Cancel</button>
                             </div>
                         </div>
                     </div>

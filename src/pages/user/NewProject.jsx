@@ -19,22 +19,17 @@ export default function NewProject() {
   const axiosSecure = useAxiosSecure();
   const [title, setSectionTitle] = useState('');
   const [sectionId, setSectionId] = useState('');
-  const [buildingType, setBuildingType] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [categories, setCategories] = useState([]);
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(false);
   const [leafLevels, setLeafLevels] = useState(DEFAULT_LEAF_LEVELS);
 
-  const BUILDING_TYPES = [
-    'Park Design',
-    'Residential Building',
-    'Office Building',
-    'Industrial Building',
-    'School',
-    'Hospital',
-    'Other',
-  ];
-
   useEffect(() => {
+    axiosSecure.get('/categories')
+      .then(r => setCategories(r.data.categories || []))
+      .catch(() => toast.error('Failed to load project types'));
+
     axiosSecure.get('/sections')
       .then(r => {
         const sorted = [...(r.data.sections || [])].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
@@ -55,7 +50,8 @@ export default function NewProject() {
           })));
         }
       })
-      .catch(() => {}); // silently fall back to defaults
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const regularSections = sections.filter(s => !s.isConstant);
@@ -64,11 +60,12 @@ export default function NewProject() {
   const submit = async (e) => {
     e.preventDefault();
     if (!title.trim()) { toast.error('Project title is required'); return; }
-
+    if (!categoryId) { toast.error('Please select a project type'); return; }
     if (!sectionId) { toast.error('Please select a section / stage'); return; }
+    
     setLoading(true);
     try {
-      const res = await axiosSecure.post('/projects', { title, sectionId, buildingType: buildingType || undefined });
+      const res = await axiosSecure.post('/projects', { title, sectionId, categoryId });
       const projectId = res.data?.project?._id;
       if (!projectId) { toast.error('Project created but ID not found'); return; }
       toast.success('Project created successfully!');
@@ -124,19 +121,19 @@ export default function NewProject() {
               autoFocus
             />
 
-            {/* Building Type */}
+            {/* Project Type */}
             <label className="block text-xs font-semibold mb-2 text-gray-400 uppercase tracking-widest">
-              Building Type
+              Project Type *
             </label>
             <select
-              value={buildingType}
-              onChange={e => setBuildingType(e.target.value)}
+              value={categoryId}
+              onChange={e => setCategoryId(e.target.value)}
               className="input-dark w-full px-4 py-4 mb-5"
               style={{ appearance: 'auto', cursor: 'pointer' }}
             >
-              <option value="">— Select building type —</option>
-              {BUILDING_TYPES.map(type => (
-                <option key={type} value={type}>{type}</option>
+              <option value="">— Select project type —</option>
+              {categories.map(cat => (
+                <option key={cat._id} value={cat._id}>{cat.name}</option>
               ))}
             </select>
 
@@ -181,18 +178,6 @@ export default function NewProject() {
                 </div>
 
                 {constantSections.length > 0 && (
-                  // <div style={{
-                  //   display: 'flex', alignItems: 'flex-start', gap: 8,
-                  //   padding: '10px 14px', borderRadius: 10, marginBottom: 20,
-                  //   background: 'rgba(234,179,8,0.07)', border: '1.5px solid rgba(234,179,8,0.25)',
-                  //   fontSize: 12, color: '#92660a',
-                  // }}>
-                  //   <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>⚡</span>
-                  //   <span>
-                  //     <strong>Always included:</strong>{' '}
-                  //     {constantSections.map(s => s.title).join(', ')} — constant{constantSections.length > 1 ? ' sections are' : ' section is'} automatically added to every project.
-                  //   </span>
-                  // </div>
                   <></>
                 )}
               </>
@@ -200,7 +185,7 @@ export default function NewProject() {
 
             <button
               type="submit"
-              disabled={loading || !title.trim() || !sectionId}
+              disabled={loading || !title.trim() || !sectionId || !categoryId}
               className="btn-primary-green w-full disabled:opacity-50"
             >
               {loading ? 'Creating…' : 'Create & Continue →'}

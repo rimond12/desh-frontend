@@ -32,7 +32,23 @@ const faqs = [
     { q: 'How many projects can I create?', a: 'You can create unlimited projects under your account.' },
 ];
 
-const BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+const getDynamicApiBaseUrl = () => {
+  if (process.env.REACT_APP_API_URL && !process.env.REACT_APP_API_URL.includes("localhost")) {
+    return process.env.REACT_APP_API_URL;
+  }
+  if (typeof window !== "undefined" && window.location) {
+    const { hostname } = window.location;
+    if (hostname.includes("deshboard.org")) {
+      return "https://api.deshboard.org/api";
+    }
+    if (hostname !== "localhost" && hostname !== "127.0.0.1") {
+      return window.location.origin.replace(/\/\/(app|www)\./, '//api.') + '/api';
+    }
+  }
+  return process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+};
+
+const BASE_URL = getDynamicApiBaseUrl().replace(/\/api\/?$/, '');
 
 function PdfIcon() {
     return (
@@ -115,7 +131,18 @@ export default function Manual() {
     const videoCount = resources.filter(r => r.type === 'video').length;
 
     const getResourceLink = (res) => {
-        let link = res.fileUrl ? `${BASE_URL}${res.fileUrl}` : res.linkUrl;
+        let link;
+        if (res.fileUrl) {
+            const filename = res.fileUrl.split('/').pop();
+            const ext = filename.split('.').pop().toLowerCase();
+            if (ext === 'pdf') {
+                link = `${BASE_URL}/api/uploads/download/resources/${filename}`;
+            } else {
+                link = `${BASE_URL}${res.fileUrl}`;
+            }
+        } else {
+            link = res.linkUrl;
+        }
         if (link && !/^https?:\/\//i.test(link)) link = `https://${link}`;
         return link;
     };
