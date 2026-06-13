@@ -658,6 +658,12 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
       <style>${css}</style>
       <div class="body-offset">${body}</div>
     `;
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = '800px';
+    container.style.background = 'white';
+    document.body.appendChild(container);
 
     const opt = {
       margin:       [10, 10, 10, 10],
@@ -675,9 +681,11 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
       .set(opt)
       .save()
       .then(() => {
+        document.body.removeChild(container);
         toast.success("PDF downloaded successfully!", { id: toastId });
       })
       .catch(err => {
+        document.body.removeChild(container);
         console.error("PDF generation failed:", err);
         toast.error("Direct PDF download failed. Opening browser print as fallback.", { id: toastId });
         
