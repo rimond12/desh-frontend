@@ -6,7 +6,8 @@ import CommentThread from '../../components/shared/CommentThread.jsx';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
-import html2pdf from 'html2pdf.js';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import {
   BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer,
@@ -493,7 +494,7 @@ export default function ProjectAssessment() {
   // Legacy flag kept only for the Submit button and module-level save visibility
   const isEditable = !isLocked && project?.status !== 'submitted';
 
-  const exportPdf = () => {
+  const exportPdf = async () => {
     const API_PDF_BASE = getDynamicApiBaseUrl();
     const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const fIcon = (name) => { const e = (name || '').split('.').pop().toLowerCase(); return e === 'pdf' ? '📄' : ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(e) ? '🖼️' : '📎'; };
@@ -653,48 +654,61 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 .comment-text{font-size:11.5px;color:#1f2937;line-height:1.5;white-space:pre-wrap}
 @media print{.print-bar{display:none!important}.body-offset{padding-top:0!important}.tab-sec+.tab-sec{page-break-before:always}.mod{page-break-inside:avoid}.tab-hdr{page-break-after:avoid}.stage-hdr{background:#F0FDF4!important}.comment-box{page-break-inside:avoid}}`;
 
+    const filename = `desh_project_${project?._id || 'report'}.pdf`;
+    const toastId = toast.loading('Generating PDF… Please wait.');
+
     const container = document.createElement('div');
-    container.innerHTML = `
-      <style>${css}</style>
-      <div class="body-offset">${body}</div>
-    `;
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '0';
-    container.style.width = '800px';
-    container.style.background = 'white';
+    container.innerHTML = `<style>${css}</style><div class="body-offset">${body}</div>`;
+    container.style.cssText = 'position:absolute;left:-9999px;top:0;width:800px;background:white;font-family:Inter,Arial,sans-serif;';
     document.body.appendChild(container);
 
-    const opt = {
-      margin:       [10, 10, 10, 10],
-      filename:     `desh_project_${project?._id || 'report'}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 1.5, useCORS: true, logging: false },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak:    { mode: ['css', 'legacy'] }
-    };
-
-    const toastId = toast.loading("Generating PDF for direct download... Please wait.");
-
-    html2pdf()
-      .from(container)
-      .set(opt)
-      .save()
-      .then(() => {
-        document.body.removeChild(container);
-        toast.success("PDF downloaded successfully!", { id: toastId });
-      })
-      .catch(err => {
-        document.body.removeChild(container);
-        console.error("PDF generation failed:", err);
-        toast.error("Direct PDF download failed. Opening browser print as fallback.", { id: toastId });
-        
-        const win = window.open('', '_blank', 'width=1040,height=900');
-        if (win) {
-          win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${esc(project?.title)} — Project Report</title><style>${css}</style></head><body><div class="print-bar"><div class="print-bar-info"><div class="print-bar-title">${esc(project?.title)}</div><div class="print-bar-sub">DESH Project Report &bull; ${updatedDate}</div></div><button class="print-btn" onclick="window.print()">🖨 Print / Save as PDF</button></div><div class="body-offset">${body}</div><script>setTimeout(()=>window.print(),600)<\/script></body></html>`);
-          win.document.close();
-        }
+    try {
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: 800,
       });
+
+      const imgData  = canvas.toDataURL('image/jpeg', 0.95);
+      const doc      = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+      const pageW    = doc.internal.pageSize.getWidth();
+      const pageH    = doc.internal.pageSize.getHeight();
+      const margin   = 10;
+      const printW   = pageW - margin * 2;   // usable width in mm
+      const printH   = pageH - margin * 2;   // usable height per page in mm
+      const ratio    = printW / canvas.width; // mm per canvas-pixel
+      const totalH   = canvas.height * ratio; // total rendered height in mm
+
+      let y = 0;
+      let pg = 0;
+      while (y < totalH) {
+        if (pg > 0) doc.addPage();
+        // Shift image upward so the correct slice sits in the printable area
+        doc.addImage(imgData, 'JPEG', margin, margin - y, printW, totalH, '', 'FAST');
+        // Cover overflow above the margin with white
+        if (y > 0) { doc.setFillColor(255, 255, 255); doc.rect(0, 0, pageW, margin, 'F'); }
+        // Cover overflow below the printable area with white
+        doc.setFillColor(255, 255, 255);
+        doc.rect(0, margin + printH, pageW, pageH - margin - printH + 1, 'F');
+        y  += printH;
+        pg += 1;
+      }
+
+      doc.save(filename);
+      document.body.removeChild(container);
+      toast.success('PDF downloaded successfully!', { id: toastId });
+    } catch (err) {
+      if (document.body.contains(container)) document.body.removeChild(container);
+      console.error('PDF generation failed:', err);
+      toast.error('PDF generation failed. Opening print dialog as fallback.', { id: toastId });
+      const win = window.open('', '_blank', 'width=1040,height=900');
+      if (win) {
+        win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${esc(project?.title)} — Project Report</title><style>${css}</style></head><body><div class="print-bar"><div class="print-bar-info"><div class="print-bar-title">${esc(project?.title)}</div><div class="print-bar-sub">DESH Project Report &bull; ${updatedDate}</div></div><button class="print-btn" onclick="window.print()">🖨 Print / Save as PDF</button></div><div class="body-offset">${body}</div><script>setTimeout(()=>window.print(),600)<\/script></body></html>`);
+        win.document.close();
+      }
+    }
   };
 
   return (
