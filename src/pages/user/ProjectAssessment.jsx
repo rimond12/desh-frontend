@@ -663,6 +663,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
     document.body.appendChild(container);
 
     try {
+      // ── Render canvas FIRST so layout is fully computed ──
       const canvas = await html2canvas(container, {
         scale: 2,
         useCORS: true,
@@ -671,29 +672,71 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
         windowWidth: 800,
       });
 
-      const imgData  = canvas.toDataURL('image/jpeg', 0.95);
-      const doc      = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-      const pageW    = doc.internal.pageSize.getWidth();
-      const pageH    = doc.internal.pageSize.getHeight();
-      const margin   = 10;
-      const printW   = pageW - margin * 2;   // usable width in mm
-      const printH   = pageH - margin * 2;   // usable height per page in mm
-      const ratio    = printW / canvas.width; // mm per canvas-pixel
-      const totalH   = canvas.height * ratio; // total rendered height in mm
+      // ── Collect file-link positions AFTER canvas render (container still in DOM) ──
+      const H2C_SCALE    = 2;
+      const ctnrRect     = container.getBoundingClientRect();
+      const fileLinkData = [];
+      container.querySelectorAll('a.file-link[href]').forEach(a => {
+        const r = a.getBoundingClientRect();
+        fileLinkData.push({
+          url:  a.href,                        // absolute URL already baked in
+          relX: r.left   - ctnrRect.left,      // px from container left
+          relY: r.top    - ctnrRect.top,       // px from container top
+          w:    r.width,
+          h:    r.height,
+        });
+      });
 
-      let y = 0;
-      let pg = 0;
-      while (y < totalH) {
+      const doc    = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+      const pageW  = doc.internal.pageSize.getWidth();   // 210 mm
+      const pageH  = doc.internal.pageSize.getHeight();  // 297 mm
+      const margin = 10; // mm
+      const printW = pageW - margin * 2;  // 190 mm  usable width
+      const printH = pageH - margin * 2;  // 277 mm  usable height per page
+
+      // How many raw canvas pixels equal one mm of printable width?
+      const pxPerMm      = canvas.width / printW;
+      // How many raw canvas pixels fill one full page of printable height?
+      const pageHeightPx = Math.round(printH * pxPerMm);
+      const totalPages   = Math.ceil(canvas.height / pageHeightPx);
+
+      for (let pg = 0; pg < totalPages; pg++) {
         if (pg > 0) doc.addPage();
-        // Shift image upward so the correct slice sits in the printable area
-        doc.addImage(imgData, 'JPEG', margin, margin - y, printW, totalH, '', 'FAST');
-        // Cover overflow above the margin with white
-        if (y > 0) { doc.setFillColor(255, 255, 255); doc.rect(0, 0, pageW, margin, 'F'); }
-        // Cover overflow below the printable area with white
-        doc.setFillColor(255, 255, 255);
-        doc.rect(0, margin + printH, pageW, pageH - margin - printH + 1, 'F');
-        y  += printH;
-        pg += 1;
+
+        const srcY  = pg * pageHeightPx;                          // start row in canvas
+        const srcH  = Math.min(pageHeightPx, canvas.height - srcY); // rows for this page
+
+        // ── Carve out just this page's pixels into a temporary canvas ──
+        const slice    = document.createElement('canvas');
+        slice.width    = canvas.width;
+        slice.height   = srcH;
+        const ctx      = slice.getContext('2d');
+        ctx.fillStyle  = '#ffffff';
+        ctx.fillRect(0, 0, slice.width, slice.height);
+        ctx.drawImage(canvas,
+          0, srcY, canvas.width, srcH,   // source rect
+          0, 0,    canvas.width, srcH    // dest rect
+        );
+
+        const sliceData   = slice.toDataURL('image/jpeg', 0.92);
+        const sliceHMm    = srcH / pxPerMm;  // this slice's height in mm
+        doc.addImage(sliceData, 'JPEG', margin, margin, printW, sliceHMm);
+
+        // ── Stamp invisible clickable link annotations over each file-link belonging to this page ──
+        fileLinkData.forEach(({ url, relX, relY, w, h }) => {
+          if (!url) return;
+          const cX      = relX * H2C_SCALE;
+          const cY      = relY * H2C_SCALE;
+          const pageIdx = Math.floor(cY / pageHeightPx);
+          if (pageIdx !== pg) return;
+
+          const yOnPage = (cY - pageIdx * pageHeightPx) / pxPerMm + margin;
+          const xMm     = cX / pxPerMm + margin;
+          const wMm     = (w * H2C_SCALE) / pxPerMm;
+          const hMm     = (h * H2C_SCALE) / pxPerMm;
+
+          doc.link(xMm, yOnPage, wMm, hMm, { url });
+        });
       }
 
       doc.save(filename);
