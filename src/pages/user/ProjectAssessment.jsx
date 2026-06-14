@@ -370,7 +370,8 @@ export default function ProjectAssessment() {
 
   const triggerDownload = (filename, originalName) => {
     try {
-      const url = `${SERVER_URL}/api/uploads/download/documents/${filename}`;
+      const query = originalName ? `?originalName=${encodeURIComponent(originalName)}` : '';
+      const url = `${SERVER_URL}/api/uploads/download/documents/${filename}${query}`;
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', originalName || filename);
@@ -379,7 +380,8 @@ export default function ProjectAssessment() {
       document.body.removeChild(link);
     } catch (error) {
       console.error('Download failed:', error);
-      window.open(`${SERVER_URL}/api/uploads/download/documents/${filename}`, '_blank');
+      const query = originalName ? `?originalName=${encodeURIComponent(originalName)}` : '';
+      window.open(`${SERVER_URL}/api/uploads/download/documents/${filename}${query}`, '_blank');
     }
   };
 
@@ -556,7 +558,7 @@ export default function ProjectAssessment() {
       body += `<div class="tab-sec"><div class="tab-hdr"><div class="tab-badge">${ti + 1}</div><div class="tab-name">${esc(tab.title)}</div></div>`;
       mods.forEach((mod, mi) => {
         const inputs = mod.inputs || [];
-        const modEarned = inputs.reduce((s, i) => s + (answers[i._id]?.points || 0), 0);
+        const modEarned = inputs.reduce((s, i) => s + calcInputPoints(i, answers[i._id]), 0);
         const modMax = inputs.reduce((s, i) => s + calcInputMax(i), 0);
         body += `<div class="mod"><div class="mod-hdr"><span class="mod-name">${esc((ti + 1) + '.' + (mi + 1) + ' ' + mod.title)}</span>${modMax > 0 ? `<span class="mod-pts">${modEarned.toFixed(1)} / ${modMax} pts</span>` : ''}</div>`;
         const grouped = {};
@@ -575,7 +577,12 @@ export default function ProjectAssessment() {
             let val = '';
             if (inp.inputType === 'file') {
               const linkedDocs = inp.documents || [];
-              val = linkedDocs.length > 0 ? linkedDocs.map(doc => { const url = `${API_PDF_BASE}/uploads/download/documents/${doc.filename}`; const name = doc.originalName || doc.filename || 'file'; return `<a href="${url}" target="_blank" class="file-link">${fIcon(name)} ${esc(name)}</a>`; }).join('<br>') : '<span class="val-empty">No file uploaded</span>';
+              val = linkedDocs.length > 0 ? linkedDocs.map(doc => {
+                const name = doc.originalName || doc.filename || 'file';
+                const query = name ? `?originalName=${encodeURIComponent(name)}` : '';
+                const url = `${API_PDF_BASE}/uploads/download/documents/${doc.filename}${query}`;
+                return `<a href="${url}" target="_blank" class="file-link">${fIcon(name)} ${esc(name)}</a>`;
+              }).join('<br>') : '<span class="val-empty">No file uploaded</span>';
             } else if (inp.inputType === 'checkbox') {
               const sel = Array.isArray(answers[inp._id]) ? answers[inp._id] : [];
               const opts = inp.options || [];
@@ -623,7 +630,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 .mod-hdr{background:#F9FAFB;padding:10px 15px;border-bottom:1px solid #E5E7EB;display:flex;justify-content:space-between;align-items:center;gap:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .mod-name{font-family:'Montserrat',sans-serif;font-size:12px;font-weight:800;color:#111}
 .mod-pts{font-size:10.5px;font-weight:700;color:#145C28;background:#D6F5E3;padding:3px 9px;border-radius:20px;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.inp{display:grid;grid-template-columns:1fr 1.3fr;gap:12px;padding:9px 15px;border-bottom:1px solid #F3F4F6;align-items:start}
+.inp{display:grid;grid-template-columns:1fr 1.3fr;gap:12px;padding:9px 15px;border-bottom:1px solid #F3F4F6;align-items:center}
 .inp:last-child{border-bottom:none}
 .inp:nth-child(even){background:#FAFAFA}
 .inp-lbl{font-size:11.5px;font-weight:700;color:#374151;display:flex;align-items:flex-start;gap:5px;flex-wrap:wrap;line-height:1.45}
@@ -634,8 +641,8 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 .inp-val{font-size:12.5px;color:#374151;word-break:break-word;line-height:1.55}
 .val-empty{color:#9CA3AF;font-style:italic;font-size:12px}
 .file-link{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;background:#EFF6FF;color:#1D4ED8;text-decoration:none;font-size:11px;font-weight:600;border:1px solid #BFDBFE;margin:2px 0;word-break:break-all}
-.cb-wrap{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
-.cb-chip{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.cb-wrap{display:block;line-height:2.0;margin-top:2px}
+.cb-chip{display:inline-block;vertical-align:middle;margin:3px 6px 3px 0;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .cb-on{background:#FEF9C3;color:#92400E;border-color:#FDE68A}.cb-off{background:#F9FAFB;color:#9CA3AF;border-color:#E5E7EB}
 .body-offset{padding-top:10px}
 .stage-hdr{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#145C28;padding:8px 15px 6px;background:linear-gradient(90deg,#F0FDF4,#fff);border-left:3px solid #22A84B;margin:8px -1px 0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -654,7 +661,13 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 .comment-text{font-size:11.5px;color:#1f2937;line-height:1.5;white-space:pre-wrap}
 @media print{.print-bar{display:none!important}.body-offset{padding-top:0!important}.tab-sec+.tab-sec{page-break-before:always}.mod{page-break-inside:avoid}.tab-hdr{page-break-after:avoid}.stage-hdr{background:#F0FDF4!important}.comment-box{page-break-inside:avoid}}`;
 
-    const filename = `desh_project_${project?._id || 'report'}.pdf`;
+    const getProjectReportFilename = (title) => {
+      if (!title) return 'report.pdf';
+      let sanitized = title.trim().replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, '_');
+      sanitized = sanitized.replace(/[.\s]+$/, '');
+      return `${sanitized || 'report'}.pdf`;
+    };
+    const filename = getProjectReportFilename(project?.title);
     const toastId = toast.loading('Generating PDF… Please wait.');
 
     const container = document.createElement('div');
@@ -1929,7 +1942,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 8 }}>
                                                     {inp.documents.map((doc, di) => {
                                                       const ext = (doc.originalName || '').split('.').pop().toLowerCase();
-                                                      const viewable = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+                                                      const viewable = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'].includes(ext);
                                                       return (
                                                         <div key={doc.filename || di} style={{
                                                           display: 'flex', alignItems: 'center', gap: 8,

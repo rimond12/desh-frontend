@@ -64,10 +64,12 @@ function getLeafLevel(pct, rules) {
 }
 
 function getDownloadUrl(doc) {
-  if (doc.filename) return `${API_BASE}/uploads/download/documents/${doc.filename}`;
+  const name = doc.originalName || '';
+  const query = name ? `?originalName=${encodeURIComponent(name)}` : '';
+  if (doc.filename) return `${API_BASE}/uploads/download/documents/${doc.filename}${query}`;
   if (doc.path) {
     const fname = doc.path.replace(/\\/g, '/').split('/').pop();
-    return `${API_BASE}/uploads/download/documents/${fname}`;
+    return `${API_BASE}/uploads/download/documents/${fname}${query}`;
   }
   return null;
 }
@@ -83,7 +85,7 @@ function fileIcon(name) {
 }
 function fileActionLabel(name) {
   const t = getFileType(name);
-  return t === 'pdf' ? '↓' : t === 'image' ? 'View' : '↓';
+  return (t === 'pdf' || t === 'image') ? 'View' : '↓';
 }
 
 // ── Input type badge colors ───────────────────────────────────────
@@ -302,7 +304,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 .mod-hdr{background:#F9FAFB;padding:10px 15px;border-bottom:1px solid #E5E7EB;display:flex;justify-content:space-between;align-items:center;gap:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .mod-name{font-family:'Montserrat',sans-serif;font-size:12px;font-weight:800;color:#111}
 .mod-pts{font-size:10.5px;font-weight:700;color:#145C28;background:#D6F5E3;padding:3px 9px;border-radius:20px;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.inp{display:grid;grid-template-columns:1fr 1.3fr;gap:12px;padding:9px 15px;border-bottom:1px solid #F3F4F6;align-items:start}
+.inp{display:grid;grid-template-columns:1fr 1.3fr;gap:12px;padding:9px 15px;border-bottom:1px solid #F3F4F6;align-items:center}
 .inp:last-child{border-bottom:none}
 .inp:nth-child(even){background:#FAFAFA}
 .inp-lbl{font-size:11.5px;font-weight:700;color:#374151;display:flex;align-items:flex-start;gap:5px;flex-wrap:wrap;line-height:1.45}
@@ -313,8 +315,8 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 .inp-val{font-size:12.5px;color:#374151;word-break:break-word;line-height:1.55}
 .val-empty{color:#9CA3AF;font-style:italic;font-size:12px}
 .file-link{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;background:#EFF6FF;color:#1D4ED8;text-decoration:none;font-size:11px;font-weight:600;border:1px solid #BFDBFE;margin:2px 0;word-break:break-all}
-.cb-wrap{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
-.cb-chip{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.cb-wrap{display:block;line-height:2.0;margin-top:2px}
+.cb-chip{display:inline-block;vertical-align:middle;margin:3px 6px 3px 0;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .cb-on{background:#FEF9C3;color:#92400E;border-color:#FDE68A}.cb-off{background:#F9FAFB;color:#9CA3AF;border-color:#E5E7EB}
 .stage-hdr{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#145C28;padding:8px 15px 6px;background:linear-gradient(90deg,#F0FDF4,#fff);border-left:3px solid #22A84B;margin:8px -1px 0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .inp-comments{grid-column:span 2;margin-top:10px;background:#f9fbf9;border:1px solid #e6efe8;border-radius:8px;padding:10px 12px}
@@ -332,7 +334,13 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 .comment-text{font-size:11.5px;color:#1f2937;line-height:1.5;white-space:pre-wrap}
 @media print{.print-bar{display:none!important}.body-offset{padding-top:0!important}.tab-sec+.tab-sec{page-break-before:always}.mod{page-break-inside:avoid}.tab-hdr{page-break-after:avoid}.stage-hdr{background:#F0FDF4!important}.comment-box{page-break-inside:avoid}}`;
 
-    const filename = `desh_submission_${project?._id || 'report'}.pdf`;
+    const getProjectReportFilename = (title) => {
+      if (!title) return 'report.pdf';
+      let sanitized = title.trim().replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, '_');
+      sanitized = sanitized.replace(/[.\s]+$/, '');
+      return `${sanitized || 'report'}.pdf`;
+    };
+    const filename = getProjectReportFilename(project?.title);
     const toastId = toast.loading('Generating PDF… Please wait.');
 
     const container = document.createElement('div');
@@ -756,10 +764,11 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                     ? (linkedDocs.length > 0
                                       ? <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                         {linkedDocs.map((doc, di) => {
-                                          const url = getDownloadUrl(doc);
                                           const name = doc.originalName || doc.filename || 'file';
                                           const type = getFileType(name);
-                                          const viewable = type === 'image';
+                                          const viewable = type === 'image' || type === 'pdf';
+                                          const filename = doc.filename || (doc.path ? doc.path.replace(/\\/g, '/').split('/').pop() : '');
+                                          const url = viewable ? `${SERVER_BASE}/uploads/documents/${filename}` : getDownloadUrl(doc);
                                           return (
                                             <a key={di} href={url}
                                               target={viewable ? "_blank" : undefined}
