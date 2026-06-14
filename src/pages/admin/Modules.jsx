@@ -69,6 +69,8 @@ export default function Modules() {
   const [loading, setLoading] = useState(true);
   const [openMod, setOpenMod] = useState(null);
   const [globalSections, setGlobalSections] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [categoryFilter, setCategoryFilter] = useState('');
 
   const [MM, setMM] = useState({ open: false, d: null });
   const [IM, setIM] = useState({ open: false, d: null, mId: null });
@@ -82,7 +84,14 @@ export default function Modules() {
       setTabs(t);
       if (t.length && !activeTab) setActiveTab(t[0]._id);
     } catch { toast.error('Failed to load tabs'); }
-  }, []);
+  }, [ax, activeTab]);
+
+  const loadCategories = useCallback(async () => {
+    try {
+      const r = await ax.get('/categories');
+      setCategories(r.data.categories || []);
+    } catch { toast.error('Failed to load categories'); }
+  }, [ax]);
 
   const loadModules = useCallback(async (tid) => {
     if (!tid) return;
@@ -92,17 +101,18 @@ export default function Modules() {
       setModules(r.data.modules || []);
     } catch { toast.error('Failed to load modules'); }
     finally { setLoading(false); }
-  }, []);
+  }, [ax]);
 
   const loadGlobalSections = useCallback(async () => {
     try {
       const r = await ax.get('/sections');
       setGlobalSections(r.data.sections || []);
     } catch { /* sections may not be critical */ }
-  }, []);
+  }, [ax]);
 
   useEffect(() => {
     loadTabs();
+    loadCategories();
     loadGlobalSections();
     ax.get('/settings').then(r => {
       const s = r.data.settings;
@@ -113,27 +123,100 @@ export default function Modules() {
         });
       }
     }).catch(() => {});
-  }, []);
-  useEffect(() => { if (activeTab) loadModules(activeTab); }, [activeTab]);
+  }, [loadTabs, loadCategories, loadGlobalSections, ax]);
+
+  useEffect(() => {
+    if (activeTab) {
+      loadModules(activeTab);
+    } else {
+      setModules([]);
+    }
+  }, [activeTab, loadModules]);
 
   const refresh = () => loadModules(activeTab);
 
-  const filteredTabs = tabs.filter(t =>
-    t.title.toLowerCase().includes(tabSearch.toLowerCase())
-  );
+  const filteredTabs = tabs.filter(t => {
+    const matchesSearch = t.title.toLowerCase().includes(tabSearch.toLowerCase());
+    if (!categoryFilter) return matchesSearch;
+    return matchesSearch && t.categories?.some(cat => (cat._id || cat) === categoryFilter);
+  });
+
+  const handleCategoryFilterChange = (catId) => {
+    setCategoryFilter(catId);
+    setOpenMod(null);
+    const newFiltered = tabs.filter(t => {
+      if (!catId) return true;
+      return t.categories?.some(cat => (cat._id || cat) === catId);
+    });
+    if (newFiltered.length > 0) {
+      if (!newFiltered.some(t => t._id === activeTab)) {
+        setActiveTab(newFiltered[0]._id);
+      }
+    } else {
+      setActiveTab(null);
+    }
+  };
 
   // ── Module Modal ──────────────────────────────────────────────
   function ModuleModal() {
     const editing = !!MM.d?._id;
+
+    // Find tab of the module we are editing (if editing) or the active tab (if creating)
+    const initialTabId = editing ? MM.d?.tabId : activeTab;
+    const initialTabObj = tabs.find(t => t._id === initialTabId);
+
+    // Find initial category ID
+    let initialCategoryId = "";
+    if (editing) {
+      if (initialTabObj && initialTabObj.categories?.length > 0) {
+        initialCategoryId = initialTabObj.categories[0]._id || initialTabObj.categories[0];
+      }
+    } else {
+      if (categoryFilter) {
+        initialCategoryId = categoryFilter;
+      } else if (initialTabObj && initialTabObj.categories?.length > 0) {
+        initialCategoryId = initialTabObj.categories[0]._id || initialTabObj.categories[0];
+      }
+    }
+
     const [f, setF] = useState({
       title: MM.d?.title || '',
       readDetails: MM.d?.readDetails || '',
       sortOrder: MM.d?.sortOrder ?? modules.length + 1,
+      categoryId: initialCategoryId,
+      tabId: initialTabId || '',
     });
+
     const [iconFile, setIconFile] = useState(null);
     const [iconPreview, setIconPreview] = useState(
       MM.d?.iconUrl ? `${SERVER_URL}${MM.d.iconUrl}` : ''
     );
+
+    // Filter tabs by category chosen in modal
+    const modalFilteredTabs = tabs.filter(t => {
+      if (!f.categoryId) return true;
+      return t.categories?.some(cat => (cat._id || cat) === f.categoryId);
+    });
+
+    const handleModalCategoryChange = (catId) => {
+      const filtered = tabs.filter(t => {
+        if (!catId) return true;
+        return t.categories?.some(cat => (cat._id || cat) === catId);
+      });
+      let nextTabId = "";
+      if (filtered.length > 0) {
+        if (filtered.some(t => t._id === f.tabId)) {
+          nextTabId = f.tabId;
+        } else {
+          nextTabId = filtered[0]._id;
+        }
+      }
+      setF(prev => ({
+        ...prev,
+        categoryId: catId,
+        tabId: nextTabId
+      }));
+    };
 
     const handleIconChange = (e) => {
       const file = e.target.files[0];
@@ -144,27 +227,36 @@ export default function Modules() {
 
     const save = async () => {
       if (!f.title.trim()) { toast.error('Title required'); return; }
+      if (!f.tabId) { toast.error('Tab selection required'); return; }
       try {
         const fd = new FormData();
         fd.append('title', f.title);
         fd.append('readDetails', f.readDetails);
         fd.append('sortOrder', Number(f.sortOrder));
+        fd.append('tabId', f.tabId);
         if (iconFile) fd.append('icon', iconFile);
 
         editing
-          ? await ax.put(`/tabs/${activeTab}/modules/${MM.d._id}`, fd)
-          : await ax.post(`/tabs/${activeTab}/modules`, fd);
+          ? await ax.put(`/tabs/${f.tabId}/modules/${MM.d._id}`, fd)
+          : await ax.post(`/tabs/${f.tabId}/modules`, fd);
         toast.success(editing ? 'Updated!' : 'Created!');
-        setMM({ open: false, d: null }); refresh();
+        
+        if (f.categoryId && categoryFilter && f.categoryId !== categoryFilter) {
+          setCategoryFilter(f.categoryId);
+        }
+        setActiveTab(f.tabId);
+        setMM({ open: false, d: null });
+        loadModules(f.tabId);
       } catch { toast.error('Failed'); }
     };
 
     const del = async () => {
       if (!window.confirm('Delete module + all inputs?')) return;
       try {
-        await ax.delete(`/tabs/${activeTab}/modules/${MM.d._id}`);
+        await ax.delete(`/tabs/${f.tabId}/modules/${MM.d._id}`);
         toast.success('Deleted!');
-        setMM({ open: false, d: null }); refresh();
+        setMM({ open: false, d: null });
+        loadModules(f.tabId);
       } catch { toast.error('Failed'); }
     };
 
@@ -172,6 +264,28 @@ export default function Modules() {
       <Modal open={MM.open} onClose={() => setMM({ open: false, d: null })}
         title={editing ? 'Edit Module' : 'New Module'}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <Lbl req>Project Category</Lbl>
+            <select className="input-field" value={f.categoryId}
+              onChange={e => handleModalCategoryChange(e.target.value)}>
+              <option value="">— Select Category —</option>
+              {categories.map(cat => (
+                <option key={cat._id} value={cat._id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Lbl req>Tab</Lbl>
+            <select className="input-field" value={f.tabId}
+              onChange={e => setF({ ...f, tabId: e.target.value })}>
+              <option value="">— Select Tab —</option>
+              {modalFilteredTabs.map(t => (
+                <option key={t._id} value={t._id}>
+                  {t.title}{!t.isActive ? ' (inactive)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <Lbl req>Module Title</Lbl>
             <input className="input-field" value={f.title}
@@ -935,10 +1049,23 @@ export default function Modules() {
                   style={{ paddingLeft: 36 }} />
               </div>
 
+              {/* Project Category Filter */}
+              <select className="input-field"
+                value={categoryFilter}
+                onChange={e => handleCategoryFilterChange(e.target.value)}
+                style={{ flex: 1, minWidth: 200, maxWidth: 300 }}>
+                <option value="">— All Project Categories —</option>
+                {categories.map(cat => (
+                  <option key={cat._id} value={cat._id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+
               <select className="input-field"
                 value={activeTab || ''}
                 onChange={e => { setActiveTab(e.target.value); setOpenMod(null); }}
-                style={{ flex: 1, minWidth: 200, maxWidth: 340 }}>
+                style={{ flex: 1, minWidth: 200, maxWidth: 300 }}>
                 <option value="">— Select a tab —</option>
                 {filteredTabs.map(t => (
                   <option key={t._id} value={t._id}>
@@ -967,8 +1094,17 @@ export default function Modules() {
           {/* Modules list */}
           {!activeTab ? (
             <div className="card" style={{ padding: 40, textAlign: 'center' }}>
-              <p style={{ fontSize: 32, marginBottom: 12 }}>👆</p>
-              <p style={{ color: 'var(--tx-muted)', fontSize: 14 }}>Select a tab to view its modules</p>
+              <p style={{ fontSize: 32, marginBottom: 12 }}>{categoryFilter && filteredTabs.length === 0 ? '📁' : '👆'}</p>
+              <p style={{ color: 'var(--tx-muted)', fontSize: 14 }}>
+                {categoryFilter && filteredTabs.length === 0
+                  ? 'No tabs associated with this category. Go to the Tabs page to associate tabs.'
+                  : 'Select a tab to view its modules'}
+              </p>
+              {categoryFilter && filteredTabs.length === 0 && (
+                <a href="/admin/tabs" className="btn-primary-green" style={{ textDecoration: 'none', display: 'inline-flex', marginTop: 12 }}>
+                  Go to Tabs →
+                </a>
+              )}
             </div>
           ) : loading ? (
             <div style={{ textAlign: 'center', padding: 60, color: 'var(--tx-muted)' }}>
