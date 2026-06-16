@@ -245,6 +245,7 @@ export default function SubmissionDetail() {
   const [togglingInput, setTogglingInput] = useState(null);
   // score card collapse
   const [scoreOpen, setScoreOpen] = useState(true);
+  const [payloadSize, setPayloadSize] = useState(0);
 
   useEffect(() => {
     Promise.all([
@@ -254,6 +255,13 @@ export default function SubmissionDetail() {
       axiosSecure.get(`/comments/by-project/${id}`),
     ])
       .then(([detailRes, secRes, rulesRes, commentsRes]) => {
+        // Measure and set response payload size
+        const size = JSON.stringify(detailRes.data).length +
+                     JSON.stringify(secRes.data).length +
+                     JSON.stringify(rulesRes.data).length +
+                     JSON.stringify(commentsRes.data).length;
+        setPayloadSize(size);
+
         setProject(detailRes.data.project);
         setTabs(detailRes.data.tabs || []);
         setGlobalSections(secRes.data.sections || []);
@@ -532,86 +540,164 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
     document.body.appendChild(container);
 
     try {
-      // ── Render canvas FIRST so layout is fully computed ──
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        windowWidth: 800,
+      const startTime = performance.now();
+      const numDocs = docs.length;
+      const htmlLen = container.innerHTML.length;
+
+      // ── Find all the sub-elements (chunks) we want to render ──
+      const chunks = [];
+      const coverEl = container.querySelector('.rpt-cover');
+      if (coverEl) chunks.push({ el: coverEl, type: 'cover' });
+      const scoreEl = container.querySelector('.score-strip');
+      if (scoreEl) chunks.push({ el: scoreEl, type: 'score' });
+      const tabEls = container.querySelectorAll('.tab-sec');
+      tabEls.forEach((el, idx) => {
+        chunks.push({ el, type: 'tab', index: idx });
       });
 
-      // ── Collect file-link positions AFTER canvas render (container still in DOM) ──
-      const H2C_SCALE    = 2;
-      const ctnrRect     = container.getBoundingClientRect();
-      const fileLinkData = [];
-      container.querySelectorAll('a.file-link[href]').forEach(a => {
-        const r = a.getBoundingClientRect();
-        fileLinkData.push({
-          url:  a.href,
-          relX: r.left - ctnrRect.left,
-          relY: r.top  - ctnrRect.top,
-          w:    r.width,
-          h:    r.height,
-        });
-      });
-
-      const doc    = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-      const pageW  = doc.internal.pageSize.getWidth();
-      const pageH  = doc.internal.pageSize.getHeight();
+      const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
       const margin = 10;
       const printW = pageW - margin * 2;
       const printH = pageH - margin * 2;
+      
+      const H2C_SCALE = 2;
+      let currentY = margin;
 
-      const pxPerMm      = canvas.width / printW;
-      const pageHeightPx = Math.round(printH * pxPerMm);
-      const totalPages   = Math.ceil(canvas.height / pageHeightPx);
-
-      for (let pg = 0; pg < totalPages; pg++) {
-        if (pg > 0) doc.addPage();
-
-        const srcY  = pg * pageHeightPx;
-        const srcH  = Math.min(pageHeightPx, canvas.height - srcY);
-
-        // ── Carve out just this page's pixels into a temporary canvas ──
-        const slice    = document.createElement('canvas');
-        slice.width    = canvas.width;
-        slice.height   = srcH;
-        const ctx      = slice.getContext('2d');
-        ctx.fillStyle  = '#ffffff';
-        ctx.fillRect(0, 0, slice.width, slice.height);
-        ctx.drawImage(canvas,
-          0, srcY, canvas.width, srcH,
-          0, 0,    canvas.width, srcH
-        );
-
-        const sliceData = slice.toDataURL('image/jpeg', 0.92);
-        const sliceHMm  = srcH / pxPerMm;
-        doc.addImage(sliceData, 'JPEG', margin, margin, printW, sliceHMm);
-
-        // ── Stamp invisible clickable link annotations over each file-link belonging to this page ──
-        fileLinkData.forEach(({ url, relX, relY, w, h }) => {
-          if (!url) return;
-          const cX      = relX * H2C_SCALE;
-          const cY      = relY * H2C_SCALE;
-          const pageIdx = Math.floor(cY / pageHeightPx);
-          if (pageIdx !== pg) return;
-
-          const yOnPage = (cY - pageIdx * pageHeightPx) / pxPerMm + margin;
-          const xMm     = cX / pxPerMm + margin;
-          const wMm     = (w * H2C_SCALE) / pxPerMm;
-          const hMm     = (h * H2C_SCALE) / pxPerMm;
-
-          doc.link(xMm, yOnPage, wMm, hMm, { url });
+      // Process each chunk sequentially
+      for (const chunk of chunks) {
+        const chunkEl = chunk.el;
+        const chunkCanvas = await html2canvas(chunkEl, {
+          scale: H2C_SCALE,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          windowWidth: 800,
         });
+
+        // ── Collect file-link positions relative to chunkEl ──
+        const chunkRect = chunkEl.getBoundingClientRect();
+        const fileLinkData = [];
+        chunkEl.querySelectorAll('a.file-link[href]').forEach(a => {
+          const r = a.getBoundingClientRect();
+          fileLinkData.push({
+            url: a.href,
+            relX: r.left - chunkRect.left,
+            relY: r.top - chunkRect.top,
+            w: r.width,
+            h: r.height,
+          });
+        });
+
+        const pxPerMm = chunkCanvas.width / printW;
+        const chunkHMm = chunkCanvas.height / pxPerMm;
+
+        // Safely check if we need to start a new page before drawing this chunk
+        if (printH - (currentY - margin) < 10) {
+          doc.addPage();
+          currentY = margin;
+        }
+
+        let remainingHMm = printH - (currentY - margin);
+
+        if (chunkHMm <= remainingHMm) {
+          // Fits completely on the current page
+          const sliceData = chunkCanvas.toDataURL('image/jpeg', 0.92);
+          doc.addImage(sliceData, 'JPEG', margin, currentY, printW, chunkHMm);
+
+          // Stamp clickable links
+          for (const { url, relX, relY, w, h } of fileLinkData) {
+            if (!url) continue;
+            const xMm = (relX * H2C_SCALE) / pxPerMm + margin;
+            const yMm = (relY * H2C_SCALE) / pxPerMm + currentY;
+            const wMm = (w * H2C_SCALE) / pxPerMm;
+            const hMm = (h * H2C_SCALE) / pxPerMm;
+            doc.link(xMm, yMm, wMm, hMm, { url });
+          }
+
+          currentY += chunkHMm;
+        } else if (chunkHMm <= printH) {
+          // Doesn't fit on current page, but fits completely on a fresh page
+          doc.addPage();
+          currentY = margin;
+
+          const sliceData = chunkCanvas.toDataURL('image/jpeg', 0.92);
+          doc.addImage(sliceData, 'JPEG', margin, currentY, printW, chunkHMm);
+
+          // Stamp clickable links
+          for (const { url, relX, relY, w, h } of fileLinkData) {
+            if (!url) continue;
+            const xMm = (relX * H2C_SCALE) / pxPerMm + margin;
+            const yMm = (relY * H2C_SCALE) / pxPerMm + currentY;
+            const wMm = (w * H2C_SCALE) / pxPerMm;
+            const hMm = (h * H2C_SCALE) / pxPerMm;
+            doc.link(xMm, yMm, wMm, hMm, { url });
+          }
+
+          currentY += chunkHMm;
+        } else {
+          // Chunk is larger than a single page - slice it across multiple pages
+          let sliceY = 0;
+          while (sliceY < chunkCanvas.height) {
+            remainingHMm = printH - (currentY - margin);
+            if (remainingHMm < 10) {
+              doc.addPage();
+              currentY = margin;
+              remainingHMm = printH;
+            }
+            const remainingHPx = Math.round(remainingHMm * pxPerMm);
+            const srcH = Math.min(remainingHPx, chunkCanvas.height - sliceY);
+
+            if (srcH <= 0) break;
+
+            const slice = document.createElement('canvas');
+            slice.width = chunkCanvas.width;
+            slice.height = srcH;
+            const ctx = slice.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, slice.width, slice.height);
+            ctx.drawImage(chunkCanvas,
+              0, sliceY, chunkCanvas.width, srcH,
+              0, 0, chunkCanvas.width, srcH
+            );
+
+            const sliceData = slice.toDataURL('image/jpeg', 0.92);
+            const sliceHMm = srcH / pxPerMm;
+            doc.addImage(sliceData, 'JPEG', margin, currentY, printW, sliceHMm);
+
+            // Stamp links in this slice
+            for (const { url, relX, relY, w, h } of fileLinkData) {
+              if (!url) continue;
+              const cY = relY * H2C_SCALE;
+              if (cY >= sliceY && cY < sliceY + srcH) {
+                const xMm = (relX * H2C_SCALE) / pxPerMm + margin;
+                const yMm = (cY - sliceY) / pxPerMm + currentY;
+                const wMm = (w * H2C_SCALE) / pxPerMm;
+                const hMm = (h * H2C_SCALE) / pxPerMm;
+                doc.link(xMm, yMm, wMm, hMm, { url });
+              }
+            }
+
+            sliceY += srcH;
+            currentY += sliceHMm;
+          }
+        }
       }
 
       doc.save(filename);
       document.body.removeChild(container);
       toast.success('PDF downloaded successfully!', { id: toastId });
+
+      const duration = performance.now() - startTime;
+      console.log(`[PDF EXPORT DEBUG LOGS]`);
+      console.log(`- Number of documents: ${numDocs}`);
+      console.log(`- Response payload size: ${payloadSize} bytes`);
+      console.log(`- HTML length: ${htmlLen} chars`);
+      console.log(`- Time taken: ${duration.toFixed(1)}ms`);
     } catch (err) {
       if (document.body.contains(container)) document.body.removeChild(container);
-      console.error('PDF generation failed:', err);
+      console.error('[PDF EXPORT ERROR]', err);
       toast.error('PDF generation failed. Opening print dialog as fallback.', { id: toastId });
       const win = window.open('', '_blank', 'width=1040,height=900');
       if (win) {
