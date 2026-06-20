@@ -1093,11 +1093,13 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
             }}>
               ⬇ Download PDF
             </button>
-            {project?.status !== 'submitted' && (
-              <button className="btn-primary-green" onClick={submitProject} disabled={submitting}>
-                {submitting ? 'Submitting…' : '✓ Submit'}
-              </button>
-            )}
+            <button
+              className="btn-primary-green"
+              onClick={submitProject}
+              disabled={submitting || project?.status === 'submitted'}
+            >
+              {submitting ? 'Submitting…' : project?.status === 'submitted' ? '✓ Submitted' : '✓ Submit'}
+            </button>
             {isLocked && (
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -1106,6 +1108,23 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                 fontFamily: 'Montserrat,sans-serif',
               }}>🔒 Locked</span>
             )}
+
+            {/* ── Edit Project Info button ── */}
+            <Link
+              to={`/projects/${id}/info`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '7px 13px', borderRadius: 10, cursor: 'pointer',
+                background: 'rgba(249,115,22,0.08)', border: '1.5px solid rgba(249,115,22,0.45)',
+                color: '#C2410C',
+                fontWeight: 700, fontSize: 12, fontFamily: 'Montserrat,sans-serif',
+                whiteSpace: 'nowrap', transition: 'all 0.18s', textDecoration: 'none',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(249,115,22,0.18)'; e.currentTarget.style.borderColor = 'rgba(249,115,22,0.8)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(249,115,22,0.08)'; e.currentTarget.style.borderColor = 'rgba(249,115,22,0.45)'; }}
+            >
+              ✎ Edit Project Info
+            </Link>
 
             {/* ── Score card toggle button ── */}
             <button

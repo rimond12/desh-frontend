@@ -55,7 +55,6 @@ export default function NewProject() {
   }, []);
 
   const regularSections = sections.filter(s => !s.isConstant);
-  const constantSections = sections.filter(s => s.isConstant);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -69,7 +68,7 @@ export default function NewProject() {
       const projectId = res.data?.project?._id;
       if (!projectId) { toast.error('Project created but ID not found'); return; }
       toast.success('Project created successfully!');
-      navigate(`/projects/${projectId}`);
+      navigate(`/projects/${projectId}/info`);
     } catch (error) {
       toast.error(error.response?.data?.message || error.message);
     } finally {
@@ -106,8 +105,8 @@ export default function NewProject() {
           <p className="mt-2 text-sm text-gray-400">Name your project and choose a section / stage</p>
         </div>
 
-        <div className="glass-card p-8">
-          <form onSubmit={submit}>
+        <form onSubmit={submit}>
+          <div className="glass-card p-8">
             {/* Project title */}
             <label className="block text-xs font-semibold mb-2 text-gray-400 uppercase tracking-widest">
               Project Title *
@@ -143,55 +142,59 @@ export default function NewProject() {
             </label>
             {sections.length === 0 ? (
               <div style={{
-                padding: '12px 16px', borderRadius: 10, marginBottom: 20,
+                padding: '12px 16px', borderRadius: 10,
                 background: 'var(--bg-soft)', border: '1.5px solid var(--border)',
                 fontSize: 13, color: 'var(--tx-faint)',
               }}>
                 Loading sections…
               </div>
             ) : (
-              <>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: constantSections.length > 0 ? 10 : 20 }}>
-                  {regularSections.map(s => (
-                    <label key={s._id} style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '12px 16px', borderRadius: 12, cursor: 'pointer',
-                      border: `1.5px solid ${sectionId === String(s._id) ? 'var(--g500)' : 'var(--border)'}`,
-                      background: sectionId === String(s._id) ? 'var(--g50)' : '#fff',
-                      transition: 'all 0.15s',
-                    }}>
-                      <input
-                        type="radio"
-                        name="section"
-                        value={s._id}
-                        checked={sectionId === String(s._id)}
-                        onChange={() => setSectionId(String(s._id))}
-                        style={{ accentColor: 'var(--g600)', width: 16, height: 16, flexShrink: 0 }}
-                      />
-                      <span style={{
-                        fontWeight: sectionId === String(s._id) ? 700 : 500,
-                        fontSize: 14,
-                        color: sectionId === String(s._id) ? 'var(--g800)' : 'var(--tx)',
-                      }}>{s.title}</span>
-                    </label>
-                  ))}
-                </div>
-
-                {constantSections.length > 0 && (
-                  <></>
-                )}
-              </>
+              <div style={{
+                display: 'flex', flexDirection: 'column', gap: 8,
+                maxHeight: 280, overflowY: 'auto',
+                paddingRight: 4,
+              }}>
+                {regularSections.map(s => (
+                  <label key={s._id} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '12px 16px', borderRadius: 12, cursor: 'pointer',
+                    border: `1.5px solid ${sectionId === String(s._id) ? 'var(--g500)' : 'var(--border)'}`,
+                    background: sectionId === String(s._id) ? 'var(--g50)' : '#fff',
+                    transition: 'all 0.15s',
+                    flexShrink: 0,
+                  }}>
+                    <input
+                      type="radio"
+                      name="section"
+                      value={s._id}
+                      checked={sectionId === String(s._id)}
+                      onChange={() => setSectionId(String(s._id))}
+                      style={{ accentColor: 'var(--g600)', width: 16, height: 16, flexShrink: 0 }}
+                    />
+                    <span style={{
+                      fontWeight: sectionId === String(s._id) ? 700 : 500,
+                      fontSize: 14,
+                      color: sectionId === String(s._id) ? 'var(--g800)' : 'var(--tx)',
+                    }}>{s.title}</span>
+                  </label>
+                ))}
+              </div>
             )}
+          </div>
 
-            <button
-              type="submit"
-              disabled={loading || !title.trim() || !sectionId || !categoryId}
-              className="btn-primary-green w-full disabled:opacity-50"
-            >
-              {loading ? 'Creating…' : 'Create & Continue →'}
-            </button>
-          </form>
-        </div>
+          {/* ── Submit button OUTSIDE the card so it is ALWAYS visible ── */}
+          <button
+            type="submit"
+            disabled={loading || !title.trim() || !sectionId || !categoryId}
+            style={{
+              display: 'flex', width: '100%', justifyContent: 'center',
+              marginTop: 20,
+            }}
+            className="btn-primary-green disabled:opacity-50"
+          >
+            {loading ? 'Creating…' : 'Create & Continue →'}
+          </button>
+        </form>
 
         <p className="text-center mt-4">
           <button

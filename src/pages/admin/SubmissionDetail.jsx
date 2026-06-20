@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
 import { ColoredLeaf, LeafBadge } from '../../components/shared/LeafLogo.jsx';
+import ProjectSummaryReportModal from '../../components/ProjectSummaryReportModal.jsx';
 import CommentThread from '../../components/shared/CommentThread.jsx';
+import GpsMap, { parseGps } from '../../components/GpsMap.jsx';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
@@ -237,6 +239,18 @@ export default function SubmissionDetail() {
   const [loading, setLoading] = useState(true);
   const [selectedSection, setSelectedSection] = useState('');
   const [showEdit, setShowEdit] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [showInfoPanel, setShowInfoPanel] = useState(false); // kept for compatibility
+  const [categories, setCategories] = useState([]);
+  const [editForm, setEditForm] = useState({
+    projectName: '', projectType: '', projectSize: '', address: '', postCode: '',
+    gpsCoordinates: '', siteArea: '', totalBuiltUpArea: '', constructionStartDate: '', constructionEndDate: '',
+    engineerName: '', designation: '', organization: '', officeAddress: '', officePostCode: '',
+    telephone: '', mobile: '', email: '',
+    projectCoordinatorDetails: '', architectName: '', iabMembershipNo: '',
+    greenBuildingConsultantDetails: '', sredaRegistrationNumber: '',
+  });
+  const [savingInfo, setSavingInfo] = useState(false);
   // comment counts per inputId (pre-fetched for badges)
   const [commentCounts, setCommentCounts] = useState({});
   const [projectComments, setProjectComments] = useState([]);
@@ -246,6 +260,8 @@ export default function SubmissionDetail() {
   // score card collapse
   const [scoreOpen, setScoreOpen] = useState(true);
   const [payloadSize, setPayloadSize] = useState(0);
+  // edit project info modal
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -253,21 +269,54 @@ export default function SubmissionDetail() {
       axiosSecure.get('/sections'),
       axiosSecure.get('/settings/eval-rules'),
       axiosSecure.get(`/comments/by-project/${id}`),
+      axiosSecure.get('/categories'),
     ])
-      .then(([detailRes, secRes, rulesRes, commentsRes]) => {
+      .then(([detailRes, secRes, rulesRes, commentsRes, catRes]) => {
         // Measure and set response payload size
         const size = JSON.stringify(detailRes.data).length +
                      JSON.stringify(secRes.data).length +
                      JSON.stringify(rulesRes.data).length +
-                     JSON.stringify(commentsRes.data).length;
+                     JSON.stringify(commentsRes.data).length +
+                     JSON.stringify(catRes.data).length;
         setPayloadSize(size);
 
-        setProject(detailRes.data.project);
+        const p = detailRes.data.project;
+        setProject(p);
         setTabs(detailRes.data.tabs || []);
         setGlobalSections(secRes.data.sections || []);
         setLeafRules(rulesRes.data.rules || []);
-        setLockedInputsSet(new Set((detailRes.data.project.lockedInputs || []).map(String)));
+        setCategories(catRes.data.categories || []);
+        setLockedInputsSet(new Set((p.lockedInputs || []).map(String)));
         setProjectComments(commentsRes.data.comments || []);
+
+        if (p) {
+          setEditForm({
+            projectName: p.projectName || p.title || '',
+            projectType: p.projectType || p.categoryId || '',
+            projectSize: p.projectSize || '',
+            address: p.address || '',
+            postCode: p.postCode || '',
+            gpsCoordinates: p.gpsCoordinates || '',
+            siteArea: p.siteArea ?? '',
+            totalBuiltUpArea: p.totalBuiltUpArea ?? '',
+            constructionStartDate: p.constructionStartDate ? p.constructionStartDate.split('T')[0] : '',
+            constructionEndDate: p.constructionEndDate ? p.constructionEndDate.split('T')[0] : '',
+            engineerName: p.engineerName || '',
+            designation: p.designation || '',
+            organization: p.organization || '',
+            officeAddress: p.officeAddress || '',
+            officePostCode: p.officePostCode || '',
+            telephone: p.telephone || '',
+            mobile: p.mobile || '',
+            email: p.email || '',
+            projectCoordinatorDetails: p.projectCoordinatorDetails || '',
+            architectName: p.architectName || '',
+            iabMembershipNo: p.iabMembershipNo || '',
+            greenBuildingConsultantDetails: p.greenBuildingConsultantDetails || '',
+            sredaRegistrationNumber: p.sredaRegistrationNumber || '',
+          });
+        }
+
         // Build a count map: { inputId: count }
         const counts = {};
         (commentsRes.data.comments || []).forEach(c => {
@@ -285,6 +334,20 @@ export default function SubmissionDetail() {
     setProject(res.data.project);
     setShowEdit(false);
     toast.success('Section status updated!');
+  };
+
+  const saveProjectInfo = async () => {
+    setSavingInfo(true);
+    try {
+      const res = await axiosSecure.patch(`/submissions/${id}/info`, editForm);
+      setProject(res.data.project);
+      toast.success('Project details updated!');
+      setShowInfoPanel(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update details');
+    } finally {
+      setSavingInfo(false);
+    }
   };
 
   if (loading) return (
@@ -730,41 +793,59 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
             </span>
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* Lock status badge */}
           {(() => {
             const cfg = LOCK_STATUS_CFG[lockStatus];
             return (
               <span style={{
-                display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 12,
+                display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 99,
                 border: `1.5px solid ${cfg.border}`, background: cfg.bg, color: cfg.color,
-                fontWeight: 700, fontSize: 13, fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+                fontWeight: 700, fontSize: 11, fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
               }}>{cfg.label}</span>
             );
           })()}
+
+          {/* View Summary */}
+          <button onClick={() => setShowSummary(true)} style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10,
+            border: '1.5px solid var(--g200)', background: 'var(--g50)', color: 'var(--g800)',
+            fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+          }}>📋 Summary</button>
+
+          {/* Edit Project Info */}
+          <button onClick={() => setShowInfoModal(true)} style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10,
+            border: '1.5px solid var(--g300)', background: 'var(--g100)', color: 'var(--g800)',
+            fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+          }}>✏️ Edit Info</button>
+
+          {/* Lock / Unlock */}
           {isLocked ? (
             <button onClick={unlockSubmission} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 12,
+              display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10,
               border: '1.5px solid #FDE68A', background: '#FEF9C3', color: '#92400E',
-              fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif',
-            }}>🔓 Unlock Submission</button>
+              fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+            }}>🔓 Unlock</button>
           ) : (
             <button onClick={lockSubmission} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 12,
-              border: '1.5px solid #C4B5FD', background: '#EDE9FE', color: '#5B21B6',
-              fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif',
-            }}>🔒 Lock Submission</button>
+              display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10,
+              border: '1.5px solid var(--g300)', background: '#fff', color: 'var(--g700)',
+              fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+            }}>🔒 Lock</button>
           )}
+
+          {/* Download PDF */}
           <button onClick={exportPdf} style={{
-            display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 12,
-            border: '1.5px solid #BFDBFE', background: '#EFF6FF', color: '#1D4ED8',
-            fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif',
-          }}>⬇ Download PDF</button>
-          <button onClick={() => setShowEdit(true)} style={{
-            display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 12,
-            background: 'linear-gradient(135deg,var(--g700),var(--g500))',
-            color: '#fff', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer',
-            boxShadow: '0 2px 12px rgba(34,168,75,0.3)', fontFamily: 'Montserrat,sans-serif',
-          }}>✏ Edit Status</button>
+            display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10,
+            border: '1.5px solid var(--g200)', background: '#fff', color: 'var(--g700)',
+            fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+          }}>⬇ PDF</button>
+
+          {/* Edit Status (primary green CTA) */}
+          <button onClick={() => setShowEdit(true)} className="btn-primary-green" style={{ padding: '8px 18px', fontSize: 12 }}>
+            ✏ Edit Status
+          </button>
         </div>
       </div>
 
@@ -861,7 +942,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
               </div>
             </div>
             <div style={{ padding: '0 24px 14px' }}>
-              <div style={{ height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.5)', overflow: 'hidden' }}>
+              <div style={{ height: 6, borderRadius: 99, background: 'var(--g100)', overflow: 'hidden' }}>
                 <div style={{ height: '100%', borderRadius: 99, background: progressColor, width: `${Math.min(displayPct, 100)}%`, transition: 'width 0.8s ease, background 0.5s ease' }} />
               </div>
             </div>
@@ -869,7 +950,200 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
         )}
       </div>
 
-      {/* ── Documents ── */}
+      {/* ── Edit Project Info Modal ── */}
+      {showInfoModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 60,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(5,26,10,0.72)', backdropFilter: 'blur(6px)',
+          padding: 16,
+        }} onClick={() => setShowInfoModal(false)}>
+          <div className="fade-in-up" style={{
+            width: '100%', maxWidth: 760, maxHeight: '90vh', overflowY: 'auto',
+            borderRadius: 22, background: '#F4F8F5',
+            border: '1.5px solid var(--g200)',
+            boxShadow: '0 32px 80px rgba(0,40,16,0.35)',
+          }} onClick={e => e.stopPropagation()}>
+
+            {/* Modal header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #051A0A 0%, #0A2D14 50%, #145C28 100%)',
+              borderRadius: '20px 20px 0 0',
+              padding: '18px 24px',
+              display: 'flex', alignItems: 'center', gap: 14,
+            }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 11, flexShrink: 0,
+                background: 'rgba(34,168,75,0.25)', border: '1.5px solid rgba(93,216,130,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+              }}>✏️</div>
+              <div style={{ flex: 1 }}>
+                <span style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(93,216,130,0.7)', fontFamily: 'Montserrat,sans-serif', display: 'block', marginBottom: 2 }}>Admin Edit</span>
+                <h2 style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 16, color: '#fff', margin: 0 }}>Edit Project Registration Details</h2>
+              </div>
+              <button onClick={() => setShowInfoModal(false)} style={{
+                width: 32, height: 32, borderRadius: 8,
+                background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
+                color: 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', fontSize: 16, flexShrink: 0,
+              }}>✕</button>
+            </div>
+
+            {/* Modal body */}
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+              {/* Section 1 */}
+              <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: 'linear-gradient(90deg,var(--g50),#fff)', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--g600)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, fontFamily: 'Montserrat,sans-serif', flexShrink: 0 }}>1</span>
+                  <h4 style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 11, color: 'var(--g800)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>General Project Information</h4>
+                </div>
+                <div style={{ padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, background: '#fff' }}>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Project Name</label>
+                    <input type="text" value={editForm.projectName} onChange={e => setEditForm({ ...editForm, projectName: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Project Type</label>
+                    <select value={editForm.projectType} onChange={e => setEditForm({ ...editForm, projectType: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" style={{ appearance: 'auto' }}>
+                      <option value="">— Select Type —</option>
+                      {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                      <option value="Residential">Residential Building</option>
+                      <option value="Commercial">Commercial Building</option>
+                      <option value="Industrial">Industrial Building</option>
+                      <option value="Mixed-Use">Mixed-Use Development</option>
+                      <option value="Institutional">Institutional Building</option>
+                      <option value="Other">Other / Infrastructure</option>
+                    </select></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Project Size</label>
+                    <select value={editForm.projectSize} onChange={e => setEditForm({ ...editForm, projectSize: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" style={{ appearance: 'auto' }}>
+                      <option value="">— Select Size —</option>
+                      <option value="Small">Small</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Large">Large</option>
+                    </select></div>
+                  {/* GPS Coordinates — full width with interactive map */}
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>GPS Coordinates</label>
+                    <input
+                      type="text"
+                      value={editForm.gpsCoordinates}
+                      onChange={e => setEditForm({ ...editForm, gpsCoordinates: e.target.value })}
+                      placeholder="e.g. 23.8103, 90.4125"
+                      className="input-dark w-full px-3 py-2 text-sm"
+                      style={{ marginBottom: 10 }}
+                    />
+                    {/* Interactive map picker */}
+                    {(() => {
+                      const gpsCoord = parseGps(editForm.gpsCoordinates);
+                      return gpsCoord ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <div style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            padding: '5px 10px',
+                            background: 'linear-gradient(90deg, var(--g50), #fff)',
+                            borderRadius: 8, border: '1px solid var(--g200)',
+                          }}>
+                            <span style={{ fontSize: 13 }}>📍</span>
+                            <span style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--g700)' }}>Click map or drag pin to update</span>
+                            <span style={{ marginLeft: 'auto', fontFamily: 'Nunito,sans-serif', fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)' }}>
+                              {gpsCoord.lat.toFixed(5)}, {gpsCoord.lng.toFixed(5)}
+                            </span>
+                          </div>
+                          <GpsMap
+                            lat={gpsCoord.lat}
+                            lng={gpsCoord.lng}
+                            interactive={true}
+                            height={240}
+                            onMove={(la, lo) => setEditForm(f => ({ ...f, gpsCoordinates: `${la}, ${lo}` }))}
+                          />
+                        </div>
+                      ) : (
+                        <div style={{
+                          height: 60, borderRadius: 12, border: '1.5px dashed var(--g200)',
+                          background: 'var(--g50)', display: 'flex', alignItems: 'center',
+                          justifyContent: 'center', gap: 8,
+                        }}>
+                          <span style={{ fontSize: 16 }}>🗺️</span>
+                          <span style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 10, fontWeight: 700, color: 'var(--tx-faint)' }}>Enter valid coordinates above to see map</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Postal Code</label>
+                    <input type="text" value={editForm.postCode} onChange={e => setEditForm({ ...editForm, postCode: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Site Area (sqm)</label>
+                    <input type="number" value={editForm.siteArea} onChange={e => setEditForm({ ...editForm, siteArea: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Built-up Area (sqm)</label>
+                    <input type="number" value={editForm.totalBuiltUpArea} onChange={e => setEditForm({ ...editForm, totalBuiltUpArea: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Start Date</label>
+                    <input type="date" value={editForm.constructionStartDate} onChange={e => setEditForm({ ...editForm, constructionStartDate: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Completion Date</label>
+                    <input type="date" value={editForm.constructionEndDate} onChange={e => setEditForm({ ...editForm, constructionEndDate: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div style={{ gridColumn: 'span 2' }}><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Address</label>
+                    <input type="text" value={editForm.address} onChange={e => setEditForm({ ...editForm, address: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                </div>
+              </div>
+
+              {/* Section 2 */}
+              <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: 'linear-gradient(90deg,var(--g50),#fff)', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--g600)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, fontFamily: 'Montserrat,sans-serif', flexShrink: 0 }}>2</span>
+                  <h4 style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 11, color: 'var(--g800)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Engineer / Owner Information</h4>
+                </div>
+                <div style={{ padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, background: '#fff' }}>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Name</label>
+                    <input type="text" value={editForm.engineerName} onChange={e => setEditForm({ ...editForm, engineerName: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Designation</label>
+                    <input type="text" value={editForm.designation} onChange={e => setEditForm({ ...editForm, designation: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Organization</label>
+                    <input type="text" value={editForm.organization} onChange={e => setEditForm({ ...editForm, organization: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Mobile</label>
+                    <input type="text" value={editForm.mobile} onChange={e => setEditForm({ ...editForm, mobile: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Telephone</label>
+                    <input type="text" value={editForm.telephone} onChange={e => setEditForm({ ...editForm, telephone: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Email</label>
+                    <input type="text" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Office Post Code</label>
+                    <input type="text" value={editForm.officePostCode} onChange={e => setEditForm({ ...editForm, officePostCode: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div style={{ gridColumn: 'span 2' }}><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Office Address</label>
+                    <input type="text" value={editForm.officeAddress} onChange={e => setEditForm({ ...editForm, officeAddress: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                </div>
+              </div>
+
+              {/* Section 3 */}
+              <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: 'linear-gradient(90deg,var(--g50),#fff)', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--g600)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, fontFamily: 'Montserrat,sans-serif', flexShrink: 0 }}>3</span>
+                  <h4 style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 11, color: 'var(--g800)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Associates and Consultants</h4>
+                </div>
+                <div style={{ padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, background: '#fff' }}>
+                  <div style={{ gridColumn: 'span 2' }}><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Project Coordinator</label>
+                    <input type="text" value={editForm.projectCoordinatorDetails} onChange={e => setEditForm({ ...editForm, projectCoordinatorDetails: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Architect Name</label>
+                    <input type="text" value={editForm.architectName} onChange={e => setEditForm({ ...editForm, architectName: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>IAB Membership No.</label>
+                    <input type="text" value={editForm.iabMembershipNo} onChange={e => setEditForm({ ...editForm, iabMembershipNo: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div style={{ gridColumn: 'span 2' }}><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Green Building Consultant</label>
+                    <input type="text" value={editForm.greenBuildingConsultantDetails} onChange={e => setEditForm({ ...editForm, greenBuildingConsultantDetails: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                  <div style={{ gridColumn: 'span 2' }}><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>SREDA Registration Number</label>
+                    <input type="text" value={editForm.sredaRegistrationNumber} onChange={e => setEditForm({ ...editForm, sredaRegistrationNumber: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal footer */}
+            <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', background: 'var(--g50)', borderRadius: '0 0 20px 20px', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => setShowInfoModal(false)} style={{
+                padding: '9px 20px', border: '1.5px solid var(--border-md)', color: 'var(--tx-muted)',
+                borderRadius: 11, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff',
+              }}>Cancel</button>
+              <button onClick={async () => { await saveProjectInfo(); setShowInfoModal(false); }} disabled={savingInfo} className="btn-primary-green" style={{ padding: '9px 24px', fontSize: 13 }}>
+                {savingInfo ? 'Saving…' : '✓ Save Details'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Notes ── */}
       {docs.length > 0 && (
         <div className="glass-card fade-in-up" style={{ padding: '18px 20px', marginBottom: 20 }}>
           <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--tx-muted)', fontFamily: 'Montserrat,sans-serif', marginBottom: 12 }}>
@@ -1151,6 +1425,14 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
           </div>
         );
       })}
+
+      {showSummary && (
+        <ProjectSummaryReportModal
+          project={project}
+          categories={categories}
+          onClose={() => setShowSummary(false)}
+        />
+      )}
 
       {/* Edit modal */}
       {showEdit && (

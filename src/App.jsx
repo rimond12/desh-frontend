@@ -10,6 +10,7 @@ import UserDashboard    from './pages/user/Dashboard.jsx';
 import Projects         from './pages/user/Projects.jsx';
 import NewProject       from './pages/user/NewProject.jsx';
 import ProjectAssessment from './pages/user/ProjectAssessment.jsx';
+import ProjectInfoForm   from './pages/user/ProjectInfoForm.jsx';
 import Notes            from './pages/user/Notes.jsx';
 import Manual           from './pages/user/Manual.jsx';
 import Account                  from './pages/user/Account.jsx';
@@ -108,6 +109,7 @@ function AppRoutes() {
       <Route path="/projects"     element={<PrivateRoute><Projects/></PrivateRoute>} />
       <Route path="/projects/new" element={<PrivateRoute><NewProject/></PrivateRoute>} />
       <Route path="/projects/:id" element={<PrivateRoute><ProjectAssessment/></PrivateRoute>} />
+      <Route path="/projects/:id/info" element={<PrivateRoute><ProjectInfoForm/></PrivateRoute>} />
       <Route path="/notes"              element={<PrivateRoute><Notes/></PrivateRoute>} />
       <Route path="/manual"             element={<PrivateRoute><Manual/></PrivateRoute>} />
       <Route path="/account"            element={<PrivateRoute><Account/></PrivateRoute>} />

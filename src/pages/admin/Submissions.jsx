@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
+import ProjectSummaryReportModal from '../../components/ProjectSummaryReportModal.jsx';
 import { LeafBadge } from '../../components/shared/LeafLogo.jsx';
 import toast from 'react-hot-toast';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
@@ -60,6 +61,8 @@ export default function Submissions() {
   const navigate = useNavigate();
 
   const [projects, setProjects] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [selectedProjectForSummary, setSelectedProjectForSummary] = useState(null);
   const [search, setSearch] = useState('');
   const [levelFilter, setLevelFilter] = useState('All');
   const [loading, setLoading] = useState(true);
@@ -71,7 +74,12 @@ export default function Submissions() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchSubmissions(); }, []);
+  useEffect(() => {
+    fetchSubmissions();
+    axiosSecure.get('/categories')
+      .then(res => setCategories(res.data.categories || []))
+      .catch(console.error);
+  }, []);
 
   const deleteProject = async (s) => {
     if (!window.confirm(`Delete "${s.title}"? This cannot be undone.`)) return;
@@ -153,17 +161,36 @@ export default function Submissions() {
                     <td className="text-xs">{new Date(s.updatedAt).toLocaleDateString()}</td>
                     <td onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        {/* View — navigates to detail page */}
+                        {/* View Details — opens summary modal */}
                         <button
-                          onClick={() => navigate(`/admin/submissions/${s._id}`)}
-                          title="View details"
+                          onClick={() => setSelectedProjectForSummary(s)}
+                          title="View Details"
                           style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            width: 30, height: 30, borderRadius: 8,
-                            border: '1px solid var(--border)', background: 'var(--bg-soft)',
-                            color: 'var(--g700)', cursor: 'pointer',
-                          }}>
+                            gap: 5, padding: '5px 12px', borderRadius: 8,
+                            border: '1.5px solid var(--g200)',
+                            background: 'var(--g50)',
+                            color: 'var(--g800)',
+                            fontSize: 11, fontWeight: 800,
+                            fontFamily: 'Montserrat,sans-serif',
+                            cursor: 'pointer', transition: 'all 0.18s',
+                            whiteSpace: 'nowrap',
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = 'var(--g500)';
+                            e.currentTarget.style.color = '#fff';
+                            e.currentTarget.style.borderColor = 'var(--g500)';
+                            e.currentTarget.style.boxShadow = '0 2px 10px rgba(34,168,75,0.28)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = 'var(--g50)';
+                            e.currentTarget.style.color = 'var(--g800)';
+                            e.currentTarget.style.borderColor = 'var(--g200)';
+                            e.currentTarget.style.boxShadow = 'none';
+                          }}
+                        >
                           <IconEye />
+                          View Details
                         </button>
                         {/* Delete */}
                         <button
@@ -174,7 +201,8 @@ export default function Submissions() {
                             width: 30, height: 30, borderRadius: 8,
                             border: '1px solid #FECACA', background: '#FEF2F2',
                             color: '#DC2626', cursor: 'pointer',
-                          }}>
+                          }}
+                        >
                           <IconTrash />
                         </button>
                       </div>
@@ -186,6 +214,13 @@ export default function Submissions() {
           </table></div>
         )}
       </div>
+      {selectedProjectForSummary && (
+        <ProjectSummaryReportModal
+          project={selectedProjectForSummary}
+          categories={categories}
+          onClose={() => setSelectedProjectForSummary(null)}
+        />
+      )}
     </Layout>
   );
 }
