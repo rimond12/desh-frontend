@@ -22,9 +22,15 @@ export default function Login() {
 
   const redirectByRole = async () => {
     const role = await getRoleFromDb();
-    if (role === 'admin') navigate('/admin');
-    else if (role === 'reviewer') navigate('/reviewer/submissions');
-    else navigate('/dashboard');
+    if (role === 'admin') {
+      navigate('/admin');
+    } else if (role === 'desh_manager') {
+      navigate('/manager/submissions');
+    } else if (role === 'reviewer' || role === 'desh_reviewer' || role === 'desh_assessor') {
+      navigate('/reviewer/submissions');
+    } else {
+      navigate('/dashboard');
+    }
   };
 
   const submit = async (e) => {

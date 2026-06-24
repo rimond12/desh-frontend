@@ -4,9 +4,12 @@ import toast from 'react-hot-toast';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 
 const ROLE_CFG = {
-    admin: { label: 'Admin', bg: 'rgba(249,115,22,0.12)', color: '#C2410C', border: 'rgba(249,115,22,0.25)' },
-    reviewer: { label: 'Reviewer', bg: 'rgba(139,92,246,0.12)', color: '#6D28D9', border: 'rgba(139,92,246,0.25)' },
-    user: { label: 'User', bg: 'rgba(34,168,75,0.12)', color: '#145C28', border: 'rgba(34,168,75,0.25)' },
+    admin: { label: 'Admin', bg: 'rgba(249,115,22,0.15)', color: '#FB923C', border: 'rgba(249,115,22,0.3)' },
+    desh_manager: { label: 'Manager', bg: 'rgba(14,165,233,0.15)', color: '#38BDF8', border: 'rgba(14,165,233,0.3)' },
+    desh_reviewer: { label: 'DESH Reviewer', bg: 'rgba(139,92,246,0.15)', color: '#A78BFA', border: 'rgba(139,92,246,0.3)' },
+    desh_assessor: { label: 'DESH Assessor', bg: 'rgba(59,130,246,0.15)', color: '#93C5FD', border: 'rgba(59,130,246,0.3)' },
+    reviewer: { label: 'Reviewer (Old)', bg: 'rgba(139,92,246,0.15)', color: '#A78BFA', border: 'rgba(139,92,246,0.3)' },
+    user: { label: 'User', bg: 'rgba(34,168,75,0.15)', color: '#4ADE80', border: 'rgba(34,168,75,0.3)' },
 };
 
 const TYPE_CFG = {
@@ -116,7 +119,10 @@ export default function Users() {
     const ROLE_FILTERS = [
         { key: 'all', label: 'All', count: users.length },
         { key: 'user', label: 'User', count: countByRole('user') },
-        { key: 'reviewer', label: 'Reviewer', count: countByRole('reviewer') },
+        { key: 'desh_manager', label: 'Manager', count: countByRole('desh_manager') },
+        { key: 'desh_reviewer', label: 'DESH Reviewer', count: countByRole('desh_reviewer') },
+        { key: 'desh_assessor', label: 'DESH Assessor', count: countByRole('desh_assessor') },
+        { key: 'reviewer', label: 'Reviewer (Old)', count: countByRole('reviewer') },
         { key: 'admin', label: 'Admin', count: countByRole('admin') },
     ];
 
@@ -296,7 +302,7 @@ export default function Users() {
             {/* ── Manage Modal ── */}
             {selected && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
-                    <div className="fade-in-up" style={{ width: '100%', maxWidth: 420, padding: '28px 24px', background: '#fff', borderRadius: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.2)', border: '1px solid rgba(0,0,0,0.06)' }}>
+                    <div className="glass-card" style={{ width: '100%', maxWidth: 420, padding: '28px 24px', background: '#091E11', borderRadius: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.5)', border: '1.5px solid rgba(52,201,97,0.25)', color: 'var(--tx)' }}>
                         {/* User info */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -304,33 +310,33 @@ export default function Users() {
                                     {selected.name?.[0]?.toUpperCase()}
                                 </div>
                                 <div>
-                                    <p style={{ fontWeight: 700, fontSize: 14, color: '#111', margin: 0 }}>{selected.name}</p>
-                                    <p style={{ fontSize: 12, color: '#888', margin: 0 }}>{selected.email}</p>
+                                    <p style={{ fontWeight: 700, fontSize: 14, color: '#fff', margin: 0 }}>{selected.name}</p>
+                                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0 }}>{selected.email}</p>
                                     <div style={{ display: 'flex', gap: 5, marginTop: 4 }}>
                                         <RoleBadge role={selected.role} />
                                         <TypeBadge userType={selected.userType} />
                                     </div>
                                 </div>
                             </div>
-                            <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', fontSize: 18, color: '#aaa', cursor: 'pointer', padding: 4 }}>✕</button>
+                            <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', fontSize: 18, color: 'rgba(255,255,255,0.5)', cursor: 'pointer', padding: 4 }}>✕</button>
                         </div>
 
                         {/* Change system role */}
                         <div style={{ marginBottom: 20 }}>
-                            <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#888', marginBottom: 8, fontFamily: 'Montserrat,sans-serif' }}>
+                            <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 8, fontFamily: 'Montserrat,sans-serif' }}>
                                 Change System Role
                             </p>
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                {['user', 'reviewer', 'admin'].map(r => {
-                                    const cfg = ROLE_CFG[r];
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                                {['user', 'desh_manager', 'desh_reviewer', 'desh_assessor', 'reviewer', 'admin'].map(r => {
+                                    const cfg = ROLE_CFG[r] || { label: r, bg: 'rgba(255,255,255,0.05)', color: '#fff', border: 'rgba(255,255,255,0.1)' };
                                     const isActive = selected.role === r;
                                     return (
                                         <button key={r} onClick={() => changeRole(selected._id, r)} style={{
-                                            flex: 1, padding: '8px 0', borderRadius: 12, fontSize: 12, fontWeight: 700,
+                                            padding: '8px 0', borderRadius: 12, fontSize: 12, fontWeight: 700,
                                             cursor: 'pointer', transition: 'all 0.15s', textTransform: 'capitalize',
-                                            border: `1.5px solid ${isActive ? cfg.border : '#E5E7EB'}`,
-                                            background: isActive ? cfg.bg : '#fff',
-                                            color: isActive ? cfg.color : '#9CA3AF',
+                                            border: `1.5px solid ${isActive ? cfg.border : 'rgba(255,255,255,0.08)'}`,
+                                            background: isActive ? cfg.bg : 'rgba(255,255,255,0.02)',
+                                            color: isActive ? cfg.color : 'rgba(255,255,255,0.45)',
                                         }}>{cfg.label}</button>
                                     );
                                 })}

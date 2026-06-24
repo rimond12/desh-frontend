@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
 import { LeafBadge } from '../../components/shared/LeafLogo.jsx';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 
 export default function UserDashboard() {
-  const { user } = useAuth();
+  const { user, dbUser } = useAuth();
+  const navigate = useNavigate();
   const axiosSecure = useAxiosSecure();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading]   = useState(true);
@@ -15,11 +16,29 @@ export default function UserDashboard() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   useEffect(() => {
+    if (dbUser) {
+      if (dbUser.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else if (dbUser.role === 'desh_manager') {
+        navigate('/manager/submissions', { replace: true });
+      } else if (dbUser.role === 'reviewer' || dbUser.role === 'desh_reviewer' || dbUser.role === 'desh_assessor') {
+        navigate('/reviewer/submissions', { replace: true });
+      }
+    }
+  }, [dbUser, navigate]);
+
+  useEffect(() => {
+    if (!dbUser) return;
+
+    const systemRoles = ['admin', 'desh_manager', 'reviewer', 'desh_reviewer', 'desh_assessor'];
+    if (systemRoles.includes(dbUser.role)) return;
+
+    setLoading(true);
     axiosSecure.get('/projects')
       .then(r => setProjects(r.data.projects || []))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [dbUser, axiosSecure]);
 
   const stats = {
     total:     projects.length,

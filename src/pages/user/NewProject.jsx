@@ -24,6 +24,8 @@ export default function NewProject() {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(false);
   const [leafLevels, setLeafLevels] = useState(DEFAULT_LEAF_LEVELS);
+  const [collaboratorEmails, setCollaboratorEmails] = useState('');
+  const [ownerEmails, setOwnerEmails] = useState('');
 
   useEffect(() => {
     axiosSecure.get('/categories')
@@ -64,7 +66,13 @@ export default function NewProject() {
     
     setLoading(true);
     try {
-      const res = await axiosSecure.post('/projects', { title, sectionId, categoryId });
+      const res = await axiosSecure.post('/projects', { 
+        title, 
+        sectionId, 
+        categoryId,
+        collaboratorEmails,
+        ownerEmails
+      });
       const projectId = res.data?.project?._id;
       if (!projectId) { toast.error('Project created but ID not found'); return; }
       toast.success('Project created successfully!');
@@ -180,6 +188,30 @@ export default function NewProject() {
                 ))}
               </div>
             )}
+
+            {/* Collaborators (emails) */}
+            <label className="block text-xs font-semibold mt-6 mb-2 text-gray-400 uppercase tracking-widest">
+              Collaborator Emails (comma separated)
+            </label>
+            <input
+              type="text"
+              value={collaboratorEmails}
+              onChange={e => setCollaboratorEmails(e.target.value)}
+              placeholder="e.g. collab1@example.com, collab2@example.com"
+              className="input-dark w-full px-4 py-4 mb-5"
+            />
+
+            {/* Owners (emails) */}
+            <label className="block text-xs font-semibold mb-2 text-gray-400 uppercase tracking-widest">
+              Project Owner Emails (comma separated)
+            </label>
+            <input
+              type="text"
+              value={ownerEmails}
+              onChange={e => setOwnerEmails(e.target.value)}
+              placeholder="e.g. owner1@example.com, owner2@example.com"
+              className="input-dark w-full px-4 py-4"
+            />
           </div>
 
           {/* ── Submit button OUTSIDE the card so it is ALWAYS visible ── */}

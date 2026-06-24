@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Sidebar from './Sidebar';
 import PartnerFooter from './PartnerFooter';
 
-export default function Layout({ children, isAdmin = false, isReviewer = false }) {
+export default function Layout({ children, isAdmin = false, isReviewer = false, isManager = false }) {
   const [mobileOpen,  setMobileOpen]  = useState(false);
   const [collapsed,   setCollapsed]   = useState(
     () => localStorage.getItem('sidebarCollapsed') === 'true'
@@ -20,6 +20,7 @@ export default function Layout({ children, isAdmin = false, isReviewer = false }
       <Sidebar
         isAdmin={isAdmin}
         isReviewer={isReviewer}
+        isManager={isManager}
         mobileOpen={mobileOpen}
         onClose={() => setMobileOpen(false)}
         collapsed={collapsed}
@@ -51,7 +52,7 @@ export default function Layout({ children, isAdmin = false, isReviewer = false }
             marginLeft: 'auto', fontSize: 11, fontWeight: 700,
             padding: '3px 10px', background: 'var(--g100)', color: 'var(--g700)', borderRadius: 99,
           }}>
-            {isAdmin ? 'Admin' : isReviewer ? 'Reviewer' : 'Portal'}
+            {isAdmin ? 'Admin' : isManager ? 'Manager' : isReviewer ? 'Reviewer' : 'Portal'}
           </span>
         </div>
 

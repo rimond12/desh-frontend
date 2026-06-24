@@ -183,6 +183,20 @@ export default function ReviewerSubmissionDetail() {
     } catch (e) { toast.error(e.response?.data?.message || 'Failed to unlock'); }
   };
 
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const handleStatusChange = async (newStatus) => {
+    setUpdatingStatus(true);
+    try {
+      const res = await axiosSecure.patch(`/submissions/${id}/status`, { status: newStatus });
+      setProject(res.data.project);
+      toast.success(`Workflow status updated to ${newStatus}`);
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to update status');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   const exportPdf = async () => {
     const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const fIcon = (name) => { const e = (name || '').split('.').pop().toLowerCase(); return e === 'pdf' ? '📄' : ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(e) ? '🖼️' : '📎'; };
@@ -581,40 +595,65 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
           fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif', flexShrink: 0,
         }}>⬇ Download PDF</button>
 
+        {/* Workflow Status dropdown */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--tx-muted)', fontFamily: 'Montserrat,sans-serif' }}>Status:</label>
+          <select
+            value={dbUser?.role === 'desh_assessor' ? (project?.assessorStatus || 'Pending') : (project?.reviewerStatus || 'Pending')}
+            onChange={(e) => handleStatusChange(e.target.value)}
+            disabled={updatingStatus}
+            style={{
+              padding: '8px 30px 8px 12px', borderRadius: 10,
+              border: '1.5px solid var(--border-md)', background: '#fff', color: 'var(--tx)',
+              fontWeight: 700, fontSize: 13, cursor: 'pointer', outline: 'none',
+              appearance: 'none',
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%231A7A35' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 10px center',
+            }}
+          >
+            <option value="Pending">Pending</option>
+            <option value="Started">Started</option>
+            <option value="Done">Done</option>
+          </select>
+        </div>
+
         {/* Lock / Unlock buttons */}
-        {isLocked ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', borderRadius: 12,
-              background: '#FEF9C3', border: '1.5px solid #FDE68A', color: '#92400E',
-              fontSize: 13, fontWeight: 700, fontFamily: 'Montserrat,sans-serif',
-            }}>
-              🔒 Locked
+        {dbUser?.role !== 'desh_assessor' && (
+          isLocked ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', borderRadius: 12,
+                background: '#FEF9C3', border: '1.5px solid #FDE68A', color: '#92400E',
+                fontSize: 13, fontWeight: 700, fontFamily: 'Montserrat,sans-serif',
+              }}>
+                🔒 Locked
+              </div>
+              <button onClick={unlockSubmission} style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 12,
+                background: '#fff', border: '1.5px solid #E0E0E0', color: '#555',
+                fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                fontFamily: 'Montserrat,sans-serif',
+              }}>
+                🔓 Unlock
+              </button>
             </div>
-            <button onClick={unlockSubmission} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 12,
-              background: '#fff', border: '1.5px solid #E0E0E0', color: '#555',
-              fontWeight: 700, fontSize: 13, cursor: 'pointer',
-              fontFamily: 'Montserrat,sans-serif',
+          ) : (
+            <button onClick={lockSubmission} disabled={locking} style={{
+              display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 12,
+              background: locking ? 'var(--bg-soft)' : 'linear-gradient(135deg,#5B21B6,#7C3AED)',
+              color: locking ? 'var(--tx-muted)' : '#fff',
+              fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', flexShrink: 0,
+              boxShadow: '0 2px 12px rgba(91,33,182,0.3)', fontFamily: 'Montserrat,sans-serif',
             }}>
-              🔓 Unlock
+              {locking ? '…Locking' : '🔒 Submit Review & Lock'}
             </button>
-          </div>
-        ) : (
-          <button onClick={lockSubmission} disabled={locking} style={{
-            display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 12,
-            background: locking ? 'var(--bg-soft)' : 'linear-gradient(135deg,#5B21B6,#7C3AED)',
-            color: locking ? 'var(--tx-muted)' : '#fff',
-            fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', flexShrink: 0,
-            boxShadow: '0 2px 12px rgba(91,33,182,0.3)', fontFamily: 'Montserrat,sans-serif',
-          }}>
-            {locking ? '…Locking' : '🔒 Submit Review & Lock'}
-          </button>
+          )
         )}
       </div>
 
       {/* ── Lock / Unlock Banner ── */}
-      {lockStatus !== 'pending' && (
+      {dbUser?.role !== 'desh_assessor' && lockStatus !== 'pending' && (
         <div style={{
           padding: '14px 20px', borderRadius: 14, marginBottom: 20,
           background: lockStatus === 'unlocked_for_edit' ? 'linear-gradient(135deg,#FEF9C3,#FFFBEB)' : 'linear-gradient(135deg,#EDE9FE,#F5F3FF)',
@@ -908,36 +947,40 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                   </span>
                                 )}
 
-                                {/* Lock status badge */}
-                                <span style={{
-                                  fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6,
-                                  background: isInputLocked ? '#FEF9C3' : '#D6F5E3',
-                                  color: isInputLocked ? '#92400E' : '#145C28',
-                                  border: `1px solid ${isInputLocked ? '#FDE68A' : '#A8EFC0'}`,
-                                  fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
-                                }}>
-                                  {isInputLocked ? '🔒 Locked' : '✏️ Editable'}
-                                </span>
+                                {dbUser?.role !== 'desh_assessor' && (
+                                  <>
+                                    {/* Lock status badge */}
+                                    <span style={{
+                                      fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6,
+                                      background: isInputLocked ? '#FEF9C3' : '#D6F5E3',
+                                      color: isInputLocked ? '#92400E' : '#145C28',
+                                      border: `1px solid ${isInputLocked ? '#FDE68A' : '#A8EFC0'}`,
+                                      fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+                                    }}>
+                                      {isInputLocked ? '🔒 Locked' : '✏️ Editable'}
+                                    </span>
 
-                                {/* Lock / Unlock toggle button */}
-                                <button
-                                  onClick={() => toggleInputLock(inp._id, isInputLocked)}
-                                  disabled={isToggling}
-                                  title={isInputLocked ? 'Unlock this question' : 'Lock this question'}
-                                  style={{
-                                    display: 'flex', alignItems: 'center', gap: 4,
-                                    padding: '4px 10px', borderRadius: 7, fontSize: 11, fontWeight: 700,
-                                    cursor: isToggling ? 'wait' : 'pointer',
-                                    border: `1px solid ${isInputLocked ? '#C4B5FD' : '#FDE68A'}`,
-                                    background: isInputLocked ? '#EDE9FE' : '#FFFBEB',
-                                    color: isInputLocked ? '#5B21B6' : '#92400E',
-                                    fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
-                                    opacity: isToggling ? 0.6 : 1,
-                                    transition: 'all 0.15s',
-                                  }}
-                                >
-                                  {isToggling ? '…' : isInputLocked ? '🔓 Unlock' : '🔒 Lock'}
-                                </button>
+                                    {/* Lock / Unlock toggle button */}
+                                    <button
+                                      onClick={() => toggleInputLock(inp._id, isInputLocked)}
+                                      disabled={isToggling}
+                                      title={isInputLocked ? 'Unlock this question' : 'Lock this question'}
+                                      style={{
+                                        display: 'flex', alignItems: 'center', gap: 4,
+                                        padding: '4px 10px', borderRadius: 7, fontSize: 11, fontWeight: 700,
+                                        cursor: isToggling ? 'wait' : 'pointer',
+                                        border: `1px solid ${isInputLocked ? '#C4B5FD' : '#FDE68A'}`,
+                                        background: isInputLocked ? '#EDE9FE' : '#FFFBEB',
+                                        color: isInputLocked ? '#5B21B6' : '#92400E',
+                                        fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+                                        opacity: isToggling ? 0.6 : 1,
+                                        transition: 'all 0.15s',
+                                      }}
+                                    >
+                                      {isToggling ? '…' : isInputLocked ? '🔓 Unlock' : '🔒 Lock'}
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </div>
 

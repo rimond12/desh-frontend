@@ -7,6 +7,7 @@ import { NAV_CONFIG } from '../../config/navConfig.js';
 export default function Sidebar({
   isAdmin = false,
   isReviewer = false,
+  isManager = false,
   mobileOpen,
   onClose,
   collapsed,
@@ -17,7 +18,7 @@ export default function Sidebar({
   const { user, logout } = useAuth();
   const L = useNavLabels();
 
-  const role = isAdmin ? 'admin' : isReviewer ? 'reviewer' : 'user';
+  const role = isAdmin ? 'admin' : isManager ? 'manager' : isReviewer ? 'reviewer' : 'user';
   const roleConfig = NAV_CONFIG.find(r => r.role === role);
 
   // Build nav groups from config + saved labels
@@ -72,7 +73,7 @@ export default function Sidebar({
               fontSize: 10.5, color: 'rgba(255,255,255,0.38)',
               fontWeight: 600, letterSpacing: '0.04em', marginTop: 2,
             }}>
-              {isAdmin ? L.adminSubtitle : L.userSubtitle}
+              {isAdmin ? L.adminSubtitle : isManager ? 'Manager Panel' : L.userSubtitle}
             </div>
           </div>
 

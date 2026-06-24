@@ -4,9 +4,13 @@ import toast from 'react-hot-toast';
 
 // Role display config
 const ROLE_CFG = {
-  reviewer: { label: 'Reviewer', bg: '#EDE9FE', color: '#5B21B6', border: '#C4B5FD' },
-  admin:    { label: 'Admin',    bg: '#D6F5E3', color: '#145C28', border: '#A8EFC0' },
-  user:     { label: 'User',     bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
+  reviewer:      { label: 'Reviewer', bg: '#EDE9FE', color: '#5B21B6', border: '#C4B5FD' },
+  desh_reviewer: { label: 'Reviewer', bg: '#EDE9FE', color: '#5B21B6', border: '#C4B5FD' },
+  desh_assessor: { label: 'Assessor', bg: 'rgba(59,130,246,0.12)', color: '#2563EB', border: 'rgba(59,130,246,0.25)' },
+  desh_manager:  { label: 'Manager',  bg: 'rgba(249,115,22,0.12)', color: '#C2410C', border: 'rgba(249,115,22,0.25)' },
+  admin:         { label: 'Admin',    bg: '#D6F5E3', color: '#145C28', border: '#A8EFC0' },
+  user:          { label: 'User',     bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
+  owner:         { label: 'Owner',    bg: '#FEF9C3', color: '#92400E', border: '#FDE68A' },
 };
 
 function timeAgo(dateStr) {
@@ -120,17 +124,9 @@ function CommentItem({ comment, currentUserId, currentRole, onReply, onEdit, onD
 }
 
 // ── CommentThread ─────────────────────────────────────────────────
-// Props:
-//   projectId      - string
-//   inputId        - string
-//   currentUserId  - string  (dbUser._id)
-//   currentRole    - 'user' | 'admin' | 'reviewer'
-//   isLocked       - bool   (true when project.status === 'submitted' — enables user comments)
-//   projectOwnerId - string (project.userId._id or project.userId)
-//   initialCount   - number (pre-loaded comment count for badge display)
 export default function CommentThread({
   projectId, inputId, currentUserId, currentRole, isLocked,
-  projectOwnerId, initialCount = 0,
+  projectOwnerId, initialCount = 0, disableComments = false,
 }) {
   const ax = useAxiosSecure();
   const [open, setOpen]         = useState(false);
@@ -141,11 +137,21 @@ export default function CommentThread({
   const [sending, setSending]   = useState(false);
   const [replyTo, setReplyTo]   = useState(null); // parentId
 
-  // Reviewers/admins can always comment; users can comment on their own project anytime
+  // Mentions Auto-complete state
+  const [mentionableUsers, setMentionableUsers] = useState([]);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionTriggerIdx, setMentionTriggerIdx] = useState(0);
+  const [activeMentionIndex, setActiveMentionIndex] = useState(0);
+
   const canComment =
-    currentRole === 'reviewer' ||
-    currentRole === 'admin' ||
-    (currentRole === 'user' && String(projectOwnerId) === String(currentUserId));
+    !disableComments &&
+    (currentRole === 'reviewer' ||
+     currentRole === 'desh_reviewer' ||
+     currentRole === 'desh_assessor' ||
+     currentRole === 'desh_manager' ||
+     currentRole === 'admin' ||
+     (currentRole === 'user' && String(projectOwnerId) === String(currentUserId)));
 
   const loadComments = useCallback(async () => {
     if (loaded) return;
@@ -156,11 +162,23 @@ export default function CommentThread({
       setLoaded(true);
     } catch { toast.error('Failed to load comments'); }
     finally { setLoading(false); }
-  }, [projectId, inputId, loaded]);
+  }, [projectId, inputId, loaded, ax]);
+
+  const fetchMentionableUsers = async () => {
+    try {
+      const res = await ax.get(`/comments/project/${projectId}/mentionable-users`);
+      setMentionableUsers(res.data.users || []);
+    } catch (e) {
+      console.error("Failed to load mentionable users", e);
+    }
+  };
 
   const handleOpen = () => {
     setOpen(o => !o);
-    if (!loaded) loadComments();
+    if (!loaded) {
+      loadComments();
+      fetchMentionableUsers();
+    }
   };
 
   const submitComment = async (parentId = null) => {
@@ -187,16 +205,62 @@ export default function CommentThread({
     if (!window.confirm('Delete this comment?')) return;
     try {
       await ax.delete(`/comments/${commentId}`);
-      // Remove comment and its replies
       setComments(c => c.filter(cm => cm._id !== commentId && String(cm.parentId) !== commentId));
     } catch { toast.error('Failed to delete comment'); }
   };
 
-  // Build tree: roots + replies grouped by parentId
+  // Autocomplete logic
+  const handleTextareaChange = (val) => {
+    setNewText(val);
+
+    const words = val.split(/[\s\n]/);
+    const lastWord = words[words.length - 1];
+
+    if (lastWord.startsWith('@')) {
+      const query = lastWord.slice(1);
+      const triggerIdx = val.length - lastWord.length;
+      setMentionQuery(query);
+      setMentionTriggerIdx(triggerIdx);
+      setShowMentions(true);
+      setActiveMentionIndex(0);
+    } else {
+      setShowMentions(false);
+    }
+  };
+
+  const insertMention = (user) => {
+    const textBefore = newText.slice(0, mentionTriggerIdx);
+    const updatedText = `${textBefore}@${user.username} `;
+    setNewText(updatedText);
+    setShowMentions(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (showMentions && filteredMentionables.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveMentionIndex(prev => (prev + 1) % filteredMentionables.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveMentionIndex(prev => (prev - 1 + filteredMentionables.length) % filteredMentionables.length);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        insertMention(filteredMentionables[activeMentionIndex]);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowMentions(false);
+      }
+    }
+  };
+
+  const filteredMentionables = mentionableUsers.filter(u =>
+    u.username.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+    u.displayName.toLowerCase().includes(mentionQuery.toLowerCase())
+  );
+
   const roots   = comments.filter(c => !c.parentId);
   const replies = (parentId) => comments.filter(c => String(c.parentId) === String(parentId));
 
-  // Use loaded count once available; fall back to pre-loaded initialCount
   const count = loaded ? comments.length : initialCount;
   const hasComments = count > 0;
 
@@ -258,19 +322,59 @@ export default function CommentThread({
               {/* Reply input for this comment */}
               {replyTo === cm._id && (
                 <div style={{ marginLeft: 20, marginBottom: 8 }}>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                    <textarea
-                      value={newText}
-                      onChange={e => setNewText(e.target.value)}
-                      rows={2}
-                      autoFocus
-                      placeholder={`Reply to ${cm.authorName}…`}
-                      style={{
-                        flex: 1, padding: '7px 10px', borderRadius: 8,
-                        border: '1.5px solid var(--g300)', outline: 'none', resize: 'vertical',
-                        fontSize: 13, fontFamily: 'Nunito,sans-serif',
-                      }}
-                    />
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', position: 'relative' }}>
+                    <div style={{ flex: 1, position: 'relative' }}>
+                      <textarea
+                        value={newText}
+                        onChange={e => handleTextareaChange(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        rows={2}
+                        autoFocus
+                        placeholder={`Reply to ${cm.authorName}…`}
+                        style={{
+                          width: '100%', padding: '7px 10px', borderRadius: 8,
+                          border: '1.5px solid var(--g300)', outline: 'none', resize: 'vertical',
+                          fontSize: 13, fontFamily: 'Nunito,sans-serif',
+                        }}
+                      />
+                      {showMentions && filteredMentionables.length > 0 && (
+                        <div style={{
+                          position: 'absolute',
+                          background: '#153E24',
+                          border: '1.5px solid var(--g300)',
+                          borderRadius: 8,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                          zIndex: 50,
+                          width: '100%',
+                          maxWidth: 260,
+                          maxHeight: 140,
+                          overflowY: 'auto',
+                          bottom: '100%',
+                          marginBottom: 4,
+                        }}>
+                          {filteredMentionables.map((user, idx) => (
+                            <div
+                              key={user.id}
+                              onClick={() => insertMention(user)}
+                              style={{
+                                padding: '8px 12px',
+                                cursor: 'pointer',
+                                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                background: activeMentionIndex === idx ? 'rgba(52,201,97,0.15)' : 'transparent',
+                                color: '#fff',
+                                fontSize: 12,
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                              }}
+                              onMouseEnter={() => setActiveMentionIndex(idx)}
+                            >
+                              <span>@{user.username}</span>
+                              <span style={{ fontSize: 10, opacity: 0.6 }}>{user.displayName}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <button onClick={() => submitComment(cm._id)} disabled={sending} style={{
                         padding: '6px 12px', borderRadius: 7, border: 'none', fontSize: 12,
@@ -290,18 +394,58 @@ export default function CommentThread({
 
           {/* New root comment input */}
           {canComment && !replyTo && (
-            <div style={{ display: 'flex', gap: 8, marginTop: roots.length > 0 ? 10 : 0, alignItems: 'flex-start' }}>
-              <textarea
-                value={newText}
-                onChange={e => setNewText(e.target.value)}
-                rows={2}
-                placeholder={currentRole === 'reviewer' ? 'Add a review comment…' : 'Add a comment…'}
-                style={{
-                  flex: 1, padding: '8px 11px', borderRadius: 9,
-                  border: '1.5px solid var(--border-md)', outline: 'none', resize: 'vertical',
-                  fontSize: 13, fontFamily: 'Nunito,sans-serif', background: '#fff',
-                }}
-              />
+            <div style={{ display: 'flex', gap: 8, marginTop: roots.length > 0 ? 10 : 0, alignItems: 'flex-start', position: 'relative' }}>
+              <div style={{ flex: 1, position: 'relative' }}>
+                <textarea
+                  value={newText}
+                  onChange={e => handleTextareaChange(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  rows={2}
+                  placeholder={currentRole === 'reviewer' || currentRole === 'desh_reviewer' ? 'Add a review comment…' : 'Add a comment…'}
+                  style={{
+                    width: '100%', padding: '8px 11px', borderRadius: 9,
+                    border: '1.5px solid var(--border-md)', outline: 'none', resize: 'vertical',
+                    fontSize: 13, fontFamily: 'Nunito,sans-serif', background: '#fff',
+                  }}
+                />
+                {showMentions && filteredMentionables.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    background: '#153E24',
+                    border: '1.5px solid var(--g300)',
+                    borderRadius: 8,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    zIndex: 50,
+                    width: '100%',
+                    maxWidth: 260,
+                    maxHeight: 140,
+                    overflowY: 'auto',
+                    bottom: '100%',
+                    marginBottom: 4,
+                  }}>
+                    {filteredMentionables.map((user, idx) => (
+                      <div
+                        key={user.id}
+                        onClick={() => insertMention(user)}
+                        style={{
+                          padding: '8px 12px',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid rgba(255,255,255,0.05)',
+                          background: activeMentionIndex === idx ? 'rgba(52,201,97,0.15)' : 'transparent',
+                          color: '#fff',
+                          fontSize: 12,
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                        }}
+                        onMouseEnter={() => setActiveMentionIndex(idx)}
+                      >
+                        <span>@{user.username}</span>
+                        <span style={{ fontSize: 10, opacity: 0.6 }}>{user.displayName}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button onClick={() => submitComment(null)} disabled={sending || !newText.trim()} style={{
                 padding: '8px 14px', borderRadius: 9, border: 'none',
                 background: 'linear-gradient(135deg,var(--g700),var(--g500))',
@@ -317,6 +461,13 @@ export default function CommentThread({
           {currentRole === 'user' && String(projectOwnerId) !== String(currentUserId) && (
             <p style={{ fontSize: 11, color: 'var(--tx-faint)', marginTop: 6, fontStyle: 'italic' }}>
               You can only comment on your own project.
+            </p>
+          )}
+
+          {/* Collaborator blocked warning */}
+          {disableComments && (
+            <p style={{ fontSize: 11, color: 'var(--tx-faint)', marginTop: 6, fontStyle: 'italic' }}>
+              Collaborators are read-only and cannot comment or reply.
             </p>
           )}
         </div>

@@ -21,6 +21,9 @@ import CalculationViewPage      from './pages/user/CalculationViewPage.jsx';
 import ReviewerSubmissions     from './pages/reviewer/Submissions.jsx';
 import ReviewerSubmissionDetail from './pages/reviewer/SubmissionDetail.jsx';
 
+import ManagerSubmissions from './pages/manager/ManagerSubmissions.jsx';
+import ManagerUsers       from './pages/manager/ManagerUsers.jsx';
+
 import AdminDashboard   from './pages/admin/AdminDashboard.jsx';
 import Submissions      from './pages/admin/Submissions.jsx';
 import SubmissionDetail from './pages/admin/SubmissionDetail.jsx';
@@ -35,13 +38,15 @@ import Settings         from './pages/admin/Settings.jsx';
 import ImportExport     from './pages/admin/ImportExport.jsx';
 import CalcEnginePage   from './pages/admin/CalcEnginePage.jsx';
 import Resources        from './pages/admin/Resources.jsx';
+import FormBuilder      from './pages/admin/FormBuilder.jsx';
 
 // ── Route guards — role checked from dbUser (MongoDB), not email lists ──
 
 // Returns true if user needs to complete profile setup
 function needsProfile(dbUser) {
   if (!dbUser) return false;
-  if (dbUser.role === 'admin' || dbUser.role === 'reviewer') return false;
+  const systemRoles = ['admin', 'reviewer', 'desh_manager', 'desh_reviewer', 'desh_assessor'];
+  if (systemRoles.includes(dbUser.role)) return false;
   return !dbUser.userType;
 }
 
@@ -57,7 +62,9 @@ function ProfileSetupRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
   if (dbUser?.role === 'admin')    return <Navigate to="/admin" replace />;
-  if (dbUser?.role === 'reviewer') return <Navigate to="/reviewer/submissions" replace />;
+  if (dbUser?.role === 'desh_manager') return <Navigate to="/manager/submissions" replace />;
+  if (dbUser?.role === 'reviewer' || dbUser?.role === 'desh_reviewer' || dbUser?.role === 'desh_assessor')
+    return <Navigate to="/reviewer/submissions" replace />;
   if (dbUser?.userType)            return <Navigate to="/dashboard" replace />;
   return children;
 }
@@ -66,7 +73,9 @@ function GuestRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return children;
   if (dbUser?.role === 'admin')    return <Navigate to="/admin" replace />;
-  if (dbUser?.role === 'reviewer') return <Navigate to="/reviewer/submissions" replace />;
+  if (dbUser?.role === 'desh_manager') return <Navigate to="/manager/submissions" replace />;
+  if (dbUser?.role === 'reviewer' || dbUser?.role === 'desh_reviewer' || dbUser?.role === 'desh_assessor')
+    return <Navigate to="/reviewer/submissions" replace />;
   if (needsProfile(dbUser))        return <Navigate to="/create-profile" replace />;
   return <Navigate to="/dashboard" replace />;
 }
@@ -88,7 +97,17 @@ function AdminRoute({ children }) {
 function ReviewerRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  if (dbUser?.role !== 'reviewer' && dbUser?.role !== 'admin')
+  const allowed = ['reviewer', 'desh_reviewer', 'desh_assessor', 'admin'];
+  if (!allowed.includes(dbUser?.role))
+    return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
+function ManagerRoute({ children }) {
+  const { user, dbUser } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  const allowed = ['desh_manager', 'admin'];
+  if (!allowed.includes(dbUser?.role))
     return <Navigate to="/dashboard" replace />;
   return children;
 }
@@ -120,6 +139,10 @@ function AppRoutes() {
       <Route path="/reviewer/submissions"     element={<ReviewerRoute><ReviewerSubmissions/></ReviewerRoute>} />
       <Route path="/reviewer/submissions/:id" element={<ReviewerRoute><ReviewerSubmissionDetail/></ReviewerRoute>} />
 
+      {/* Manager routes */}
+      <Route path="/manager/submissions"      element={<ManagerRoute><ManagerSubmissions/></ManagerRoute>} />
+      <Route path="/manager/users"            element={<ManagerRoute><ManagerUsers/></ManagerRoute>} />
+
       {/* Admin routes */}
       <Route path="/admin"                  element={<AdminRoute><AdminDashboard/></AdminRoute>} />
       <Route path="/admin/submissions"      element={<AdminRoute><Submissions/></AdminRoute>} />
@@ -135,6 +158,7 @@ function AppRoutes() {
       <Route path="/admin/import-export"   element={<AdminRoute><ImportExport/></AdminRoute>} />
       <Route path="/admin/calc-engine"     element={<AdminRoute><CalcEnginePage/></AdminRoute>} />
       <Route path="/admin/resources"       element={<AdminRoute><Resources/></AdminRoute>} />
+      <Route path="/admin/form-builder"    element={<AdminRoute><FormBuilder/></AdminRoute>} />
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

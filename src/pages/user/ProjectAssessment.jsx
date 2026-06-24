@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
 import { LeafBadge, ColoredLeaf } from '../../components/shared/LeafLogo.jsx';
 import CommentThread from '../../components/shared/CommentThread.jsx';
+import CollaboratorsOwnersModal from '../../components/CollaboratorsOwnersModal.jsx';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
@@ -243,6 +244,7 @@ export default function ProjectAssessment() {
   const [projectComments, setProjectComments] = useState([]);
   // Score card expand/collapse toggle
   const [scoreOpen, setScoreOpen] = useState(true);
+  const [accessModalOpen, setAccessModalOpen] = useState(false);
   // Instruction popup modal
   const [instrModal, setInstrModal] = useState({ open: false, label: '', html: '' });
   const [payloadSize, setPayloadSize] = useState(0);
@@ -493,17 +495,30 @@ export default function ProjectAssessment() {
   const isLocked = project?.isLocked || false;
   const ownerId = project?.userId || dbUser?._id;
 
+  const isCreator = project && dbUser && String(project.userId?._id || project.userId) === String(dbUser._id);
+  const isCollaborator = project && dbUser && (
+    (project.collaborators || []).some(c => String(c._id || c) === String(dbUser._id)) ||
+    (project.collaboratorEmails || []).some(e => e.toLowerCase() === dbUser.email?.toLowerCase())
+  );
+  const isOwner = project && dbUser && (
+    (project.owners || []).some(o => String(o._id || o) === String(dbUser._id)) ||
+    (project.ownerEmails || []).some(e => e.toLowerCase() === dbUser.email?.toLowerCase())
+  );
+
   // Per-question lock set (populated as reviewer adds comments)
   const lockedInputIds = new Set((project?.lockedInputs || []).map(String));
 
-  // A question is editable only when project is not globally locked AND not individually locked
-  const isInputEditable = (inp) => !isLocked && !lockedInputIds.has(String(inp._id));
+  // A question is editable only when project is not globally locked AND not individually locked AND current user is not project owner
+  const isInputEditable = (inp) => {
+    if (isOwner) return false;
+    return !isLocked && !lockedInputIds.has(String(inp._id));
+  };
 
   // Show lock/editable status badges once the project is submitted (in review phase)
   const showLockBadges = project?.status === 'submitted' || lockedInputIds.size > 0;
 
   // Legacy flag kept only for the Submit button and module-level save visibility
-  const isEditable = !isLocked && project?.status !== 'submitted';
+  const isEditable = !isOwner && !isLocked && project?.status !== 'submitted';
 
   const exportPdf = async () => {
     const API_PDF_BASE = getDynamicApiBaseUrl();
@@ -893,6 +908,15 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
           box-shadow: 0 2px 6px rgba(34,168,75,0.2) !important;
         }
       `}</style>
+      {/* ── Collaborators & Owners Modal ── */}
+      {accessModalOpen && (
+        <CollaboratorsOwnersModal
+          project={project}
+          onClose={() => setAccessModalOpen(false)}
+          onSaved={loadProject}
+        />
+      )}
+
       {/* ── Instruction Popup Modal ── */}
       {instrModal.open && (
         <div
@@ -1011,7 +1035,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                   }}>
                     {project?.title}
                   </h2>
-                  {project?.status !== 'submitted' && !isLocked && (
+                  {isCreator && project?.status !== 'submitted' && !isLocked && (
                     <button onClick={startTitleEdit} title="Rename project" style={{
                       background: 'transparent', border: 'none', cursor: 'pointer',
                       color: 'var(--g500)', fontSize: 14, padding: '2px 4px',
@@ -1093,13 +1117,15 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
             }}>
               ⬇ Download PDF
             </button>
-            <button
-              className="btn-primary-green"
-              onClick={submitProject}
-              disabled={submitting || project?.status === 'submitted'}
-            >
-              {submitting ? 'Submitting…' : project?.status === 'submitted' ? '✓ Submitted' : '✓ Submit'}
-            </button>
+            {isCreator && (
+              <button
+                className="btn-primary-green"
+                onClick={submitProject}
+                disabled={submitting || project?.status === 'submitted'}
+              >
+                {submitting ? 'Submitting…' : project?.status === 'submitted' ? '✓ Submitted' : '✓ Submit'}
+              </button>
+            )}
             {isLocked && (
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -1108,23 +1134,44 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                 fontFamily: 'Montserrat,sans-serif',
               }}>🔒 Locked</span>
             )}
-
+ 
             {/* ── Edit Project Info button ── */}
-            <Link
-              to={`/projects/${id}/info`}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                padding: '7px 13px', borderRadius: 10, cursor: 'pointer',
-                background: 'rgba(249,115,22,0.08)', border: '1.5px solid rgba(249,115,22,0.45)',
-                color: '#C2410C',
-                fontWeight: 700, fontSize: 12, fontFamily: 'Montserrat,sans-serif',
-                whiteSpace: 'nowrap', transition: 'all 0.18s', textDecoration: 'none',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(249,115,22,0.18)'; e.currentTarget.style.borderColor = 'rgba(249,115,22,0.8)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(249,115,22,0.08)'; e.currentTarget.style.borderColor = 'rgba(249,115,22,0.45)'; }}
-            >
-              ✎ Edit Project Info
-            </Link>
+            {isCreator && (
+              <Link
+                to={`/projects/${id}/info`}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '7px 13px', borderRadius: 10, cursor: 'pointer',
+                  background: 'rgba(249,115,22,0.08)', border: '1.5px solid rgba(249,115,22,0.45)',
+                  color: '#C2410C',
+                  fontWeight: 700, fontSize: 12, fontFamily: 'Montserrat,sans-serif',
+                  whiteSpace: 'nowrap', transition: 'all 0.18s', textDecoration: 'none',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(249,115,22,0.18)'; e.currentTarget.style.borderColor = 'rgba(249,115,22,0.8)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(249,115,22,0.08)'; e.currentTarget.style.borderColor = 'rgba(249,115,22,0.45)'; }}
+              >
+                ✎ Edit Project Info
+              </Link>
+            )}
+
+            {/* ── Edit Collaborators & Owners button ── */}
+            {isCreator && (
+              <button
+                onClick={() => setAccessModalOpen(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '7px 13px', borderRadius: 10, cursor: 'pointer',
+                  background: 'rgba(34,197,94,0.08)', border: '1.5px solid rgba(34,197,94,0.45)',
+                  color: '#15803D',
+                  fontWeight: 700, fontSize: 12, fontFamily: 'Montserrat,sans-serif',
+                  whiteSpace: 'nowrap', transition: 'all 0.18s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(34,197,94,0.18)'; e.currentTarget.style.borderColor = 'rgba(34,197,94,0.8)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(34,197,94,0.08)'; e.currentTarget.style.borderColor = 'rgba(34,197,94,0.45)'; }}
+              >
+                👥 Collaborators &amp; Owners
+              </button>
+            )}
 
             {/* ── Score card toggle button ── */}
             <button
@@ -2259,6 +2306,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                                 isLocked={project?.status === 'submitted'}
                                                 projectOwnerId={ownerId}
                                                 initialCount={commentCounts[String(inp._id)] || 0}
+                                                disableComments={isCollaborator}
                                               />
                                             )}
                                           </div>
@@ -2276,8 +2324,8 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                         })
                       )}
 
-                      {/* Save button — show if any individually-unlocked input exists in this module */}
-                      {allInputs.some(inp => !lockedInputIds.has(String(inp._id))) && (
+                      {/* Save button — show if any individually-unlocked input exists in this module and current user is allowed to edit */}
+                      {isEditable && allInputs.some(inp => !lockedInputIds.has(String(inp._id))) && (
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
                           <button className="btn-primary-green"
                             onClick={() => saveModule(mod)}

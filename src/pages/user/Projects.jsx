@@ -3,11 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
 import { LeafBadge } from '../../components/shared/LeafLogo.jsx';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 
 export default function Projects() {
   const axiosSecure = useAxiosSecure();
+  const { dbUser } = useAuth();
   const [projects, setProjects] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -82,6 +84,7 @@ export default function Projects() {
               delay={i * 0.07}
               onRename={handleRename}
               onDelete={handleDelete}
+              dbUser={dbUser}
             />
           ))}
           <Link to="/projects/new"
@@ -96,12 +99,14 @@ export default function Projects() {
   );
 }
 
-function ProjectCard({ project: p, delay, onRename, onDelete }) {
+function ProjectCard({ project: p, delay, onRename, onDelete, dbUser }) {
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(p.title);
   const [saving, setSaving] = useState(false);
   const inputRef = useRef(null);
+
+  const isCreator = dbUser && String(p.userId?._id || p.userId) === String(dbUser._id);
 
   const ringColor = {
     'Green Leaf': '#22C55E', 'Yellow Leaf': '#F8A514',
@@ -216,20 +221,22 @@ function ProjectCard({ project: p, delay, onRename, onDelete }) {
               <p className="font-bold text-base truncate" style={{ fontFamily: 'Montserrat, sans-serif' }}>
                 {p.title}
               </p>
-              <button
-                onClick={startEdit}
-                title="Rename project"
-                style={{
-                  background: 'transparent', border: 'none', cursor: 'pointer',
-                  color: 'rgba(255,255,255,0.3)', fontSize: 13, padding: '2px 4px',
-                  borderRadius: 6, flexShrink: 0, lineHeight: 1,
-                  transition: 'color 0.15s',
-                }}
-                onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.75)'}
-                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
-              >
-                ✎
-              </button>
+              {isCreator && (
+                <button
+                  onClick={startEdit}
+                  title="Rename project"
+                  style={{
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    color: 'rgba(255,255,255,0.3)', fontSize: 13, padding: '2px 4px',
+                    borderRadius: 6, flexShrink: 0, lineHeight: 1,
+                    transition: 'color 0.15s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.75)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+                >
+                  ✎
+                </button>
+              )}
             </div>
           )}
           <p className="text-xs mt-1" style={{ color: 'var(--tx-muted)' }}>
@@ -261,7 +268,7 @@ function ProjectCard({ project: p, delay, onRename, onDelete }) {
       </div>
 
       {/* Delete button — draft only */}
-      {p.status === 'draft' && (
+      {isCreator && p.status === 'draft' && (
         <div onClick={e => e.stopPropagation()}>
           <button onClick={handleDeleteClick} style={{
             background: 'transparent', border: '1px solid rgba(239,68,68,0.2)',

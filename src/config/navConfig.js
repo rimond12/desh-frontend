@@ -82,7 +82,8 @@ export const NAV_CONFIG = [
                 sectionKey: 'adminSection_TOOLS',
                 sectionDefault: 'TOOLS',
                 items: [
-                    { key: 'adminNav_calcEngine', defaultLabel: 'Calc Engine', path: '/admin/calc-engine', icon: '∑' },
+                    { key: 'adminNav_calcEngine',   defaultLabel: 'Calc Engine',   path: '/admin/calc-engine',   icon: '∑' },
+                    { key: 'adminNav_formBuilder',  defaultLabel: 'Form Builder',  path: '/admin/form-builder',  icon: '📋' },
                 ],
             },
             {
@@ -152,6 +153,25 @@ export const NAV_CONFIG = [
                 sectionDefault: 'TOOLS',
                 items: [
                     { key: 'reviewerNav_calculations', defaultLabel: 'Calculations', path: '/calculations', icon: '∑' },
+                ],
+            },
+        ],
+    },
+
+    // ── MANAGER ────────────────────────────────────────────────────────────
+    {
+        role: 'manager',
+        roleLabel: 'Manager',
+        roleIcon: '💼',
+        roleColor: '#0EA5E9',
+        description: 'Sidebar navigation items visible to managers',
+        sections: [
+            {
+                sectionKey: 'managerSection_MANAGEMENT',
+                sectionDefault: 'MANAGEMENT',
+                items: [
+                    { key: 'managerNav_submissions', defaultLabel: 'Submissions', path: '/manager/submissions', icon: '◫' },
+                    { key: 'managerNav_users',       defaultLabel: 'Manage Users', path: '/manager/users',       icon: '👥' },
                 ],
             },
         ],
