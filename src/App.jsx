@@ -97,7 +97,7 @@ function AdminRoute({ children }) {
 function ReviewerRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  const allowed = ['reviewer', 'desh_reviewer', 'desh_assessor', 'admin'];
+  const allowed = ['reviewer', 'desh_reviewer', 'desh_assessor', 'desh_manager', 'admin'];
   if (!allowed.includes(dbUser?.role))
     return <Navigate to="/dashboard" replace />;
   return children;

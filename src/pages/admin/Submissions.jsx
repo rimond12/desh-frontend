@@ -97,7 +97,7 @@ export default function Submissions() {
   );
 
   const exportCSV = () => {
-    const rows = [['Title', 'User', 'Email', 'Score', 'Level', 'Date']];
+    const rows = [['Title', 'DESH Professional', 'Email', 'Score', 'Level', 'Date']];
     filtered.forEach(s => rows.push([
       s.title, s.userId?.name, s.userId?.email,
       `${s.scorePercent || 0}%`, s.adminOverride || s.leafLevel || '—',
@@ -119,7 +119,7 @@ export default function Submissions() {
 
       <div className="flex flex-wrap gap-3 mb-6">
         <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search projects or users..."
+          placeholder="Search projects or DESH Professionals..."
           className="input-dark pl-4 pr-4 py-2.5 text-sm w-56" />
         <select value={levelFilter} onChange={e => setLevelFilter(e.target.value)}
           className="input-dark px-3 py-2.5 text-sm">
@@ -137,7 +137,7 @@ export default function Submissions() {
           <div className="table-scroll"><table className="premium-table">
             <thead>
               <tr>
-                <th>Project</th><th>User</th><th>Level</th><th>Score</th>
+                <th>Project</th><th>DESH Professional</th><th>Level</th><th>Score</th>
                 <th>Section Statuses</th><th>Date</th><th>Actions</th>
               </tr>
             </thead>

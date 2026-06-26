@@ -200,7 +200,7 @@ export default function Manual() {
                         )}
                     </div>
                     <h1 className="text-4xl font-bold mb-3" style={{ fontFamily: 'Montserrat, sans-serif' }}>
-                        User Manual
+                        DESH Professional Manual
                     </h1>
                     <p className="text-base" style={{ color: 'var(--tx-muted)' }}>
                         Complete guide to using the DESH Sustainable Design Assessment System

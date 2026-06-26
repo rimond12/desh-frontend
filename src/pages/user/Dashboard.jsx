@@ -230,7 +230,7 @@ export default function UserDashboard() {
               </div>
               <div>
                 <p style={{ fontWeight:700, fontSize:13.5, color:'var(--tx)',
-                  margin:0, lineHeight:1.3 }}>User Manual</p>
+                  margin:0, lineHeight:1.3 }}>DESH Professional Manual</p>
                 <p style={{ fontSize:12, color:'var(--tx-muted)', margin:0 }}>
                   How it works
                 </p>

@@ -1,11 +1,107 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 import toast from 'react-hot-toast';
 import { LeafBadge } from '../../components/shared/LeafLogo.jsx';
 
+function SearchableSelect({ label, value, onChange, options, placeholder }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef(null);
+
+  const selectedOption = options.find(o => o.value === value);
+  const filteredOptions = options.filter(o =>
+    o.label?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  useEffect(() => {
+    const handleClose = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClose);
+    return () => document.removeEventListener('mousedown', handleClose);
+  }, []);
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative' }}>
+      <label className="block text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+        {label}
+      </label>
+      <div
+        onClick={() => { setIsOpen(!isOpen); setSearch(''); }}
+        className="w-full px-3 py-2 text-sm flex justify-between items-center"
+        style={{
+          background: '#0D3B1A',
+          border: '1.5px solid rgba(52, 201, 97, 0.3)',
+          color: '#FFF',
+          borderRadius: '10px',
+          cursor: 'pointer',
+        }}
+      >
+        <span style={{ color: selectedOption ? '#FFF' : 'rgba(255,255,255,0.4)' }}>
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#34C961" strokeWidth="2.5" style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </div>
+
+      {isOpen && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 6,
+          background: '#091E11', border: '1.5px solid rgba(52, 201, 97, 0.4)',
+          borderRadius: 12, zIndex: 110, padding: 8, boxShadow: '0 10px 30px rgba(0,0,0,0.65)',
+          display: 'flex', flexDirection: 'column'
+        }}>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by name or email..."
+            className="w-full px-3 py-1.5 text-xs mb-2"
+            style={{
+              background: '#04160B',
+              border: '1px solid rgba(52, 201, 97, 0.25)',
+              color: '#FFF',
+              borderRadius: 8,
+              outline: 'none',
+            }}
+            autoFocus
+          />
+          <div style={{ overflowY: 'auto', maxHeight: 160 }} className="custom-scrollbar">
+            <div
+              onClick={() => { onChange(''); setIsOpen(false); }}
+              className="px-3 py-2 text-sm hover:bg-green-950/40 rounded-lg cursor-pointer text-gray-400 italic"
+            >
+              {placeholder}
+            </div>
+            {filteredOptions.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-gray-500 italic">No matches found</div>
+            ) : (
+              filteredOptions.map(o => (
+                <div
+                  key={o.value}
+                  onClick={() => { onChange(o.value); setIsOpen(false); }}
+                  className={`px-3 py-1.5 text-sm rounded-lg cursor-pointer transition-all ${o.value === value ? 'bg-green-900/40 text-green-400 font-semibold' : 'hover:bg-green-950/40 text-gray-200'}`}
+                >
+                  {o.label}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function ManagerSubmissions() {
   const axiosSecure = useAxiosSecure();
+  const navigate = useNavigate();
   const [submissions, setSubmissions] = useState([]);
   const [staff, setStaff] = useState([]); // Reviewers & Assessors
   const [loading, setLoading] = useState(true);
@@ -113,7 +209,7 @@ export default function ManagerSubmissions() {
       });
   };
 
-  const reviewers = staff.filter(u => u.role === 'desh_reviewer' || u.role === 'reviewer');
+  const reviewers = staff.filter(u => u.role === 'desh_reviewer');
   const assessors = staff.filter(u => u.role === 'desh_assessor');
 
   return (
@@ -135,52 +231,41 @@ export default function ManagerSubmissions() {
       {/* Filters and search */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6 glass-card p-4">
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button onClick={() => setManagerFilter('all')} 
-            style={{
-              padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', transition: 'all 0.2s', cursor: 'pointer', border: 'none',
-              background: managerFilter === 'all' ? 'var(--g600)' : '#1F2937',
-              color: '#FFF'
-            }}>
-            All Submissions
-          </button>
-          <button onClick={() => setManagerFilter('unassigned_reviewer')} 
-            style={{
-              padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', transition: 'all 0.2s', cursor: 'pointer', border: 'none',
-              background: managerFilter === 'unassigned_reviewer' ? 'var(--g600)' : '#1F2937',
-              color: '#FFF'
-            }}>
-            Unassigned Reviewer
-          </button>
-          <button onClick={() => setManagerFilter('assigned_reviewer')} 
-            style={{
-              padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', transition: 'all 0.2s', cursor: 'pointer', border: 'none',
-              background: managerFilter === 'assigned_reviewer' ? 'var(--g600)' : '#1F2937',
-              color: '#FFF'
-            }}>
-            Assigned Reviewer
-          </button>
-          <button onClick={() => setManagerFilter('unassigned_assessor')} 
-            style={{
-              padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', transition: 'all 0.2s', cursor: 'pointer', border: 'none',
-              background: managerFilter === 'unassigned_assessor' ? 'var(--g600)' : '#1F2937',
-              color: '#FFF'
-            }}>
-            Unassigned Assessor
-          </button>
-          <button onClick={() => setManagerFilter('assigned_assessor')} 
-            style={{
-              padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', transition: 'all 0.2s', cursor: 'pointer', border: 'none',
-              background: managerFilter === 'assigned_assessor' ? 'var(--g600)' : '#1F2937',
-              color: '#FFF'
-            }}>
-            Assigned Assessor
-          </button>
+          {['all', 'unassigned_reviewer', 'assigned_reviewer', 'unassigned_assessor', 'assigned_assessor'].map(type => {
+            const labels = {
+              all: 'All Submissions',
+              unassigned_reviewer: 'Unassigned Reviewer',
+              assigned_reviewer: 'Assigned Reviewer',
+              unassigned_assessor: 'Unassigned Assessor',
+              assigned_assessor: 'Assigned Assessor'
+            };
+            const isActive = managerFilter === type;
+            return (
+              <button key={type} onClick={() => setManagerFilter(type)} 
+                style={{
+                  padding: '8px 16px', borderRadius: '10px', fontSize: '12px', fontWeight: '700', transition: 'all 0.2s', cursor: 'pointer',
+                  border: isActive ? '1.5px solid var(--g600)' : '1.5px solid var(--border-md)',
+                  background: isActive ? 'var(--g600)' : 'var(--bg-soft)',
+                  color: isActive ? '#FFF' : 'var(--tx-2)'
+                }}
+                onMouseEnter={e => {
+                  if (!isActive) e.currentTarget.style.background = 'var(--bg-subtle)';
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) e.currentTarget.style.background = 'var(--bg-soft)';
+                }}
+              >
+                {labels[type]}
+              </button>
+            );
+          })}
         </div>
         <input
           value={search}
           onChange={handleSearch}
           placeholder="Search by title, creator..."
           className="input-dark px-4 py-2 text-sm w-full max-w-xs"
+          style={{ borderRadius: '11px' }}
         />
       </div>
 
@@ -193,71 +278,88 @@ export default function ManagerSubmissions() {
           <p style={{ color: 'var(--tx-muted)' }}>No submitted projects found matching the criteria.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto glass-card">
-          <table className="w-full text-left border-collapse" style={{ minWidth: 800 }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
-                <th className="p-4 text-xs font-bold text-gray-400 uppercase">Project Title</th>
-                <th className="p-4 text-xs font-bold text-gray-400 uppercase">Creator</th>
-                <th className="p-4 text-xs font-bold text-gray-400 uppercase text-center">Score</th>
-                <th className="p-4 text-xs font-bold text-gray-400 uppercase text-center">Leaf Level</th>
-                <th className="p-4 text-xs font-bold text-gray-400 uppercase">Reviewer / Status</th>
-                <th className="p-4 text-xs font-bold text-gray-400 uppercase">Assessor / Status</th>
-                <th className="p-4 text-xs font-bold text-gray-400 uppercase text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(p => (
-                <tr key={p._id} style={{ borderBottom: '1px solid var(--border)' }} className="hover:bg-gray-800/10">
-                  <td className="p-4 font-bold text-sm">{p.title}</td>
-                  <td className="p-4">
-                    <div className="text-sm font-semibold">{p.userId?.name || 'Anonymous'}</div>
-                    <div className="text-xs text-gray-500">{p.userId?.email}</div>
-                  </td>
-                  <td className="p-4 text-center font-bold text-sm text-green-500">{p.scorePercent || 0}%</td>
-                  <td className="p-4 text-center">
-                    {p.leafLevel ? <LeafBadge level={p.leafLevel} /> : <span className="text-gray-600">—</span>}
-                  </td>
-                  <td className="p-4 text-sm">
-                    {p.assignedReviewer ? (
-                      <div>
-                        <div className="font-semibold">{p.assignedReviewer.name}</div>
-                        <span className={`inline-block text-2xs px-2 py-0.5 rounded-full font-bold mt-1 ${
-                          p.reviewerStatus === 'Done' ? 'bg-green-900/40 text-green-400' :
-                          p.reviewerStatus === 'Started' ? 'bg-amber-900/40 text-amber-400' : 'bg-gray-800 text-gray-400'
-                        }`}>{p.reviewerStatus || 'Pending'}</span>
-                      </div>
-                    ) : (
-                      <span className="text-gray-500 italic text-xs">Unassigned</span>
-                    )}
-                  </td>
-                  <td className="p-4 text-sm">
-                    {p.assignedAssessor ? (
-                      <div>
-                        <div className="font-semibold">{p.assignedAssessor.name}</div>
-                        <span className={`inline-block text-2xs px-2 py-0.5 rounded-full font-bold mt-1 ${
-                          p.assessorStatus === 'Done' ? 'bg-green-900/40 text-green-400' :
-                          p.assessorStatus === 'Started' ? 'bg-amber-900/40 text-amber-400' : 'bg-gray-800 text-gray-400'
-                        }`}>{p.assessorStatus || 'Pending'}</span>
-                      </div>
-                    ) : (
-                      <span className="text-gray-500 italic text-xs">Unassigned</span>
-                    )}
-                  </td>
-                  <td className="p-4 text-right">
-                    <div className="flex gap-2 justify-end">
-                      <button onClick={() => openAssignModal(p)} className="text-xs px-3 py-1.5 rounded-lg border transition-all" style={{ background: '#1F2937', borderColor: '#374151', color: '#FFF', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = '#374151'} onMouseLeave={e => e.currentTarget.style.background = '#1F2937'}>
-                        Assign Staff
-                      </button>
-                      <button onClick={() => openProgressModal(p)} className="btn-primary-green text-xs px-3 py-1.5 rounded-lg" style={{ cursor: 'pointer' }}>
-                        View Progress
-                      </button>
-                    </div>
-                  </td>
+        <div className="glass-card overflow-hidden">
+          <div className="table-scroll">
+            <table className="premium-table">
+              <thead>
+                <tr>
+                  <th>Project Title</th>
+                  <th>Creator</th>
+                  <th className="text-center">Score</th>
+                  <th className="text-center">Leaf Level</th>
+                  <th>Reviewer / Status</th>
+                  <th>Assessor / Status</th>
+                  <th className="text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map(p => (
+                  <tr key={p._id}>
+                    <td className="font-bold text-sm" style={{ color: 'var(--tx-2)' }}>{p.title}</td>
+                    <td>
+                      <div className="text-sm font-semibold">{p.userId?.name || 'Anonymous'}</div>
+                      <div className="text-xs text-gray-500">{p.userId?.email}</div>
+                    </td>
+                    <td className="text-center font-bold text-sm text-green-600">{p.scorePercent || 0}%</td>
+                    <td className="text-center">
+                      {p.leafLevel ? <LeafBadge level={p.leafLevel} /> : <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="text-sm">
+                      {p.assignedReviewer ? (
+                        <div>
+                          <div className="font-semibold">{p.assignedReviewer.name}</div>
+                          <span className={`inline-block text-2xs px-2 py-0.5 rounded-full font-bold mt-1 ${
+                            p.reviewerStatus === 'Done' ? 'bg-green-900/10 text-green-600 border border-green-200' :
+                            p.reviewerStatus === 'Started' ? 'bg-amber-900/10 text-amber-600 border border-amber-200' : 'bg-gray-100 text-gray-500 border border-gray-200'
+                          }`}>{p.reviewerStatus || 'Pending'}</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 italic text-xs">Unassigned</span>
+                      )}
+                    </td>
+                    <td className="text-sm">
+                      {p.assignedAssessor ? (
+                        <div>
+                          <div className="font-semibold">{p.assignedAssessor.name}</div>
+                          <span className={`inline-block text-2xs px-2 py-0.5 rounded-full font-bold mt-1 ${
+                            p.assessorStatus === 'Done' ? 'bg-green-900/10 text-green-600 border border-green-200' :
+                            p.assessorStatus === 'Started' ? 'bg-amber-900/10 text-amber-600 border border-amber-200' : 'bg-gray-100 text-gray-500 border border-gray-200'
+                          }`}>{p.assessorStatus || 'Pending'}</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 italic text-xs">Unassigned</span>
+                      )}
+                    </td>
+                    <td className="text-right">
+                      <div className="flex gap-2 justify-end">
+                        <button 
+                          onClick={() => navigate(`/reviewer/submissions/${p._id}`)} 
+                          className="text-xs px-3 py-1.5 rounded-lg border font-bold transition-all cursor-pointer" 
+                          style={{ background: 'var(--bg-soft)', borderColor: 'var(--border-md)', color: 'var(--tx-2)' }} 
+                          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)'; }} 
+                          onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-soft)'; }}
+                        >
+                          View Details
+                        </button>
+                        <button 
+                          onClick={() => openAssignModal(p)} 
+                          className="text-xs px-3 py-1.5 rounded-lg border font-bold transition-all cursor-pointer" 
+                          style={{ background: 'var(--bg-soft)', borderColor: 'var(--border-md)', color: 'var(--tx-2)' }} 
+                          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)'; }} 
+                          onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-soft)'; }}
+                        >
+                          Assign Staff
+                        </button>
+                        <button onClick={() => openProgressModal(p)} className="btn-primary-green text-xs px-3 py-1.5 rounded-lg font-bold" style={{ cursor: 'pointer' }}>
+                          View Progress
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -274,58 +376,24 @@ export default function ManagerSubmissions() {
 
             {/* Reviewer Select */}
             <div className="mb-4">
-              <label className="block text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
-                DESH Reviewer
-              </label>
-              <select
+              <SearchableSelect
+                label="DESH Reviewer"
                 value={selectedReviewer}
-                onChange={e => setSelectedReviewer(e.target.value)}
-                className="input-dark w-full px-3 py-2 text-sm"
-                style={{
-                  background: '#0D3B1A',
-                  border: '1.5px solid rgba(52, 201, 97, 0.3)',
-                  color: '#FFF',
-                  appearance: 'none',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%2334C961' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 12px center',
-                  paddingRight: '34px',
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="" style={{ background: '#091E11' }}>— Select Reviewer —</option>
-                {reviewers.map(r => (
-                  <option key={r._id} value={r._id} style={{ background: '#091E11' }}>{r.name} ({r.email})</option>
-                ))}
-              </select>
+                onChange={setSelectedReviewer}
+                options={reviewers.map(r => ({ value: r._id, label: `${r.name} (${r.email})` }))}
+                placeholder="— Select Reviewer —"
+              />
             </div>
 
             {/* Assessor Select */}
             <div className="mb-6">
-              <label className="block text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
-                DESH Assessor
-              </label>
-              <select
+              <SearchableSelect
+                label="DESH Assessor"
                 value={selectedAssessor}
-                onChange={e => setSelectedAssessor(e.target.value)}
-                className="input-dark w-full px-3 py-2 text-sm"
-                style={{
-                  background: '#0D3B1A',
-                  border: '1.5px solid rgba(52, 201, 97, 0.3)',
-                  color: '#FFF',
-                  appearance: 'none',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%2334C961' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 12px center',
-                  paddingRight: '34px',
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="" style={{ background: '#091E11' }}>— Select Assessor —</option>
-                {assessors.map(a => (
-                  <option key={a._id} value={a._id} style={{ background: '#091E11' }}>{a.name} ({a.email})</option>
-                ))}
-              </select>
+                onChange={setSelectedAssessor}
+                options={assessors.map(a => ({ value: a._id, label: `${a.name} (${a.email})` }))}
+                placeholder="— Select Assessor —"
+              />
             </div>
 
             <div className="flex gap-3 justify-end">

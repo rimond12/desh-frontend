@@ -24,7 +24,6 @@ export default function NewProject() {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(false);
   const [leafLevels, setLeafLevels] = useState(DEFAULT_LEAF_LEVELS);
-  const [collaboratorEmails, setCollaboratorEmails] = useState('');
   const [ownerEmails, setOwnerEmails] = useState('');
 
   useEffect(() => {
@@ -70,7 +69,7 @@ export default function NewProject() {
         title, 
         sectionId, 
         categoryId,
-        collaboratorEmails,
+        collaboratorEmails: [],
         ownerEmails
       });
       const projectId = res.data?.project?._id;
@@ -189,17 +188,6 @@ export default function NewProject() {
               </div>
             )}
 
-            {/* Collaborators (emails) */}
-            <label className="block text-xs font-semibold mt-6 mb-2 text-gray-400 uppercase tracking-widest">
-              Collaborator Emails (comma separated)
-            </label>
-            <input
-              type="text"
-              value={collaboratorEmails}
-              onChange={e => setCollaboratorEmails(e.target.value)}
-              placeholder="e.g. collab1@example.com, collab2@example.com"
-              className="input-dark w-full px-4 py-4 mb-5"
-            />
 
             {/* Owners (emails) */}
             <label className="block text-xs font-semibold mb-2 text-gray-400 uppercase tracking-widest">

@@ -49,8 +49,12 @@ export default function ReviewerSubmissions() {
     return matchSearch && matchLock;
   });
 
+  const isAdmin = dbUser?.role === 'admin';
+  const isManager = dbUser?.role === 'desh_manager';
+  const isReviewerRole = ['reviewer', 'desh_reviewer', 'desh_assessor'].includes(dbUser?.role);
+
   return (
-    <Layout isReviewer>
+    <Layout isAdmin={isAdmin} isReviewer={isReviewerRole} isManager={isManager}>
       <div className="mb-8 fade-in-up">
         <h1 className="text-3xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>
           Submissions
@@ -60,28 +64,33 @@ export default function ReviewerSubmissions() {
         </p>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search projects or users…"
-          className="input-dark pl-4 pr-4 py-2.5 text-sm w-56" />
-        
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="input-dark px-3 py-2.5 text-sm">
-          <option value="all">All Projects</option>
-          <option value="Pending">Pending</option>
-          <option value="Started">Started</option>
-          <option value="Done">Done</option>
-        </select>
-
-        {dbUser?.role !== 'desh_assessor' && (
-          <select value={lockFilter} onChange={e => setLockFilter(e.target.value)}
-            className="input-dark px-3 py-2.5 text-sm">
-            <option value="all">All Lock Statuses</option>
-            <option value="pending">Pending Review</option>
-            <option value="locked">Review Submitted</option>
+      {/* Filters and search */}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6 glass-card p-4">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+            className="input-dark px-3 py-2 text-sm w-full sm:w-48"
+            style={{ borderRadius: '11px', cursor: 'pointer' }}>
+            <option value="all">All Projects</option>
+            <option value="Pending">Pending</option>
+            <option value="Started">Started</option>
+            <option value="Done">Done</option>
           </select>
-        )}
+
+          {dbUser?.role !== 'desh_assessor' && (
+            <select value={lockFilter} onChange={e => setLockFilter(e.target.value)}
+              className="input-dark px-3 py-2 text-sm w-full sm:w-48"
+              style={{ borderRadius: '11px', cursor: 'pointer' }}>
+              <option value="all">All Lock Statuses</option>
+              <option value="pending">Pending Review</option>
+              <option value="locked">Review Submitted</option>
+            </select>
+          )}
+        </div>
+
+        <input value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Search projects or DESH Professionals…"
+          className="input-dark px-4 py-2 text-sm w-full sm:w-64"
+          style={{ borderRadius: '11px' }} />
       </div>
 
       <div className="glass-card overflow-hidden">
@@ -89,7 +98,7 @@ export default function ReviewerSubmissions() {
           <div className="table-scroll"><table className="premium-table">
             <thead>
               <tr>
-                <th>Project</th><th>User</th><th>Level</th>
+                <th>Project</th><th>DESH Professional</th><th>Level</th>
                 <th>Score</th>{dbUser?.role !== 'desh_assessor' && <th>Review Status</th>}
                 <th>Workflow Status</th><th>Date</th><th>Action</th>
               </tr>
@@ -121,7 +130,17 @@ export default function ReviewerSubmissions() {
                       <p className="text-xs" style={{ color: 'var(--tx-muted)' }}>{s.userId?.email}</p>
                     </td>
                     <td>{level ? <LeafBadge level={level} /> : '—'}</td>
-                    <td className="font-bold" style={{ color: 'var(--tx)' }}>{s.scorePercent || 0}%</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="progress-leaf" style={{ width: 60, flexShrink: 0 }}>
+                          <div className="progress-leaf-fill"
+                            style={{ width: `${s.scorePercent || 0}%` }} />
+                        </div>
+                        <span className="font-bold" style={{ color: 'var(--tx)', fontSize: 13.5 }}>
+                          {s.scorePercent || 0}%
+                        </span>
+                      </div>
+                    </td>
                     {dbUser?.role !== 'desh_assessor' && (
                       <td>
                         <span style={{
@@ -135,10 +154,18 @@ export default function ReviewerSubmissions() {
                       </td>
                     )}
                     <td>
-                      <span className={`inline-block text-2xs px-2 py-0.5 rounded-full font-bold ${
-                        workflowStatus === 'Done' ? 'bg-green-900/40 text-green-400' :
-                        workflowStatus === 'Started' ? 'bg-amber-900/40 text-amber-400' : 'bg-gray-800 text-gray-400'
-                      }`}>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        padding: '2px 8px',
+                        borderRadius: '99px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        fontFamily: 'Montserrat, sans-serif',
+                        background: workflowStatus === 'Done' ? '#D6F5E3' : workflowStatus === 'Started' ? '#FEF3C7' : '#EFF6FF',
+                        color: workflowStatus === 'Done' ? '#145C28' : workflowStatus === 'Started' ? '#9A3412' : '#1D4ED8',
+                        border: `1.5px solid ${workflowStatus === 'Done' ? '#A8EFC0' : workflowStatus === 'Started' ? '#FED7AA' : '#BFDBFE'}`
+                      }}>
                         {workflowStatus || 'Pending'}
                       </span>
                     </td>

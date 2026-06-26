@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
 
 const API_BASE = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api') + '/calc';
 
 export default function CalculationsArchivePage() {
+    const { dbUser } = useAuth();
     const [calculations, setCalculations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -22,8 +24,12 @@ export default function CalculationsArchivePage() {
 
     const active = calculations.filter(c => c.active !== false);
 
+    const isAdmin = dbUser?.role === 'admin';
+    const isManager = dbUser?.role === 'desh_manager';
+    const isReviewer = ['reviewer', 'desh_reviewer', 'desh_assessor'].includes(dbUser?.role);
+
     return (
-        <Layout>
+        <Layout isAdmin={isAdmin} isReviewer={isReviewer} isManager={isManager}>
             {/* Header */}
             <div className="fade-in-up" style={{ marginBottom: 28 }}>
                 <p style={{ color: 'var(--tx-muted)', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>

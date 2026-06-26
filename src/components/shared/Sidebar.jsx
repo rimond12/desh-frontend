@@ -151,7 +151,7 @@ export default function Sidebar({
                 fontSize: 12.5, fontWeight: 700, color: 'rgba(255,255,255,0.85)', margin: 0,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
-                {user?.displayName || user?.email?.split('@')[0] || 'User'}
+                {user?.displayName || user?.email?.split('@')[0] || 'DESH Professional'}
               </p>
               <p style={{
                 fontSize: 10.5, color: 'rgba(255,255,255,0.3)', margin: 0,

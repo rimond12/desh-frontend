@@ -4,12 +4,11 @@ import toast from 'react-hot-toast';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 
 const ROLE_CFG = {
-    admin: { label: 'Admin', bg: 'rgba(249,115,22,0.15)', color: '#FB923C', border: 'rgba(249,115,22,0.3)' },
-    desh_manager: { label: 'Manager', bg: 'rgba(14,165,233,0.15)', color: '#38BDF8', border: 'rgba(14,165,233,0.3)' },
+    admin: { label: 'DESH Admin', bg: 'rgba(249,115,22,0.15)', color: '#FB923C', border: 'rgba(249,115,22,0.3)' },
+    desh_manager: { label: 'DESH Manager', bg: 'rgba(14,165,233,0.15)', color: '#38BDF8', border: 'rgba(14,165,233,0.3)' },
     desh_reviewer: { label: 'DESH Reviewer', bg: 'rgba(139,92,246,0.15)', color: '#A78BFA', border: 'rgba(139,92,246,0.3)' },
     desh_assessor: { label: 'DESH Assessor', bg: 'rgba(59,130,246,0.15)', color: '#93C5FD', border: 'rgba(59,130,246,0.3)' },
-    reviewer: { label: 'Reviewer (Old)', bg: 'rgba(139,92,246,0.15)', color: '#A78BFA', border: 'rgba(139,92,246,0.3)' },
-    user: { label: 'User', bg: 'rgba(34,168,75,0.15)', color: '#4ADE80', border: 'rgba(34,168,75,0.3)' },
+    user: { label: 'DESH Professional', bg: 'rgba(34,168,75,0.15)', color: '#4ADE80', border: 'rgba(34,168,75,0.3)' },
 };
 
 const TYPE_CFG = {
@@ -76,7 +75,7 @@ export default function Users() {
         if (!window.confirm(`Delete ${name}?`)) return;
         try {
             await axiosSecure.delete(`/users/${id}`);
-            toast.success('User deleted');
+            toast.success('Account deleted');
             fetchUsers();
         } catch { toast.error('Failed to delete'); }
     };
@@ -118,12 +117,11 @@ export default function Users() {
 
     const ROLE_FILTERS = [
         { key: 'all', label: 'All', count: users.length },
-        { key: 'user', label: 'User', count: countByRole('user') },
-        { key: 'desh_manager', label: 'Manager', count: countByRole('desh_manager') },
+        { key: 'user', label: 'DESH Professional', count: countByRole('user') },
+        { key: 'desh_manager', label: 'DESH Manager', count: countByRole('desh_manager') },
         { key: 'desh_reviewer', label: 'DESH Reviewer', count: countByRole('desh_reviewer') },
         { key: 'desh_assessor', label: 'DESH Assessor', count: countByRole('desh_assessor') },
-        { key: 'reviewer', label: 'Reviewer (Old)', count: countByRole('reviewer') },
-        { key: 'admin', label: 'Admin', count: countByRole('admin') },
+        { key: 'admin', label: 'DESH Admin', count: countByRole('admin') },
     ];
 
     const TYPE_FILTERS = [
@@ -200,7 +198,7 @@ export default function Users() {
             {/* ── User Type filter ── */}
             <div style={{ marginBottom: 20 }}>
                 <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--tx-muted)', marginBottom: 6, fontFamily: 'Montserrat,sans-serif' }}>
-                    Filter by User Type
+                    Filter by Professional Type
                 </p>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {TYPE_FILTERS.map(f => {
@@ -241,9 +239,9 @@ export default function Users() {
                         <thead>
                             <tr>
                                 <th style={{ width: 40 }}>#</th>
-                                <th>User</th>
+                                <th>DESH Professional</th>
                                 <th>System Role</th>
-                                <th>User Type</th>
+                                <th>Professional Type</th>
                                 <th>Joined</th>
                                 <th>Actions</th>
                             </tr>
@@ -327,7 +325,7 @@ export default function Users() {
                                 Change System Role
                             </p>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-                                {['user', 'desh_manager', 'desh_reviewer', 'desh_assessor', 'reviewer', 'admin'].map(r => {
+                                {['user', 'desh_manager', 'desh_reviewer', 'desh_assessor', 'admin'].map(r => {
                                     const cfg = ROLE_CFG[r] || { label: r, bg: 'rgba(255,255,255,0.05)', color: '#fff', border: 'rgba(255,255,255,0.1)' };
                                     const isActive = selected.role === r;
                                     return (

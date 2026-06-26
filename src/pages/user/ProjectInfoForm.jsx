@@ -223,7 +223,8 @@ export default function ProjectInfoForm() {
           if (p) {
             const isCreator = dbUser && String(p.userId?._id || p.userId) === String(dbUser._id);
             const isAdmin = dbUser?.role === 'admin';
-            if (!isCreator && !isAdmin) {
+            const isReviewerOrAssessor = dbUser?.role === 'reviewer' || dbUser?.role === 'desh_reviewer' || dbUser?.role === 'desh_assessor';
+            if (!isCreator && !isAdmin && !isReviewerOrAssessor) {
               toast.error('You are not authorized to edit this project.');
               navigate(`/projects/${id}`);
               return;
@@ -303,10 +304,12 @@ export default function ProjectInfoForm() {
   }, [formSchema]);
 
   const handleNext = async () => {
-    const keys = getStepFieldKeys(step);
+    const currentStep = steps[step - 1];
+    if (!currentStep) return;
+    const keys = getStepFieldKeys(currentStep.stepNum);
     // Also validate GPS/address manually
     let gpsOk = true, addrOk = true;
-    const stepData = formSchema?.steps.find(s => s.stepNum === step);
+    const stepData = currentStep;
     if (stepData) {
       stepData.groups.forEach(g => g.fields.forEach(f => {
         if (f.isMapField && f.required && !gpsValue.trim()) gpsOk = false;
@@ -377,8 +380,9 @@ export default function ProjectInfoForm() {
     );
   }
 
-  const steps = formSchema.steps;
-  const currentStepData = steps.find(s => s.stepNum === step) || steps[0];
+  const isReviewerOrAssessor = dbUser?.role === 'reviewer' || dbUser?.role === 'desh_reviewer' || dbUser?.role === 'desh_assessor';
+  const steps = formSchema.steps.filter(s => !(isReviewerOrAssessor && s.stepNum === 2));
+  const currentStepData = steps[step - 1] || steps[0];
   const progressPercent = Math.round((step / steps.length) * 100);
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -449,8 +453,8 @@ export default function ProjectInfoForm() {
           boxShadow: 'var(--sh-sm)', overflow: 'hidden',
         }}>
           {steps.map((s, i) => {
-            const isDone = step > s.stepNum;
-            const isCurrent = step === s.stepNum;
+            const isDone = step > (i + 1);
+            const isCurrent = step === (i + 1);
             return (
               <div key={s.stepNum} style={{
                 flex: 1, display: 'flex', alignItems: 'center', gap: 10,
@@ -484,7 +488,7 @@ export default function ProjectInfoForm() {
                     color: isCurrent ? 'var(--g800)' : isDone ? 'var(--g600)' : 'var(--tx-faint)',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   }}>
-                    Step {s.stepNum}: {s.label}
+                    Step {i + 1}: {s.label}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--tx-faint)', fontWeight: 600, marginTop: 1 }}>
                     {s.sub}
@@ -597,11 +601,11 @@ export default function ProjectInfoForm() {
 
             {/* Step dots */}
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              {steps.map(s => (
+              {steps.map((s, i) => (
                 <div key={s.stepNum} style={{
-                  width: step === s.stepNum ? 22 : 8, height: 8, borderRadius: 99,
-                  background: step > s.stepNum ? 'var(--g500)'
-                    : step === s.stepNum ? 'linear-gradient(90deg,var(--g600),var(--g400))' : 'var(--bg-muted)',
+                  width: step === (i + 1) ? 22 : 8, height: 8, borderRadius: 99,
+                  background: step > (i + 1) ? 'var(--g500)'
+                    : step === (i + 1) ? 'linear-gradient(90deg,var(--g600),var(--g400))' : 'var(--bg-muted)',
                   transition: 'all 0.35s cubic-bezier(0.4,0,0.2,1)',
                   boxShadow: step === s.stepNum ? '0 1px 6px rgba(34,168,75,0.4)' : 'none',
                 }} />

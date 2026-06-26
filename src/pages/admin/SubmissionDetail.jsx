@@ -10,6 +10,10 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import {
+  BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 
 const getDynamicApiBaseUrl = () => {
   if (process.env.REACT_APP_API_URL && !process.env.REACT_APP_API_URL.includes("localhost")) {
@@ -29,6 +33,29 @@ const getDynamicApiBaseUrl = () => {
 
 const API_BASE = getDynamicApiBaseUrl();
 const SERVER_BASE = API_BASE; // kept for backward compat with imageUrl usages below
+const SERVER_URL = API_BASE.replace(/\/api\/?$/, '');
+
+const ACHIEVED_COLORS = ['#C0392B', '#4B5563', '#EA7C0C', '#2563EB', '#166534', '#7C3AED', '#92400E'];
+const SKIP_WORDS = new Set(['and', 'or', 'of', 'the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'after', 'before']);
+
+function abbreviateTabName(name, index) {
+  const prefix = `${index + 1}.`;
+  if (!name) return `${prefix} T`;
+  const words = name.split(/[\s\-/]+/).filter(w => w.length > 0 && !SKIP_WORDS.has(w.toLowerCase()));
+  const abbr = words.map(w => w[0].toUpperCase()).join('').slice(0, 3) || name.slice(0, 2).toUpperCase();
+  return `${prefix} ${abbr}`;
+}
+
+function calcTabScore(tab) {
+  let earned = 0, max = 0;
+  (tab.modules || []).forEach(mod => {
+    (mod.inputs || []).forEach(inp => {
+      earned += inp.points || 0;
+      max += calcInputMax(inp);
+    });
+  });
+  return { earned, max };
+}
 
 const STATUS_CFG = {
   under_review: { label: 'Under Review', color: '#92400E', bg: '#FEF9C3', border: '#FDE68A', dot: '#D97706' },
@@ -438,15 +465,15 @@ export default function SubmissionDetail() {
       let html = `<div class="inp-comments"><div class="comment-hdr">💬 Comments (${list.length})</div><div class="comment-thread">`;
       roots.forEach(root => {
         const rootRole = root.role || 'user';
-        const rootRoleClass = rootRole === 'admin' ? 'r-admin' : rootRole === 'reviewer' ? 'r-reviewer' : 'r-user';
-        const rootRoleLabel = rootRole === 'admin' ? 'Admin' : rootRole === 'reviewer' ? 'Reviewer' : 'User';
+        const rootRoleClass = rootRole === 'admin' ? 'r-admin' : (rootRole === 'reviewer' || rootRole === 'desh_reviewer') ? 'r-reviewer' : 'r-user';
+        const rootRoleLabel = rootRole === 'admin' ? 'Admin' : (rootRole === 'reviewer' || rootRole === 'desh_reviewer') ? 'Reviewer' : rootRole === 'desh_assessor' ? 'Assessor' : rootRole === 'desh_manager' ? 'Manager' : 'DESH Professional';
         const rootTime = new Date(root.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
         html += `<div class="comment-box"><div class="comment-meta"><span class="comment-role ${rootRoleClass}">${rootRoleLabel}</span><span class="comment-author">${esc(root.authorName || 'Anonymous')}</span><span class="comment-time">${rootTime}</span></div><div class="comment-text">${esc(root.text)}</div></div>`;
         const replies = list.filter(c => String(c.parentId) === String(root._id)).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
         replies.forEach(reply => {
           const repRole = reply.role || 'user';
-          const repRoleClass = repRole === 'admin' ? 'r-admin' : repRole === 'reviewer' ? 'r-reviewer' : 'r-user';
-          const repRoleLabel = repRole === 'admin' ? 'Admin' : repRole === 'reviewer' ? 'Reviewer' : 'User';
+          const repRoleClass = repRole === 'admin' ? 'r-admin' : (repRole === 'reviewer' || repRole === 'desh_reviewer') ? 'r-reviewer' : 'r-user';
+          const repRoleLabel = repRole === 'admin' ? 'Admin' : (repRole === 'reviewer' || repRole === 'desh_reviewer') ? 'Reviewer' : repRole === 'desh_assessor' ? 'Assessor' : repRole === 'desh_manager' ? 'Manager' : 'DESH Professional';
           const repTime = new Date(reply.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
           html += `<div class="comment-box reply"><div class="comment-meta"><span class="comment-role ${repRoleClass}">${repRoleLabel}</span><span class="comment-author">${esc(reply.authorName || 'Anonymous')}</span><span class="comment-time">${repTime}</span></div><div class="comment-text">${esc(reply.text)}</div></div>`;
         });
@@ -911,26 +938,155 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
         </div>
 
         {/* Score body — collapsible */}
-        {scoreOpen && (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '18px 24px', flexWrap: 'wrap' }}>
-              <ColoredLeaf level={displayLevel} colorCode={displayColorCode} imageUrl={activeRule?.imageUrl ? `${SERVER_BASE}${activeRule.imageUrl}` : null} size={82} />
-              <div style={{ flex: 1, minWidth: 180 }}>
+        {scoreOpen && (() => {
+          const sortedLeafRules = [...leafRules].sort((a, b) => a.minPercent - b.minPercent);
+          const leafCount = sortedLeafRules.length;
+          const leafSize = leafCount >= 6 ? 62 : leafCount >= 5 ? 68 : 76;
+
+          const tabChartData = (tabs || []).map((tab, i) => {
+            const { earned, max } = calcTabScore(tab);
+            return {
+              name: abbreviateTabName(tab.title || tab.name || '', i),
+              fullName: tab.title || tab.name || `Tab ${i + 1}`,
+              allocated: max,
+              achieved: Math.round(earned),
+            };
+          });
+
+          const ChartTooltip = ({ active, payload, label }) => {
+            if (!active || !payload?.length) return null;
+            const item = tabChartData.find(d => d.name === label);
+            return (
+              <div style={{
+                background: '#fff', border: '1.5px solid var(--border)',
+                borderRadius: 10, padding: '10px 14px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.10)', minWidth: 160,
+              }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx)', margin: '0 0 6px', fontFamily: 'Montserrat,sans-serif' }}>
+                  {item?.fullName || label}
+                </p>
+                {payload.map((entry, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 3, background: entry.fill, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: 'var(--tx-muted)' }}>{entry.name}:</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tx)' }}>{entry.value}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          };
+
+          return (
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'stretch', width: '100%' }}>
+              {/* LEFT: leaf gallery + progress track + score */}
+              <div style={{ flex: '1 1 300px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 18px 14px 20px' }}>
                 {selectedSection && (
-                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--g700)', margin: '0 0 4px', fontFamily: 'Montserrat,sans-serif', letterSpacing: '0.04em' }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--g700)', margin: '0 0 2px', fontFamily: 'Montserrat,sans-serif', letterSpacing: '0.04em' }}>
                     ▦ {selectedSectionName}
                   </p>
                 )}
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-                  <span style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 34, color: 'var(--tx)', lineHeight: 1 }}>
+
+                {sortedLeafRules.length > 0 && (
+                  <div className="pa-level-track" style={{ display: 'flex', width: '100%', gap: 4, alignItems: 'flex-end' }}>
+                    {sortedLeafRules.map((rule) => {
+                      const segSpan = rule.maxPercent - rule.minPercent;
+                      const isActive = displayLevel === rule.name;
+                      const color = rule.colorCode || '#94A3B8';
+                      const rangeLabel = `${rule.minPercent}–${rule.maxPercent}%`;
+                      const segFill = displayPct <= rule.minPercent ? 0
+                        : displayPct >= rule.maxPercent ? 100
+                          : ((displayPct - rule.minPercent) / segSpan) * 100;
+                      return (
+                        <div
+                          key={rule._id || rule.name}
+                          style={{
+                            flex: segSpan,
+                            minWidth: 0,
+                            display: 'flex', flexDirection: 'column', alignItems: 'center',
+                            gap: 3,
+                          }}
+                        >
+                          {/* Leaf */}
+                          <div style={{
+                            display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
+                            width: '100%',
+                            paddingBottom: 2,
+                            opacity: isActive ? 1 : 0.4,
+                            transform: isActive ? 'scale(1.08) translateY(-3px)' : 'scale(1)',
+                            transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+                          }}>
+                            <ColoredLeaf
+                              level=""
+                              colorCode={rule.colorCode}
+                              imageUrl={rule.imageUrl ? `${SERVER_URL}${rule.imageUrl}` : null}
+                              size={leafSize}
+                            />
+                          </div>
+
+                          {/* Range % */}
+                          <span style={{
+                            fontSize: 9, fontWeight: isActive ? 800 : 500,
+                            fontFamily: 'Montserrat,sans-serif',
+                            color: isActive ? color : 'var(--tx-faint)',
+                            textAlign: 'center', whiteSpace: 'nowrap',
+                            lineHeight: 1.2,
+                          }}>
+                            {rangeLabel}
+                          </span>
+
+                          {/* Leaf name */}
+                          <span style={{
+                            fontSize: 9, fontWeight: isActive ? 700 : 400,
+                            fontFamily: 'Montserrat,sans-serif',
+                            color: isActive ? color : 'var(--tx-faint)',
+                            textAlign: 'center', lineHeight: 1.2,
+                            width: '100%',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {rule.name}
+                          </span>
+
+                          {/* Progress bar segment */}
+                          <div style={{
+                            width: '100%', height: 8, borderRadius: 99,
+                            background: 'rgba(0,0,0,0.10)', overflow: 'hidden',
+                            position: 'relative',
+                            boxShadow: isActive ? `0 0 0 1.5px ${color}66` : 'none',
+                            transition: 'box-shadow 0.3s',
+                          }}>
+                            <div style={{
+                              position: 'absolute', left: 0, top: 0, bottom: 0,
+                              width: `${segFill}%`,
+                              background: color,
+                              borderRadius: 99,
+                              transition: 'width 0.9s cubic-bezier(0.4,0,0.2,1)',
+                            }} />
+                          </div>
+
+                          {/* Active arrow */}
+                          <div style={{
+                            fontSize: 8, lineHeight: 1,
+                            color: isActive ? color : 'transparent',
+                            transition: 'color 0.3s',
+                          }}>▲</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Score summary and details */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', borderTop: '1.5px dashed rgba(34,168,75,0.15)', paddingTop: 12, marginTop: 4 }}>
+                  <span style={{
+                    fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 30,
+                    lineHeight: 1, color: progressColor || 'var(--tx)',
+                  }}>
                     {displayPct}%
                   </span>
-                  <span style={{ fontSize: 13, color: 'var(--tx-muted)', fontWeight: 600 }}>score</span>
-                  <span style={{ fontSize: 14, color: 'var(--tx-muted)', fontWeight: 700 }}>
-                    {displayEarned} / {displayMax} pts
+                  <span style={{ fontSize: 12, color: 'var(--tx-muted)', fontWeight: 600 }}>score</span>
+                  <span style={{ fontSize: 13, color: 'var(--tx-muted)', fontWeight: 700 }}>
+                    ({displayEarned} / {displayMax} pts)
                   </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   {displayLevel
                     ? <LeafBadge level={displayLevel} />
                     : <span style={{ fontSize: 12, color: 'var(--tx-faint)', fontWeight: 600 }}>Not rated yet</span>}
@@ -940,14 +1096,90 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                   {activeSectionStatus && <StatusBadge status={activeSectionStatus} large />}
                 </div>
               </div>
-            </div>
-            <div style={{ padding: '0 24px 14px' }}>
-              <div style={{ height: 6, borderRadius: 99, background: 'var(--g100)', overflow: 'hidden' }}>
-                <div style={{ height: '100%', borderRadius: 99, background: progressColor, width: `${Math.min(displayPct, 100)}%`, transition: 'width 0.8s ease, background 0.5s ease' }} />
+
+              {/* RIGHT: per-tab bar chart */}
+              <div style={{
+                flex: '1 1 260px',
+                minWidth: 0,
+                display: 'flex', flexDirection: 'column',
+                borderLeft: '1.5px solid rgba(34,168,75,0.15)',
+                padding: '12px 12px 10px 12px',
+              }}>
+                <p style={{
+                  fontSize: 9, fontWeight: 800, letterSpacing: '0.09em',
+                  textTransform: 'uppercase', color: 'var(--g700)',
+                  fontFamily: 'Montserrat,sans-serif', marginBottom: 6,
+                }}>
+                  Score by Tab
+                </p>
+
+                {tabChartData.length > 0 ? (
+                  <div style={{
+                    flex: 1,
+                    background: '#EBF7F2',
+                    borderRadius: 10,
+                    padding: '10px 6px 6px 4px',
+                    display: 'flex', flexDirection: 'column',
+                    position: 'relative',
+                    minHeight: 148,
+                    minWidth: 0,
+                  }}>
+                    {/* Legend */}
+                    <div style={{
+                      display: 'flex', gap: 14, justifyContent: 'center',
+                      marginBottom: 8, flexWrap: 'wrap',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: 2, background: '#22A84B', display: 'inline-block', flexShrink: 0 }} />
+                        <span style={{ fontSize: 9, fontWeight: 700, color: '#374151', fontFamily: 'Montserrat,sans-serif' }}>Allocated</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: 2, background: '#EA7C0C', display: 'inline-block', flexShrink: 0 }} />
+                        <span style={{ fontSize: 9, fontWeight: 700, color: '#374151', fontFamily: 'Montserrat,sans-serif' }}>Achieved</span>
+                      </div>
+                    </div>
+
+                    <div style={{ width: '100%', height: 148 }}>
+                      <ResponsiveContainer width="100%" height="100%" key={tabChartData.length}>
+                        <BarChart
+                          data={tabChartData}
+                          barGap={3}
+                          barCategoryGap="28%"
+                          margin={{ top: 2, right: 6, left: -20, bottom: 0 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.08)" vertical={false} />
+                          <XAxis
+                            dataKey="name"
+                            tick={{ fontSize: 9, fontWeight: 700, fill: '#4B5563', fontFamily: 'Montserrat,sans-serif' }}
+                            axisLine={false} tickLine={false} interval={0}
+                          />
+                          <YAxis
+                            tick={{ fontSize: 8, fill: '#9CA3AF', fontFamily: 'Montserrat,sans-serif' }}
+                            axisLine={false} tickLine={false} width={24}
+                          />
+                          <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(34,168,75,0.07)' }} />
+                          <Bar dataKey="allocated" name="Allocated" fill="#22A84B" radius={[4, 4, 0, 0]} maxBarSize={22} />
+                          <Bar dataKey="achieved" name="Achieved" radius={[4, 4, 0, 0]} maxBarSize={22}>
+                            {tabChartData.map((_, idx) => (
+                              <Cell key={`cell-${idx}`} fill={ACHIEVED_COLORS[idx % ACHIEVED_COLORS.length]} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, color: 'var(--tx-faint)',
+                  }}>
+                    No tab data yet
+                  </div>
+                )}
               </div>
             </div>
-          </>
-        )}
+          );
+        })()}
       </div>
 
       {/* ── Edit Project Info Modal ── */}

@@ -85,7 +85,7 @@ export default function Account() {
                                 fontWeight: 700,
                                 textTransform: 'capitalize',
                             }}>
-                                {dbUser?.role || 'user'}
+                                {dbUser?.role === 'user' ? 'DESH Professional' : (dbUser?.role || 'user')}
                             </span>
                         </div>
 

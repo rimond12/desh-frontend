@@ -9,7 +9,7 @@ const ROLE_CFG = {
   desh_assessor: { label: 'Assessor', bg: 'rgba(59,130,246,0.12)', color: '#2563EB', border: 'rgba(59,130,246,0.25)' },
   desh_manager:  { label: 'Manager',  bg: 'rgba(249,115,22,0.12)', color: '#C2410C', border: 'rgba(249,115,22,0.25)' },
   admin:         { label: 'Admin',    bg: '#D6F5E3', color: '#145C28', border: '#A8EFC0' },
-  user:          { label: 'User',     bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
+  user:          { label: 'DESH Professional',     bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
   owner:         { label: 'Owner',    bg: '#FEF9C3', color: '#92400E', border: '#FDE68A' },
 };
 
@@ -24,7 +24,7 @@ function timeAgo(dateStr) {
 }
 
 // ── Single Comment Row ────────────────────────────────────────────
-function CommentItem({ comment, currentUserId, currentRole, onReply, onEdit, onDelete, depth = 0 }) {
+function CommentItem({ comment, currentUserId, currentRole, onReply, onEdit, onDelete, onDownloadAttachment, depth = 0 }) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(comment.text);
   const cfg = ROLE_CFG[comment.role] || ROLE_CFG.user;
@@ -90,9 +90,42 @@ function CommentItem({ comment, currentUserId, currentRole, onReply, onEdit, onD
             </div>
           </div>
         ) : (
-          <p style={{ fontSize: 13, color: 'var(--tx)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-            {comment.text}
-          </p>
+          <div>
+            <p style={{ fontSize: 13, color: 'var(--tx)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+              {comment.text}
+            </p>
+            {comment.isPrivateStaff && (
+              <span style={{
+                display: 'inline-flex', marginTop: 4, padding: '1px 6px', borderRadius: 4,
+                background: '#FEE2E2', color: '#991B1B', border: '1px solid #FECACA',
+                fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+              }}>
+                🔒 Staff Private
+              </span>
+            )}
+            {comment.attachment && (
+              <div style={{ marginTop: 6 }}>
+                <button
+                  onClick={() => onDownloadAttachment(comment.attachment.filename, comment.attachment.originalName)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '4px 8px',
+                    background: 'var(--bg-soft)',
+                    border: '1.5px solid var(--border)',
+                    borderRadius: 8,
+                    fontSize: 11,
+                    color: 'var(--g700)',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  📎 {comment.attachment.originalName} (Download)
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Actions */}
@@ -127,6 +160,7 @@ function CommentItem({ comment, currentUserId, currentRole, onReply, onEdit, onD
 export default function CommentThread({
   projectId, inputId, currentUserId, currentRole, isLocked,
   projectOwnerId, initialCount = 0, disableComments = false,
+  isCollaborator = false,
 }) {
   const ax = useAxiosSecure();
   const [open, setOpen]         = useState(false);
@@ -136,6 +170,8 @@ export default function CommentThread({
   const [newText, setNewText]   = useState('');
   const [sending, setSending]   = useState(false);
   const [replyTo, setReplyTo]   = useState(null); // parentId
+  const [isPrivateStaff, setIsPrivateStaff] = useState(false);
+  const [attachmentFile, setAttachmentFile] = useState(null);
 
   // Mentions Auto-complete state
   const [mentionableUsers, setMentionableUsers] = useState([]);
@@ -151,7 +187,9 @@ export default function CommentThread({
      currentRole === 'desh_assessor' ||
      currentRole === 'desh_manager' ||
      currentRole === 'admin' ||
-     (currentRole === 'user' && String(projectOwnerId) === String(currentUserId)));
+     (currentRole === 'user' && (String(projectOwnerId) === String(currentUserId) || isCollaborator)));
+
+  const isStaff = ['admin', 'desh_manager', 'desh_reviewer', 'desh_assessor', 'reviewer'].includes(currentRole);
 
   const loadComments = useCallback(async () => {
     if (loaded) return;
@@ -181,15 +219,56 @@ export default function CommentThread({
     }
   };
 
+  const downloadAttachment = async (filename, originalName) => {
+    try {
+      const response = await ax.get(`/comments/download/${filename}`, {
+        responseType: 'blob',
+        params: { originalName }
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', originalName || filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (e) {
+      toast.error('Failed to download attachment');
+    }
+  };
+
   const submitComment = async (parentId = null) => {
     const text = newText.trim();
     if (!text) return;
     setSending(true);
     try {
-      const r = await ax.post('/comments', { projectId, inputId, text, parentId });
-      setComments(c => [...c, r.data.comment]);
+      const parent = parentId ? comments.find(c => c._id === parentId) : null;
+      const sendPrivateStaff = parent ? !!parent.isPrivateStaff : isPrivateStaff;
+
+      let resComment;
+      if (attachmentFile) {
+        const fd = new FormData();
+        fd.append('projectId', projectId);
+        fd.append('inputId', inputId);
+        fd.append('text', text);
+        if (parentId) fd.append('parentId', parentId);
+        fd.append('isPrivateStaff', sendPrivateStaff);
+        fd.append('attachment', attachmentFile);
+
+        const r = await ax.post('/comments', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        resComment = r.data.comment;
+      } else {
+        const r = await ax.post('/comments', { projectId, inputId, text, parentId, isPrivateStaff: sendPrivateStaff });
+        resComment = r.data.comment;
+      }
+
+      setComments(c => [...c, resComment]);
       setNewText('');
       setReplyTo(null);
+      setIsPrivateStaff(false);
+      setAttachmentFile(null);
     } catch (e) { toast.error(e.response?.data?.message || 'Failed to post comment'); }
     finally { setSending(false); }
   };
@@ -304,6 +383,7 @@ export default function CommentThread({
                 onReply={canComment ? (pid) => { setReplyTo(pid); } : null}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                onDownloadAttachment={downloadAttachment}
                 depth={0}
               />
               {/* Replies */}
@@ -316,6 +396,7 @@ export default function CommentThread({
                   onReply={null}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
+                  onDownloadAttachment={downloadAttachment}
                   depth={1}
                 />
               ))}
@@ -374,6 +455,23 @@ export default function CommentThread({
                           ))}
                         </div>
                       )}
+                      
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginTop: 6 }}>
+                        <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--g700)', fontWeight: 700 }}>
+                          📎 Attach file
+                          <input
+                            type="file"
+                            onChange={e => setAttachmentFile(e.target.files[0])}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+                        {attachmentFile && (
+                          <span style={{ fontSize: 10, background: 'var(--bg-subtle)', padding: '2px 8px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            {attachmentFile.name}
+                            <button type="button" onClick={() => setAttachmentFile(null)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <button onClick={() => submitComment(cm._id)} disabled={sending} style={{
@@ -381,7 +479,7 @@ export default function CommentThread({
                         background: 'var(--g600)', color: '#fff', fontWeight: 700, cursor: 'pointer',
                         whiteSpace: 'nowrap',
                       }}>↩ Send</button>
-                      <button onClick={() => { setReplyTo(null); setNewText(''); }} style={{
+                      <button onClick={() => { setReplyTo(null); setNewText(''); setAttachmentFile(null); }} style={{
                         padding: '5px 12px', borderRadius: 7, border: '1px solid var(--border)',
                         fontSize: 12, background: '#fff', fontWeight: 600, cursor: 'pointer',
                       }}>Cancel</button>
@@ -445,6 +543,33 @@ export default function CommentThread({
                     ))}
                   </div>
                 )}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginTop: 6 }}>
+                  {isStaff && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--tx-muted)', cursor: 'pointer', fontWeight: 700 }}>
+                      <input
+                        type="checkbox"
+                        checked={isPrivateStaff}
+                        onChange={e => setIsPrivateStaff(e.target.checked)}
+                        style={{ accentColor: 'var(--g600)', cursor: 'pointer' }}
+                      />
+                      Private to Staff
+                    </label>
+                  )}
+                  <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--g700)', fontWeight: 700 }}>
+                    📎 Attach file
+                    <input
+                      type="file"
+                      onChange={e => setAttachmentFile(e.target.files[0])}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                  {attachmentFile && (
+                    <span style={{ fontSize: 10, background: 'var(--bg-subtle)', padding: '2px 8px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      {attachmentFile.name}
+                      <button type="button" onClick={() => setAttachmentFile(null)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
+                    </span>
+                  )}
+                </div>
               </div>
               <button onClick={() => submitComment(null)} disabled={sending || !newText.trim()} style={{
                 padding: '8px 14px', borderRadius: 9, border: 'none',
@@ -464,12 +589,7 @@ export default function CommentThread({
             </p>
           )}
 
-          {/* Collaborator blocked warning */}
-          {disableComments && (
-            <p style={{ fontSize: 11, color: 'var(--tx-faint)', marginTop: 6, fontStyle: 'italic' }}>
-              Collaborators are read-only and cannot comment or reply.
-            </p>
-          )}
+
         </div>
       )}
     </div>

@@ -6,7 +6,8 @@ import toast from 'react-hot-toast';
 const ROLE_COLORS = {
   desh_reviewer: { label: 'Reviewer', bg: 'rgba(139,92,246,0.12)', color: '#A78BFA', border: 'rgba(139,92,246,0.25)' },
   reviewer: { label: 'Reviewer', bg: 'rgba(139,92,246,0.12)', color: '#A78BFA', border: 'rgba(139,92,246,0.25)' },
-  desh_assessor: { label: 'Assessor', bg: 'rgba(59,130,246,0.12)', color: '#93C5FD', border: 'rgba(59,130,246,0.25)' }
+  desh_assessor: { label: 'Assessor', bg: 'rgba(59,130,246,0.12)', color: '#93C5FD', border: 'rgba(59,130,246,0.25)' },
+  user: { label: 'DESH Professional', bg: 'rgba(34,168,75,0.12)', color: '#4ADE80', border: 'rgba(34,168,75,0.25)' }
 };
 
 export default function ManagerUsers() {
@@ -96,7 +97,8 @@ export default function ManagerUsers() {
                           u.email?.toLowerCase().includes(search.toLowerCase());
     const matchesRole = roleFilter === 'all' || 
                         (roleFilter === 'reviewer' && (u.role === 'desh_reviewer' || u.role === 'reviewer')) ||
-                        (roleFilter === 'assessor' && u.role === 'desh_assessor');
+                        (roleFilter === 'assessor' && u.role === 'desh_assessor') ||
+                        (roleFilter === 'user' && u.role === 'user');
     const matchesStatus = statusFilter === 'all' ||
                           (statusFilter === 'active' && u.isActive !== false) ||
                           (statusFilter === 'inactive' && u.isActive === false);
@@ -130,7 +132,7 @@ export default function ManagerUsers() {
             <select
               value={roleFilter}
               onChange={e => setRoleFilter(e.target.value)}
-              className="input-dark px-3 py-1.5 text-xs"
+              className="input-dark px-3 py-1.5 text-xs font-semibold"
               style={{
                 appearance: 'none',
                 cursor: 'pointer',
@@ -138,14 +140,16 @@ export default function ManagerUsers() {
                 backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'11\' height=\'11\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%231A7A35\' stroke-width=\'2.5\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E")',
                 backgroundRepeat: 'no-repeat',
                 backgroundPosition: 'right 8px center',
-                background: '#fff',
+                background: 'var(--bg-soft)',
                 border: '1.5px solid var(--border-md)',
-                color: 'var(--tx)',
+                color: 'var(--tx-2)',
+                borderRadius: '10px'
               }}
             >
               <option value="all">All Roles</option>
               <option value="reviewer">Reviewers</option>
               <option value="assessor">Assessors</option>
+              <option value="user">DESH Professionals</option>
             </select>
           </div>
           <div>
@@ -153,7 +157,7 @@ export default function ManagerUsers() {
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              className="input-dark px-3 py-1.5 text-xs"
+              className="input-dark px-3 py-1.5 text-xs font-semibold"
               style={{
                 appearance: 'none',
                 cursor: 'pointer',
@@ -161,9 +165,10 @@ export default function ManagerUsers() {
                 backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'11\' height=\'11\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%231A7A35\' stroke-width=\'2.5\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E")',
                 backgroundRepeat: 'no-repeat',
                 backgroundPosition: 'right 8px center',
-                background: '#fff',
+                background: 'var(--bg-soft)',
                 border: '1.5px solid var(--border-md)',
-                color: 'var(--tx)',
+                color: 'var(--tx-2)',
+                borderRadius: '10px'
               }}
             >
               <option value="all">All Statuses</option>
@@ -179,6 +184,7 @@ export default function ManagerUsers() {
             onChange={e => setSearch(e.target.value)}
             placeholder="Search by name, email..."
             className="input-dark px-4 py-1.5 text-xs w-full max-w-xs"
+            style={{ borderRadius: '11px' }}
           />
         </div>
       </div>
@@ -192,69 +198,101 @@ export default function ManagerUsers() {
           <p style={{ color: 'var(--tx-muted)' }}>No staff accounts found.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto glass-card">
-          <table className="w-full text-left border-collapse" style={{ minWidth: 800 }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
-                <th className="p-4 text-xs font-bold text-gray-400 uppercase">Name</th>
-                <th className="p-4 text-xs font-bold text-gray-400 uppercase">Email</th>
-                <th className="p-4 text-xs font-bold text-gray-400 uppercase">Role</th>
-                <th className="p-4 text-xs font-bold text-gray-400 uppercase">Status</th>
-                <th className="p-4 text-xs font-bold text-gray-400 uppercase">Created Date</th>
-                <th className="p-4 text-xs font-bold text-gray-400 uppercase text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map(u => {
-                const badge = ROLE_COLORS[u.role] || { label: u.role, bg: 'rgba(255,255,255,0.05)', color: '#fff', border: 'rgba(255,255,255,0.1)' };
-                return (
-                  <tr key={u._id} style={{ borderBottom: '1px solid var(--border)' }} className="hover:bg-gray-800/10">
-                    <td className="p-4 font-bold text-sm">{u.name}</td>
-                    <td className="p-4 text-sm">{u.email}</td>
-                    <td className="p-4 text-sm">
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 99,
-                        fontSize: 11, fontWeight: 700, background: badge.bg, color: badge.color,
-                        border: `1px solid ${badge.border}`, fontFamily: 'Montserrat,sans-serif',
-                      }}>
-                        {badge.label}
-                      </span>
-                    </td>
-                    <td className="p-4 text-sm">
-                      <span className={`inline-block text-2xs px-2 py-0.5 rounded-full font-bold ${
-                        u.isActive !== false ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'
-                      }`}>
-                        {u.isActive !== false ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="p-4 text-xs text-gray-500">
-                      {new Date(u.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-                    </td>
-                    <td className="p-4 text-right">
-                      <div className="flex gap-2 justify-end">
-                        <button 
-                          onClick={() => handleToggleStatus(u)} 
-                          className="text-xs px-3 py-1.5 rounded-lg border transition-all"
-                          style={{ background: '#1F2937', borderColor: '#374151', color: '#FFF', cursor: 'pointer' }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#374151'}
-                          onMouseLeave={e => e.currentTarget.style.background = '#1F2937'}
-                        >
-                          {u.isActive !== false ? 'Deactivate' : 'Activate'}
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteUser(u)} 
-                          className="text-xs px-3 py-1.5 rounded-lg bg-red-950/20 text-red-400 border border-red-900/40 hover:bg-red-900/40 transition-all"
-                          style={{ cursor: 'pointer' }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="glass-card overflow-hidden">
+          <div className="table-scroll">
+            <table className="premium-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Created Date</th>
+                  <th className="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map(u => {
+                  const badge = ROLE_COLORS[u.role] || { label: u.role, bg: 'rgba(255,255,255,0.05)', color: '#fff', border: 'rgba(255,255,255,0.1)' };
+                  return (
+                    <tr key={u._id}>
+                      <td className="font-bold text-sm" style={{ color: 'var(--tx-2)' }}>{u.name}</td>
+                      <td className="text-sm">{u.email}</td>
+                      <td className="text-sm">
+                        {['user', 'desh_reviewer', 'desh_assessor', 'reviewer'].includes(u.role) ? (
+                          <select
+                            value={u.role === 'reviewer' ? 'desh_reviewer' : u.role}
+                            onChange={async (e) => {
+                              const newRole = e.target.value;
+                              if (newRole === u.role) return;
+                              try {
+                                await axiosSecure.patch(`/users/${u._id}/role`, { role: newRole });
+                                toast.success('Role updated successfully');
+                                fetchUsers();
+                              } catch (err) {
+                                toast.error(err.response?.data?.message || 'Failed to update role');
+                              }
+                            }}
+                            className="input-dark px-2 py-1 text-xs font-semibold"
+                            style={{
+                              background: 'var(--bg-soft)',
+                              border: '1.5px solid var(--border-md)',
+                              color: 'var(--tx-2)',
+                              cursor: 'pointer',
+                              borderRadius: 8
+                            }}
+                          >
+                            {u.role === 'user' && <option value="user" disabled>DESH Professional</option>}
+                            <option value="desh_reviewer">Reviewer</option>
+                            <option value="desh_assessor">Assessor</option>
+                          </select>
+                        ) : (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 99,
+                            fontSize: 11, fontWeght: 700, background: badge.bg, color: badge.color,
+                            border: `1px solid ${badge.border}`, fontFamily: 'Montserrat,sans-serif',
+                          }}>
+                            {badge.label}
+                          </span>
+                        )}
+                      </td>
+                      <td className="text-sm">
+                        <span className={`inline-block text-2xs px-2 py-0.5 rounded-full font-bold ${
+                          u.isActive !== false ? 'bg-green-900/10 text-green-600 border border-green-200' : 'bg-red-900/10 text-red-600 border border-red-200'
+                        }`}>
+                          {u.isActive !== false ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="text-xs text-gray-500">
+                        {new Date(u.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                      </td>
+                      <td className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <button 
+                            onClick={() => handleToggleStatus(u)} 
+                            disabled={u.role === 'user'}
+                            className={`text-xs px-3 py-1.5 rounded-lg border font-bold transition-all ${u.role === 'user' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                            style={{ background: 'var(--bg-soft)', borderColor: 'var(--border-md)', color: 'var(--tx-2)' }}
+                            onMouseEnter={e => { if (u.role !== 'user') e.currentTarget.style.background = 'var(--bg-subtle)'; }}
+                            onMouseLeave={e => { if (u.role !== 'user') e.currentTarget.style.background = 'var(--bg-soft)'; }}
+                          >
+                            {u.isActive !== false ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteUser(u)} 
+                            disabled={u.role === 'user'}
+                            className={`text-xs px-3 py-1.5 rounded-lg bg-red-950/10 text-red-600 border border-red-200 transition-all font-bold ${u.role === 'user' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-900/20 cursor-pointer'}`}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

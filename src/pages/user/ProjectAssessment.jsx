@@ -11,7 +11,7 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import {
   BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer,
+  ResponsiveContainer,
 } from 'recharts';
 import { RiInformation2Fill } from 'react-icons/ri';
 
@@ -535,15 +535,15 @@ export default function ProjectAssessment() {
       let html = `<div class="inp-comments"><div class="comment-hdr">💬 Comments (${list.length})</div><div class="comment-thread">`;
       roots.forEach(root => {
         const rootRole = root.role || 'user';
-        const rootRoleClass = rootRole === 'admin' ? 'r-admin' : rootRole === 'reviewer' ? 'r-reviewer' : 'r-user';
-        const rootRoleLabel = rootRole === 'admin' ? 'Admin' : rootRole === 'reviewer' ? 'Reviewer' : 'User';
+        const rootRoleClass = rootRole === 'admin' ? 'r-admin' : (rootRole === 'reviewer' || rootRole === 'desh_reviewer') ? 'r-reviewer' : 'r-user';
+        const rootRoleLabel = rootRole === 'admin' ? 'Admin' : (rootRole === 'reviewer' || rootRole === 'desh_reviewer') ? 'Reviewer' : rootRole === 'desh_assessor' ? 'Assessor' : rootRole === 'desh_manager' ? 'Manager' : 'DESH Professional';
         const rootTime = new Date(root.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
         html += `<div class="comment-box"><div class="comment-meta"><span class="comment-role ${rootRoleClass}">${rootRoleLabel}</span><span class="comment-author">${esc(root.authorName || 'Anonymous')}</span><span class="comment-time">${rootTime}</span></div><div class="comment-text">${esc(root.text)}</div></div>`;
         const replies = list.filter(c => String(c.parentId) === String(root._id)).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
         replies.forEach(reply => {
           const repRole = reply.role || 'user';
-          const repRoleClass = repRole === 'admin' ? 'r-admin' : repRole === 'reviewer' ? 'r-reviewer' : 'r-user';
-          const repRoleLabel = repRole === 'admin' ? 'Admin' : repRole === 'reviewer' ? 'Reviewer' : 'User';
+          const repRoleClass = repRole === 'admin' ? 'r-admin' : (repRole === 'reviewer' || repRole === 'desh_reviewer') ? 'r-reviewer' : 'r-user';
+          const repRoleLabel = repRole === 'admin' ? 'Admin' : (repRole === 'reviewer' || repRole === 'desh_reviewer') ? 'Reviewer' : repRole === 'desh_assessor' ? 'Assessor' : repRole === 'desh_manager' ? 'Manager' : 'DESH Professional';
           const repTime = new Date(reply.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
           html += `<div class="comment-box reply"><div class="comment-meta"><span class="comment-role ${repRoleClass}">${repRoleLabel}</span><span class="comment-author">${esc(reply.authorName || 'Anonymous')}</span><span class="comment-time">${repTime}</span></div><div class="comment-text">${esc(reply.text)}</div></div>`;
         });
@@ -1136,7 +1136,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
             )}
  
             {/* ── Edit Project Info button ── */}
-            {isCreator && (
+            {(isCreator || dbUser?.role === 'admin' || dbUser?.role === 'reviewer' || dbUser?.role === 'desh_reviewer' || dbUser?.role === 'desh_assessor') && (
               <Link
                 to={`/projects/${id}/info`}
                 style={{
@@ -1400,6 +1400,9 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                     borderRadius: 10,
                     padding: '10px 6px 6px 4px',
                     display: 'flex', flexDirection: 'column',
+                    position: 'relative',
+                    minHeight: 148,
+                    minWidth: 0,
                   }}>
                     {/* Legend */}
                     <div style={{
@@ -1415,32 +1418,34 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                         <span style={{ fontSize: 9, fontWeight: 700, color: '#374151', fontFamily: 'Montserrat,sans-serif' }}>Achieved Points</span>
                       </div>
                     </div>
-                    <ResponsiveContainer width="100%" height={148}>
-                      <BarChart
-                        data={tabChartData}
-                        barGap={3}
-                        barCategoryGap="28%"
-                        margin={{ top: 2, right: 6, left: -20, bottom: 0 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.08)" vertical={false} />
-                        <XAxis
-                          dataKey="name"
-                          tick={{ fontSize: 9, fontWeight: 700, fill: '#4B5563', fontFamily: 'Montserrat,sans-serif' }}
-                          axisLine={false} tickLine={false} interval={0}
-                        />
-                        <YAxis
-                          tick={{ fontSize: 8, fill: '#9CA3AF', fontFamily: 'Montserrat,sans-serif' }}
-                          axisLine={false} tickLine={false} width={24}
-                        />
-                        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(34,168,75,0.07)' }} />
-                        <Bar dataKey="allocated" name="Allocated" fill="#22A84B" radius={[4, 4, 0, 0]} maxBarSize={22} />
-                        <Bar dataKey="achieved" name="Achieved" radius={[4, 4, 0, 0]} maxBarSize={22}>
-                          {tabChartData.map((_, idx) => (
-                            <Cell key={`cell-${idx}`} fill={ACHIEVED_COLORS[idx % ACHIEVED_COLORS.length]} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <div style={{ width: '100%', height: 148 }}>
+                      <ResponsiveContainer width="100%" height="100%" key={tabChartData.length}>
+                        <BarChart
+                          data={tabChartData}
+                          barGap={3}
+                          barCategoryGap="28%"
+                          margin={{ top: 2, right: 6, left: -20, bottom: 0 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.08)" vertical={false} />
+                          <XAxis
+                            dataKey="name"
+                            tick={{ fontSize: 9, fontWeight: 700, fill: '#4B5563', fontFamily: 'Montserrat,sans-serif' }}
+                            axisLine={false} tickLine={false} interval={0}
+                          />
+                          <YAxis
+                            tick={{ fontSize: 8, fill: '#9CA3AF', fontFamily: 'Montserrat,sans-serif' }}
+                            axisLine={false} tickLine={false} width={24}
+                          />
+                          <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(34,168,75,0.07)' }} />
+                          <Bar dataKey="allocated" name="Allocated" fill="#22A84B" radius={[4, 4, 0, 0]} maxBarSize={22} />
+                          <Bar dataKey="achieved" name="Achieved" radius={[4, 4, 0, 0]} maxBarSize={22}>
+                            {tabChartData.map((_, idx) => (
+                              <Cell key={`cell-${idx}`} fill={ACHIEVED_COLORS[idx % ACHIEVED_COLORS.length]} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
                 ) : (
                   <div style={{
@@ -2306,7 +2311,8 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                                 isLocked={project?.status === 'submitted'}
                                                 projectOwnerId={ownerId}
                                                 initialCount={commentCounts[String(inp._id)] || 0}
-                                                disableComments={isCollaborator}
+                                                disableComments={false}
+                                                isCollaborator={isCollaborator}
                                               />
                                             )}
                                           </div>

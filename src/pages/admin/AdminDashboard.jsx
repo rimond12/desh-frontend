@@ -63,7 +63,7 @@ export default function AdminDashboard() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Total Users', value: stats.users, icon: '◉', color: 'var(--g500)' },
+          { label: 'Total DESH Professionals', value: stats.users, icon: '◉', color: 'var(--g500)' },
           { label: 'Projects', value: stats.projects, icon: '◫', color: 'var(--g600)' },
           { label: 'Tabs', value: stats.tabs, icon: '⬡', color: '#F8A514' },
           { label: 'Modules', value: stats.modules, icon: '◈', color: '#E2670C' },
@@ -88,7 +88,7 @@ export default function AdminDashboard() {
             <p className="text-center py-8">Loading...</p>
           ) : (
             <div className="table-scroll"><table className="premium-table">
-              <thead><tr><th>Project</th><th>User</th><th>Level</th><th>Score</th><th>Date</th></tr></thead>
+              <thead><tr><th>Project</th><th>DESH Professional</th><th>Level</th><th>Score</th><th>Date</th></tr></thead>
               <tbody>
                 {submissions.map(s => (
                   <tr key={s._id}>
@@ -168,7 +168,7 @@ export default function AdminDashboard() {
           { label: 'Submissions', icon: '◫', to: '/admin/submissions', color: 'var(--g500)' },
           { label: 'Tabs & Modules', icon: '◈', to: '/admin/tabs', color: '#F8A514' },
           { label: 'Leaf Levels', icon: '⬡', to: '/admin/leaf-levels', color: 'var(--g600)' },
-          { label: 'Users', icon: '◉', to: '/admin/users', color: '#E2670C' },
+          { label: 'DESH Professionals', icon: '◉', to: '/admin/users', color: '#E2670C' },
         ].map(card => (
           <Link key={card.to} to={card.to}
             className="glass-card p-5 flex flex-col gap-3 hover:-translate-y-1 transition-all block">

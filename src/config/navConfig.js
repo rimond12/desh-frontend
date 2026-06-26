@@ -29,7 +29,7 @@ export const NAV_CONFIG = [
                 items: [
                     { key: 'logoText',      defaultLabel: 'DESHboard',   icon: '🏷', description: 'Top logo text — visible to all roles' },
                     { key: 'adminSubtitle', defaultLabel: 'Admin Panel', icon: '🔑', description: 'Subtitle below logo — shown to admins' },
-                    { key: 'userSubtitle',  defaultLabel: 'User Portal', icon: '👤', description: 'Subtitle below logo — shown to users & reviewers' },
+                    { key: 'userSubtitle',  defaultLabel: 'DESH Professional Portal', icon: '👤', description: 'Subtitle below logo — shown to users & reviewers' },
                 ],
             },
             {
@@ -73,7 +73,7 @@ export const NAV_CONFIG = [
                 sectionKey: 'adminSection_MANAGEMENT',
                 sectionDefault: 'MANAGEMENT',
                 items: [
-                    { key: 'adminNav_users',       defaultLabel: 'Users',       path: '/admin/users',       icon: '◉' },
+                    { key: 'adminNav_users',       defaultLabel: 'DESH Professionals',       path: '/admin/users',       icon: '◉' },
                     { key: 'adminNav_submissions', defaultLabel: 'Submissions', path: '/admin/submissions', icon: '◫' },
                     { key: 'adminNav_activity',    defaultLabel: 'Activity',    path: '/admin/activity',    icon: '⏱' },
                 ],
@@ -100,7 +100,7 @@ export const NAV_CONFIG = [
     // ── USER ────────────────────────────────────────────────────────────────
     {
         role: 'user',
-        roleLabel: 'User',
+        roleLabel: 'DESH Professional',
         roleIcon: '👤',
         roleColor: '#3B82F6',
         description: 'Sidebar navigation items visible to regular users',
@@ -119,7 +119,7 @@ export const NAV_CONFIG = [
                 sectionDefault: 'TOOLS',
                 items: [
                     { key: 'userNav_notes',        defaultLabel: 'My Notes',     path: '/notes',         icon: '✎' },
-                    { key: 'userNav_manual',       defaultLabel: 'User Manual',  path: '/manual',        icon: '?' },
+                    { key: 'userNav_manual',       defaultLabel: 'DESH Professional Manual',  path: '/manual',        icon: '?' },
                     { key: 'userNav_calculations', defaultLabel: 'Calculations', path: '/calculations',  icon: '∑' },
                 ],
             },
@@ -171,7 +171,7 @@ export const NAV_CONFIG = [
                 sectionDefault: 'MANAGEMENT',
                 items: [
                     { key: 'managerNav_submissions', defaultLabel: 'Submissions', path: '/manager/submissions', icon: '◫' },
-                    { key: 'managerNav_users',       defaultLabel: 'Manage Users', path: '/manager/users',       icon: '👥' },
+                    { key: 'managerNav_users',       defaultLabel: 'Manage DESH Professionals', path: '/manager/users',       icon: '👥' },
                 ],
             },
         ],

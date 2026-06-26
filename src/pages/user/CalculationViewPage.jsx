@@ -1,12 +1,18 @@
 import { useParams, Link } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
 import CalcEngine from '../../components/calcEngine/CalcEngine.jsx';
 
 export default function CalculationViewPage() {
     const { id } = useParams();
+    const { dbUser } = useAuth();
+
+    const isAdmin = dbUser?.role === 'admin';
+    const isManager = dbUser?.role === 'desh_manager';
+    const isReviewer = ['reviewer', 'desh_reviewer', 'desh_assessor'].includes(dbUser?.role);
 
     return (
-        <Layout>
+        <Layout isAdmin={isAdmin} isReviewer={isReviewer} isManager={isManager}>
             {/* Back link */}
             <div style={{ marginBottom: 20 }}>
                 <Link
