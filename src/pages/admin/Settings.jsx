@@ -3,6 +3,7 @@ import Layout from '../../components/shared/Layout.jsx';
 import toast from 'react-hot-toast';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 import { NAV_CONFIG, NAV_LABEL_DEFAULTS } from '../../config/navConfig.js';
+import { updateNavLabelsCache } from '../../hooks/useNavLabels.js';
 import ChangePasswordCard from '../../components/shared/ChangePasswordCard.jsx';
 
 const SERVER_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -177,6 +178,7 @@ export default function Settings() {
         setSavingNav(true);
         try {
             await axiosSecure.put('/settings', { navLabels });
+            updateNavLabelsCache(navLabels);
             toast.success('Navigation labels saved!');
         } catch { toast.error('Failed to save'); }
         finally { setSavingNav(false); }

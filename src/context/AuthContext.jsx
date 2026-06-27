@@ -13,6 +13,22 @@ const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const AuthContext = createContext(null);
 
+// ── Priority order for primary role (highest-privilege first) ─────────────────
+const ROLE_PRIORITY = ['admin', 'desh_manager', 'desh_reviewer', 'desh_assessor', 'reviewer', 'owner', 'user'];
+
+export const getPrimaryRole = (dbUser) => {
+  const roles = Array.isArray(dbUser?.roles) ? dbUser.roles : [dbUser?.role].filter(Boolean);
+  for (const p of ROLE_PRIORITY) {
+    if (roles.includes(p)) return p;
+  }
+  return roles[0] || 'user';
+};
+
+export const userHasRole = (dbUser, ...rolesToCheck) => {
+  const roles = Array.isArray(dbUser?.roles) ? dbUser.roles : [dbUser?.role].filter(Boolean);
+  return rolesToCheck.some(r => roles.includes(r));
+};
+
 async function fetchDbUser(firebaseUser) {
   const token = await firebaseUser.getIdToken();
   const res = await fetch(`${API_BASE}/users/me`, {
@@ -24,8 +40,8 @@ async function fetchDbUser(firebaseUser) {
 }
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser]     = useState(null);   // Firebase user
-  const [dbUser, setDbUser] = useState(null);   // MongoDB user (has .role)
+  const [user,    setUser]    = useState(null);   // Firebase user
+  const [dbUser,  setDbUser]  = useState(null);   // MongoDB user (has .roles array)
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -63,7 +79,7 @@ export const AuthProvider = ({ children }) => {
     return signOut(auth);
   };
 
-  // Call this after an admin changes the current user's role so it takes effect
+  // Call this after an admin changes the current user's roles so it takes effect immediately
   const refreshDbUser = async () => {
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) return;
@@ -74,15 +90,14 @@ export const AuthProvider = ({ children }) => {
     } catch { /* silent */ }
   };
 
-  // Call this immediately after login to get the role for navigation
-  // Also updates the context state so no double-fetch problem
+  // Call this immediately after login to get the primary role for navigation
   const getRoleFromDb = async () => {
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) return 'user';
     try {
       const mongoUser = await fetchDbUser(firebaseUser);
       setDbUser(mongoUser);
-      return mongoUser?.role || 'user';
+      return getPrimaryRole(mongoUser);
     } catch {
       return 'user';
     }
@@ -92,6 +107,8 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={{
       user, dbUser, loading,
       login, loginWithGoogle, register, logout, refreshDbUser, getRoleFromDb,
+      getPrimaryRole: () => getPrimaryRole(dbUser),
+      userHasRole:    (...roles) => userHasRole(dbUser, ...roles),
     }}>
       {!loading && children}
     </AuthContext.Provider>

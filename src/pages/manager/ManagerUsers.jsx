@@ -5,10 +5,30 @@ import toast from 'react-hot-toast';
 
 const ROLE_COLORS = {
   desh_reviewer: { label: 'Reviewer', bg: 'rgba(139,92,246,0.12)', color: '#A78BFA', border: 'rgba(139,92,246,0.25)' },
-  reviewer: { label: 'Reviewer', bg: 'rgba(139,92,246,0.12)', color: '#A78BFA', border: 'rgba(139,92,246,0.25)' },
+  reviewer:      { label: 'Reviewer', bg: 'rgba(139,92,246,0.12)', color: '#A78BFA', border: 'rgba(139,92,246,0.25)' },
   desh_assessor: { label: 'Assessor', bg: 'rgba(59,130,246,0.12)', color: '#93C5FD', border: 'rgba(59,130,246,0.25)' },
-  user: { label: 'DESH Professional', bg: 'rgba(34,168,75,0.12)', color: '#4ADE80', border: 'rgba(34,168,75,0.25)' }
+  user:          { label: 'DESH Professional', bg: 'rgba(34,168,75,0.12)', color: '#4ADE80', border: 'rgba(34,168,75,0.25)' },
 };
+
+// Normalise user.roles (supports both legacy `role` and new `roles` array)
+function getUserRoles(u) {
+  if (Array.isArray(u.roles) && u.roles.length > 0) return u.roles;
+  if (u.role) return [u.role];
+  return ['user'];
+}
+
+function RoleBadge({ role }) {
+  const cfg = ROLE_COLORS[role] || { label: role, bg: 'rgba(255,255,255,0.05)', color: '#fff', border: 'rgba(255,255,255,0.1)' };
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 99,
+      fontSize: 11, fontWeight: 700, background: cfg.bg, color: cfg.color,
+      border: `1px solid ${cfg.border}`, fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+    }}>
+      {cfg.label}
+    </span>
+  );
+}
 
 export default function ManagerUsers() {
   const axiosSecure = useAxiosSecure();
@@ -93,12 +113,13 @@ export default function ManagerUsers() {
   };
 
   const filteredUsers = users.filter(u => {
+    const roles = getUserRoles(u);
     const matchesSearch = u.name?.toLowerCase().includes(search.toLowerCase()) || 
                           u.email?.toLowerCase().includes(search.toLowerCase());
     const matchesRole = roleFilter === 'all' || 
-                        (roleFilter === 'reviewer' && (u.role === 'desh_reviewer' || u.role === 'reviewer')) ||
-                        (roleFilter === 'assessor' && u.role === 'desh_assessor') ||
-                        (roleFilter === 'user' && u.role === 'user');
+                        (roleFilter === 'reviewer' && (roles.includes('desh_reviewer') || roles.includes('reviewer'))) ||
+                        (roleFilter === 'assessor' && roles.includes('desh_assessor')) ||
+                        (roleFilter === 'user' && roles.includes('user'));
     const matchesStatus = statusFilter === 'all' ||
                           (statusFilter === 'active' && u.isActive !== false) ||
                           (statusFilter === 'inactive' && u.isActive === false);
@@ -219,42 +240,9 @@ export default function ManagerUsers() {
                       <td className="font-bold text-sm" style={{ color: 'var(--tx-2)' }}>{u.name}</td>
                       <td className="text-sm">{u.email}</td>
                       <td className="text-sm">
-                        {['user', 'desh_reviewer', 'desh_assessor', 'reviewer'].includes(u.role) ? (
-                          <select
-                            value={u.role === 'reviewer' ? 'desh_reviewer' : u.role}
-                            onChange={async (e) => {
-                              const newRole = e.target.value;
-                              if (newRole === u.role) return;
-                              try {
-                                await axiosSecure.patch(`/users/${u._id}/role`, { role: newRole });
-                                toast.success('Role updated successfully');
-                                fetchUsers();
-                              } catch (err) {
-                                toast.error(err.response?.data?.message || 'Failed to update role');
-                              }
-                            }}
-                            className="input-dark px-2 py-1 text-xs font-semibold"
-                            style={{
-                              background: 'var(--bg-soft)',
-                              border: '1.5px solid var(--border-md)',
-                              color: 'var(--tx-2)',
-                              cursor: 'pointer',
-                              borderRadius: 8
-                            }}
-                          >
-                            {u.role === 'user' && <option value="user" disabled>DESH Professional</option>}
-                            <option value="desh_reviewer">Reviewer</option>
-                            <option value="desh_assessor">Assessor</option>
-                          </select>
-                        ) : (
-                          <span style={{
-                            display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 99,
-                            fontSize: 11, fontWeght: 700, background: badge.bg, color: badge.color,
-                            border: `1px solid ${badge.border}`, fontFamily: 'Montserrat,sans-serif',
-                          }}>
-                            {badge.label}
-                          </span>
-                        )}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                          {getUserRoles(u).map(r => <RoleBadge key={r} role={r} />)}
+                        </div>
                       </td>
                       <td className="text-sm">
                         <span className={`inline-block text-2xs px-2 py-0.5 rounded-full font-bold ${

@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider, useAuth } from './context/AuthContext.jsx';
+import { AuthProvider, useAuth, getPrimaryRole, userHasRole } from './context/AuthContext.jsx';
 
 import Login      from './pages/auth/Login.jsx';
 import Register   from './pages/auth/Register.jsx';
@@ -40,14 +40,23 @@ import CalcEnginePage   from './pages/admin/CalcEnginePage.jsx';
 import Resources        from './pages/admin/Resources.jsx';
 import FormBuilder      from './pages/admin/FormBuilder.jsx';
 
-// ── Route guards — role checked from dbUser (MongoDB), not email lists ──
+// ── Route guards — role checked from dbUser.roles array (MongoDB) ─────────────
 
 // Returns true if user needs to complete profile setup
 function needsProfile(dbUser) {
   if (!dbUser) return false;
   const systemRoles = ['admin', 'reviewer', 'desh_manager', 'desh_reviewer', 'desh_assessor'];
-  if (systemRoles.includes(dbUser.role)) return false;
+  if (systemRoles.some(r => userHasRole(dbUser, r))) return false;
   return !dbUser.userType;
+}
+
+// ── Get the redirect destination based on highest-privilege role ──────────────
+function getRoleRedirect(dbUser) {
+  if (userHasRole(dbUser, 'admin'))        return '/admin';
+  if (userHasRole(dbUser, 'desh_manager')) return '/manager/submissions';
+  if (userHasRole(dbUser, 'desh_reviewer', 'desh_assessor', 'reviewer'))
+                                           return '/reviewer/submissions';
+  return null; // falls through to dashboard / profile setup
 }
 
 function PrivateRoute({ children }) {
@@ -61,36 +70,32 @@ function PrivateRoute({ children }) {
 function ProfileSetupRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  if (dbUser?.role === 'admin')    return <Navigate to="/admin" replace />;
-  if (dbUser?.role === 'desh_manager') return <Navigate to="/manager/submissions" replace />;
-  if (dbUser?.role === 'reviewer' || dbUser?.role === 'desh_reviewer' || dbUser?.role === 'desh_assessor')
-    return <Navigate to="/reviewer/submissions" replace />;
-  if (dbUser?.userType)            return <Navigate to="/dashboard" replace />;
+  const redirect = getRoleRedirect(dbUser);
+  if (redirect) return <Navigate to={redirect} replace />;
+  if (dbUser?.userType) return <Navigate to="/dashboard" replace />;
   return children;
 }
 
 function GuestRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return children;
-  if (dbUser?.role === 'admin')    return <Navigate to="/admin" replace />;
-  if (dbUser?.role === 'desh_manager') return <Navigate to="/manager/submissions" replace />;
-  if (dbUser?.role === 'reviewer' || dbUser?.role === 'desh_reviewer' || dbUser?.role === 'desh_assessor')
-    return <Navigate to="/reviewer/submissions" replace />;
-  if (needsProfile(dbUser))        return <Navigate to="/create-profile" replace />;
+  const redirect = getRoleRedirect(dbUser);
+  if (redirect) return <Navigate to={redirect} replace />;
+  if (needsProfile(dbUser)) return <Navigate to="/create-profile" replace />;
   return <Navigate to="/dashboard" replace />;
 }
 
 function AdminGuestRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return children;
-  if (dbUser?.role === 'admin') return <Navigate to="/admin" replace />;
+  if (userHasRole(dbUser, 'admin')) return <Navigate to="/admin" replace />;
   return <Navigate to="/dashboard" replace />;
 }
 
 function AdminRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return <Navigate to="/admin/login" replace />;
-  if (dbUser?.role !== 'admin') return <Navigate to="/dashboard" replace />;
+  if (!userHasRole(dbUser, 'admin')) return <Navigate to="/dashboard" replace />;
   return children;
 }
 
@@ -98,7 +103,7 @@ function ReviewerRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
   const allowed = ['reviewer', 'desh_reviewer', 'desh_assessor', 'desh_manager', 'admin'];
-  if (!allowed.includes(dbUser?.role))
+  if (!userHasRole(dbUser, ...allowed))
     return <Navigate to="/dashboard" replace />;
   return children;
 }
@@ -106,9 +111,18 @@ function ReviewerRoute({ children }) {
 function ManagerRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  const allowed = ['desh_manager', 'admin'];
-  if (!allowed.includes(dbUser?.role))
+  if (!userHasRole(dbUser, 'desh_manager', 'admin'))
     return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
+// ── Multi-role user route: allow users who have the "user" role (for project submission) ──
+// This route allows access even if they also have reviewer/other roles.
+function UserRoute({ children }) {
+  const { user, dbUser } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (!userHasRole(dbUser, 'user')) return <Navigate to="/reviewer/submissions" replace />;
+  if (needsProfile(dbUser))        return <Navigate to="/create-profile" replace />;
   return children;
 }
 
@@ -123,17 +137,17 @@ function AppRoutes() {
       {/* Profile setup */}
       <Route path="/create-profile" element={<ProfileSetupRoute><CreateProfile/></ProfileSetupRoute>} />
 
-      {/* User routes */}
-      <Route path="/dashboard"    element={<PrivateRoute><UserDashboard/></PrivateRoute>} />
-      <Route path="/projects"     element={<PrivateRoute><Projects/></PrivateRoute>} />
-      <Route path="/projects/new" element={<PrivateRoute><NewProject/></PrivateRoute>} />
-      <Route path="/projects/:id" element={<PrivateRoute><ProjectAssessment/></PrivateRoute>} />
-      <Route path="/projects/:id/info" element={<PrivateRoute><ProjectInfoForm/></PrivateRoute>} />
+      {/* User routes — accessible by any authenticated user with "user" role */}
+      <Route path="/dashboard"    element={<UserRoute><UserDashboard/></UserRoute>} />
+      <Route path="/projects"     element={<UserRoute><Projects/></UserRoute>} />
+      <Route path="/projects/new" element={<UserRoute><NewProject/></UserRoute>} />
+      <Route path="/projects/:id" element={<UserRoute><ProjectAssessment/></UserRoute>} />
+      <Route path="/projects/:id/info" element={<UserRoute><ProjectInfoForm/></UserRoute>} />
       <Route path="/notes"              element={<PrivateRoute><Notes/></PrivateRoute>} />
       <Route path="/manual"             element={<PrivateRoute><Manual/></PrivateRoute>} />
       <Route path="/account"            element={<PrivateRoute><Account/></PrivateRoute>} />
-      <Route path="/calculations"       element={<PrivateRoute><CalculationsArchivePage/></PrivateRoute>} />
-      <Route path="/calculations/:id"   element={<PrivateRoute><CalculationViewPage/></PrivateRoute>} />
+      <Route path="/calculations"       element={<UserRoute><CalculationsArchivePage/></UserRoute>} />
+      <Route path="/calculations/:id"   element={<UserRoute><CalculationViewPage/></UserRoute>} />
 
       {/* Reviewer routes */}
       <Route path="/reviewer/submissions"     element={<ReviewerRoute><ReviewerSubmissions/></ReviewerRoute>} />

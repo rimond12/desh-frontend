@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 import useNavLabels from '../../hooks/useNavLabels.js';
 import { NAV_CONFIG } from '../../config/navConfig.js';
+import { userHasRole } from '../../context/AuthContext.jsx';
 
 export default function Sidebar({
   isAdmin = false,
@@ -15,11 +16,24 @@ export default function Sidebar({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, dbUser } = useAuth();
   const L = useNavLabels();
 
   const role = isAdmin ? 'admin' : isManager ? 'manager' : isReviewer ? 'reviewer' : 'user';
   const roleConfig = NAV_CONFIG.find(r => r.role === role);
+
+  // Compute cross-portal links for multi-role users
+  const crossPortalLinks = [];
+  if (!isAdmin && !isManager) {
+    // Reviewer who also has user/professional role → can switch to professional portal
+    if (isReviewer && userHasRole(dbUser, 'user') && !userHasRole(dbUser, 'desh_manager', 'admin')) {
+      crossPortalLinks.push({ label: '⇄ Professional Portal', path: '/dashboard', icon: '⊞' });
+    }
+    // User who also has reviewer role → can switch to reviewer portal
+    if (!isReviewer && userHasRole(dbUser, 'desh_reviewer', 'reviewer', 'desh_assessor')) {
+      crossPortalLinks.push({ label: '⇄ Reviewer Portal', path: '/reviewer/submissions', icon: '◫' });
+    }
+  }
 
   // Build nav groups from config + saved labels
   const navGroups = roleConfig.sections.map(section => ({
@@ -129,6 +143,32 @@ export default function Sidebar({
             </div>
           ))}
         </nav>
+
+        {/* ── Cross-portal links for multi-role users ──────────────── */}
+        {crossPortalLinks.length > 0 && (
+          <div style={{ padding: '0 12px', marginBottom: 8 }}>
+            <div className="sidebar-section-label" style={{ color: 'rgba(255,255,255,0.25)' }}>SWITCH PORTAL</div>
+            {crossPortalLinks.map(link => {
+              const active = location.pathname.startsWith(link.path.split('/').slice(0, 3).join('/'));
+              return (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  onClick={onClose}
+                  className={`sidebar-item${active ? ' active' : ''}`}
+                  style={{
+                    border: '1px dashed rgba(52,201,97,0.25)',
+                    background: 'rgba(52,201,97,0.04)',
+                    marginBottom: 4,
+                  }}
+                >
+                  <div className="sidebar-icon" style={{ fontSize: 14 }}>{link.icon}</div>
+                  <span className="sb-label" style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.5)' }}>{link.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
 
         {/* ── Footer ───────────────────────────────────────────── */}
         <div className="sidebar-footer">
