@@ -102,7 +102,9 @@ function AdminRoute({ children }) {
 function ReviewerRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  const allowed = ['reviewer', 'desh_reviewer', 'desh_assessor', 'desh_manager', 'admin'];
+  // Admin should use /admin routes, not reviewer routes
+  if (userHasRole(dbUser, 'admin')) return <Navigate to="/admin" replace />;
+  const allowed = ['reviewer', 'desh_reviewer', 'desh_assessor', 'desh_manager'];
   if (!userHasRole(dbUser, ...allowed))
     return <Navigate to="/dashboard" replace />;
   return children;
@@ -121,6 +123,10 @@ function ManagerRoute({ children }) {
 function UserRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
+  // Admin always goes to admin panel
+  if (userHasRole(dbUser, 'admin')) return <Navigate to="/admin" replace />;
+  // Manager goes to manager panel
+  if (userHasRole(dbUser, 'desh_manager')) return <Navigate to="/manager/submissions" replace />;
   if (!userHasRole(dbUser, 'user')) return <Navigate to="/reviewer/submissions" replace />;
   if (needsProfile(dbUser))        return <Navigate to="/create-profile" replace />;
   return children;
