@@ -6,6 +6,7 @@ import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 import MapSyncField from '../../components/MapSyncField.jsx';
+import { Plus, X } from 'lucide-react';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
@@ -62,10 +63,314 @@ function Divider({ label }) {
   );
 }
 
+
+// ─── Repeatable Field Input Component ────────────────────────────────────────
+function RepeatableInput({ field, regKey, register, setValue, getValues, error, commonProps, categories }) {
+  const [values, setValues] = useState(['']);
+
+  // Load initial values from react-hook-form on mount
+  useEffect(() => {
+    const val = getValues(regKey);
+    if (val) {
+      if (Array.isArray(val)) {
+        setValues(val.length > 0 ? val : ['']);
+      } else if (typeof val === 'string') {
+        // Use semicolon to split regular single-string fields
+        const isArrayField = regKey === 'collaboratorEmails' || regKey === 'ownerEmails';
+        const separator = isArrayField ? ',' : ';';
+        const split = val.split(separator).map(e => e.trim()).filter(Boolean);
+        setValues(split.length > 0 ? split : ['']);
+      }
+    } else {
+      setValues(['']);
+    }
+  }, [getValues, regKey]);
+
+  // Synchronize values to react-hook-form whenever they change
+  const updateFormValue = (newValues) => {
+    setValues(newValues);
+    setValue(regKey, newValues, { shouldValidate: true });
+  };
+
+  const handleValueChange = (index, val) => {
+    const newValues = [...values];
+    newValues[index] = val;
+    updateFormValue(newValues);
+  };
+
+  const addField = () => {
+    updateFormValue([...values, '']);
+  };
+
+  const removeField = (index) => {
+    if (values.length <= 1) {
+      updateFormValue(['']);
+    } else {
+      const newValues = values.filter((_, i) => i !== index);
+      updateFormValue(newValues);
+    }
+  };
+
+  useEffect(() => {
+    register(regKey, { required: field.required ? `${field.label} is required` : false });
+  }, [register, regKey, field.required, field.label]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+      {values.map((val, idx) => {
+        let inputElement = null;
+
+        if (field.inputType === 'dropdown') {
+          const isCategories = field.fieldKey === 'projectType';
+          inputElement = (
+            <select
+              value={val}
+              onChange={e => handleValueChange(idx, e.target.value)}
+              className="pif-input"
+              style={{ ...commonProps.style, flex: 1, cursor: 'pointer' }}
+            >
+              <option value="">— Select —</option>
+              {isCategories
+                ? categories.map(c => <option key={c._id} value={c.name}>{c.name}</option>)
+                : (field.options || []).map(opt => {
+                    const v = opt.split(' — ')[0];
+                    return <option key={v} value={v}>{opt}</option>;
+                  })
+              }
+            </select>
+          );
+        } else if (field.inputType === 'textarea') {
+          inputElement = (
+            <textarea
+              value={val}
+              onChange={e => handleValueChange(idx, e.target.value)}
+              className="pif-input"
+              placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+              rows={3}
+              style={{ ...commonProps.style, flex: 1, resize: 'vertical', minHeight: 80 }}
+            />
+          );
+        } else {
+          inputElement = (
+            <input
+              type={field.inputType === 'number' ? 'number' : field.inputType === 'date' ? 'date' : 'text'}
+              value={val}
+              onChange={e => handleValueChange(idx, e.target.value)}
+              className="pif-input"
+              style={{ ...commonProps.style, flex: 1 }}
+              placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+            />
+          );
+        }
+
+        return (
+          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {inputElement}
+            {idx === values.length - 1 ? (
+              <button
+                type="button"
+                onClick={addField}
+                style={{
+                  width: 38, height: 38, borderRadius: 10,
+                  background: 'linear-gradient(135deg, #1A7A35, #22A84B)',
+                  color: '#fff', border: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', flexShrink: 0,
+                  boxShadow: '0 2px 8px rgba(34,168,75,0.2)',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <Plus size={16} strokeWidth={2.5} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => removeField(idx)}
+                style={{
+                  width: 38, height: 38, borderRadius: 10,
+                  background: 'rgba(239,68,68,0.1)',
+                  border: '1.5px solid rgba(239,68,68,0.2)',
+                  color: '#EF4444',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', flexShrink: 0,
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.2)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+              >
+                <X size={16} strokeWidth={2.5} />
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Other Professionals / Engineers repeatable section ─────────────────────
+function OtherProfessionalsSection({ register, setValue, getValues, errors }) {
+  const [professionals, setProfessionals] = useState([]);
+
+  // Load initial values from react-hook-form on mount
+  useEffect(() => {
+    const val = getValues('extra_otherProfessionals');
+    if (Array.isArray(val)) {
+      setProfessionals(val);
+    }
+  }, [getValues]);
+
+  const updateProfessionals = (newProfs) => {
+    setProfessionals(newProfs);
+    setValue('extra_otherProfessionals', newProfs, { shouldValidate: true });
+  };
+
+  const addProfessional = () => {
+    updateProfessionals([
+      ...professionals,
+      { name: '', designation: '', organization: '', mobile: '', email: '' }
+    ]);
+  };
+
+  const removeProfessional = (index) => {
+    const newProfs = professionals.filter((_, i) => i !== index);
+    updateProfessionals(newProfs);
+  };
+
+  const handleFieldChange = (index, fieldKey, val) => {
+    const newProfs = [...professionals];
+    newProfs[index] = { ...newProfs[index], [fieldKey]: val };
+    updateProfessionals(newProfs);
+  };
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <Divider label="Other Professionals / Engineers" />
+      
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 14 }}>
+        {professionals.map((prof, idx) => (
+          <div key={idx} style={{
+            background: 'var(--bg-soft)',
+            border: '1.5px solid var(--border)',
+            borderRadius: 12,
+            padding: 16,
+            position: 'relative',
+          }}>
+            <button
+              type="button"
+              onClick={() => removeProfessional(idx)}
+              style={{
+                position: 'absolute', top: 12, right: 12,
+                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                color: '#EF4444', borderRadius: 8, padding: '4px 8px',
+                fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.2)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+            >
+              ✕ Remove
+            </button>
+
+            <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--g700)', marginBottom: 12, fontFamily: 'Montserrat,sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Professional #{idx + 1}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <FieldLabel label="Full Name" />
+                <input
+                  type="text"
+                  value={prof.name || ''}
+                  onChange={e => handleFieldChange(idx, 'name', e.target.value)}
+                  placeholder="e.g. Engr. John Doe"
+                  className="pif-input"
+                  style={inputStyle(false)}
+                />
+              </div>
+              <div>
+                <FieldLabel label="Designation" />
+                <input
+                  type="text"
+                  value={prof.designation || ''}
+                  onChange={e => handleFieldChange(idx, 'designation', e.target.value)}
+                  placeholder="e.g. Mechanical Engineer"
+                  className="pif-input"
+                  style={inputStyle(false)}
+                />
+              </div>
+              <div>
+                <FieldLabel label="Organization / Company" />
+                <input
+                  type="text"
+                  value={prof.organization || ''}
+                  onChange={e => handleFieldChange(idx, 'organization', e.target.value)}
+                  placeholder="e.g. Apex Engineering Ltd."
+                  className="pif-input"
+                  style={inputStyle(false)}
+                />
+              </div>
+              <div>
+                <FieldLabel label="Mobile" />
+                <input
+                  type="text"
+                  value={prof.mobile || ''}
+                  onChange={e => handleFieldChange(idx, 'mobile', e.target.value)}
+                  placeholder="e.g. 01712345678"
+                  className="pif-input"
+                  style={inputStyle(false)}
+                />
+              </div>
+              <div style={{ gridColumn: 'span 2' }}>
+                <FieldLabel label="Email Address" />
+                <input
+                  type="text"
+                  value={prof.email || ''}
+                  onChange={e => handleFieldChange(idx, 'email', e.target.value)}
+                  placeholder="e.g. john@apex.com"
+                  className="pif-input"
+                  style={inputStyle(false)}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={addProfessional}
+        style={{
+          marginTop: 14,
+          padding: '10px 20px',
+          borderRadius: 10,
+          background: 'linear-gradient(135deg, #1A7A35, #22A84B)',
+          color: '#fff',
+          border: 'none',
+          fontWeight: 800,
+          fontSize: 12,
+          fontFamily: 'Montserrat,sans-serif',
+          cursor: 'pointer',
+          boxShadow: '0 4px 12px rgba(34,168,75,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          transition: 'all 0.18s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+        onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+      >
+        <Plus size={14} strokeWidth={2.5} /> Add Other Professional / Engineer
+      </button>
+    </div>
+  );
+}
+
 // ─── Dynamic field renderer ──────────────────────────────────────────────────
 function DynamicField({
   field, value, onChange, error,
-  register, categories, isExtraField, errors
+  register, categories, isExtraField, errors,
+  setValue, getValues
 }) {
   const regKey = isExtraField ? `extra_${field.fieldKey}` : field.fieldKey;
   const hasError = !!error;
@@ -77,7 +382,22 @@ function DynamicField({
 
   let input = null;
 
-  if (field.inputType === 'dropdown') {
+  const isRepeatableField = field.isRepeatable || field.fieldKey === 'collaboratorEmails' || field.fieldKey === 'ownerEmails';
+
+  if (isRepeatableField) {
+    input = (
+      <RepeatableInput
+        field={field}
+        regKey={regKey}
+        register={register}
+        setValue={setValue}
+        getValues={getValues}
+        error={error}
+        commonProps={commonProps}
+        categories={categories}
+      />
+    );
+  } else if (field.inputType === 'dropdown') {
     // projectType uses categories; projectSize uses built-in options
     const isCategories = field.fieldKey === 'projectType';
     input = (
@@ -147,7 +467,7 @@ function DynamicField({
   }
 
   return (
-    <div style={field.colSpan === 2 ? { gridColumn: 'span 2' } : {}}>
+    <div style={field.colSpan === 2 || isRepeatableField ? { gridColumn: 'span 2' } : {}}>
       <FieldLabel label={field.label} required={field.required} />
       {input}
       <FieldError error={error} />
@@ -249,6 +569,8 @@ export default function ProjectInfoForm() {
               telephone: p.telephone || '',
               mobile: p.mobile || '',
               email: p.email || '',
+              collaboratorEmails: p.collaboratorEmails || [],
+              ownerEmails: p.ownerEmails || [],
               projectCoordinatorDetails: p.projectCoordinatorDetails || '',
               architectName: p.architectName || '',
               iabMembershipNo: p.iabMembershipNo || '',
@@ -331,8 +653,12 @@ export default function ProjectInfoForm() {
     const extraFields = {};
     const coreFields = {};
     Object.entries(data).forEach(([k, v]) => {
-      if (k.startsWith('extra_')) extraFields[k.replace('extra_', '')] = v;
-      else coreFields[k] = v;
+      let val = v;
+      if (Array.isArray(v)) {
+        val = v.map(e => typeof e === 'string' ? e.trim() : e).filter(Boolean);
+      }
+      if (k.startsWith('extra_')) extraFields[k.replace('extra_', '')] = val;
+      else coreFields[k] = val;
     });
     return {
       ...coreFields,
@@ -564,7 +890,17 @@ export default function ProjectInfoForm() {
                 categories,
                 gpsValue, addressValue,
                 handleGpsChange, handleAddressChange,
+                setValue, getValues
               })}
+
+              {step === 2 && (
+                <OtherProfessionalsSection
+                  register={register}
+                  setValue={setValue}
+                  getValues={getValues}
+                  errors={errors}
+                />
+              )}
             </div>
           </div>
 
@@ -656,6 +992,7 @@ export default function ProjectInfoForm() {
 function renderStep({
   stepData, register, errors, categories,
   gpsValue, addressValue, handleGpsChange, handleAddressChange,
+  setValue, getValues
 }) {
   // Find isMapField and isAddressField in this step
   let mapField = null;
@@ -718,6 +1055,8 @@ function renderStep({
                     categories={categories}
                     isExtraField={isExtraField}
                     errors={errors}
+                    setValue={setValue}
+                    getValues={getValues}
                   />
                 );
               })}

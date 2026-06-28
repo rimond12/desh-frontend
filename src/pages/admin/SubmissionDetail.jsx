@@ -276,6 +276,9 @@ export default function SubmissionDetail() {
     telephone: '', mobile: '', email: '',
     projectCoordinatorDetails: '', architectName: '', iabMembershipNo: '',
     greenBuildingConsultantDetails: '', sredaRegistrationNumber: '',
+    collaboratorEmails: '',
+    ownerEmails: '',
+    extraFields: {},
   });
   const [savingInfo, setSavingInfo] = useState(false);
   // comment counts per inputId (pre-fetched for badges)
@@ -341,6 +344,9 @@ export default function SubmissionDetail() {
             iabMembershipNo: p.iabMembershipNo || '',
             greenBuildingConsultantDetails: p.greenBuildingConsultantDetails || '',
             sredaRegistrationNumber: p.sredaRegistrationNumber || '',
+            collaboratorEmails: Array.isArray(p.collaboratorEmails) ? p.collaboratorEmails.join(', ') : '',
+            ownerEmails: Array.isArray(p.ownerEmails) ? p.ownerEmails.join(', ') : '',
+            extraFields: p.extraFields || {},
           });
         }
 
@@ -1359,6 +1365,77 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                     <input type="text" value={editForm.sredaRegistrationNumber} onChange={e => setEditForm({ ...editForm, sredaRegistrationNumber: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" /></div>
                 </div>
               </div>
+
+              {/* Section 4: Access Control */}
+              <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: 'linear-gradient(90deg,var(--g50),#fff)', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--g600)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, fontFamily: 'Montserrat,sans-serif', flexShrink: 0 }}>4</span>
+                  <h4 style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 11, color: 'var(--g800)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Access & Permissions</h4>
+                </div>
+                <div style={{ padding: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, background: '#fff' }}>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Collaborator Emails (comma separated)</label>
+                    <input type="text" value={editForm.collaboratorEmails} onChange={e => setEditForm({ ...editForm, collaboratorEmails: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" placeholder="e.g. collaborator@domain.com, assistant@domain.com" />
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Project Owner Emails (comma separated)</label>
+                    <input type="text" value={editForm.ownerEmails} onChange={e => setEditForm({ ...editForm, ownerEmails: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" placeholder="e.g. owner@domain.com, investor@domain.com" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 5: Custom Fields & Other Professionals */}
+              {((editForm.extraFields && Object.keys(editForm.extraFields).length > 0) || (editForm.extraFields?.otherProfessionals?.length > 0)) && (
+                <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: 'linear-gradient(90deg,var(--g50),#fff)', borderBottom: '1px solid var(--border)' }}>
+                    <span style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--g600)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, fontFamily: 'Montserrat,sans-serif', flexShrink: 0 }}>5</span>
+                    <h4 style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 11, color: 'var(--g800)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Additional custom info</h4>
+                  </div>
+                  <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12, background: '#fff' }}>
+                    {/* Custom fields */}
+                    {Object.entries(editForm.extraFields || {})
+                      .filter(([k]) => k !== 'otherProfessionals')
+                      .map(([k, v]) => {
+                        const label = k.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                        return (
+                          <div key={k}>
+                            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>{label}</label>
+                            <input
+                              type="text"
+                              value={Array.isArray(v) ? v.join('; ') : String(v)}
+                              onChange={e => {
+                                const newVal = Array.isArray(v) ? e.target.value.split(';').map(x => x.trim()) : e.target.value;
+                                setEditForm({
+                                  ...editForm,
+                                  extraFields: {
+                                    ...editForm.extraFields,
+                                    [k]: newVal
+                                  }
+                                });
+                              }}
+                              className="input-dark w-full px-3 py-2 text-sm"
+                            />
+                          </div>
+                        );
+                      })
+                    }
+
+                    {/* Other Professionals list (read-only display in edit modal for safety) */}
+                    {editForm.extraFields?.otherProfessionals?.length > 0 && (
+                      <div style={{ marginTop: 8 }}>
+                        <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Other Professionals (Read-Only)</label>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {editForm.extraFields.otherProfessionals.map((prof, idx) => (
+                            <div key={idx} style={{ padding: 10, background: 'var(--g50)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}>
+                              <strong>{prof.designation || 'Professional'}:</strong> {prof.name || '—'} ({prof.organization || '—'}, {prof.mobile || '—'}, {prof.email || '—'})
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Modal footer */}

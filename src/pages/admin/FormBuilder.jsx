@@ -226,7 +226,7 @@ function FieldCard({ field, groupIdx, fieldIdx, onUpdate, onDelete, onMoveUp, on
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 1fr 1fr', gap: 12 }}>
             {/* Input type */}
             <div>
               <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#94a3b8', marginBottom: 5, fontFamily: 'Montserrat,sans-serif', letterSpacing: '0.05em' }}>
@@ -266,6 +266,11 @@ function FieldCard({ field, groupIdx, fieldIdx, onUpdate, onDelete, onMoveUp, on
             {/* Required */}
             <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 2 }}>
               <Toggle label="Required" checked={field.required} onChange={v => update('required', v)} />
+            </div>
+
+            {/* Repeatable */}
+            <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 2 }}>
+              <Toggle label="Repeatable" checked={field.isRepeatable} onChange={v => update('isRepeatable', v)} />
             </div>
           </div>
 
@@ -348,6 +353,7 @@ function AddFieldModal({ onAdd, onClose, stepCount }) {
   const [targetGroup, setTargetGroup] = useState(0);
   const [options, setOptions] = useState([]);
   const [optionInput, setOptionInput] = useState('');
+  const [isRepeatable, setIsRepeatable] = useState(false);
 
   const addOption = () => {
     const opt = optionInput.trim();
@@ -366,6 +372,7 @@ function AddFieldModal({ onAdd, onClose, stepCount }) {
       isCore: false,
       isMapField: false,
       isAddressField: false,
+      isRepeatable,
       order: 999,
       options: inputType === 'dropdown' ? options : [],
       subFields: [],
@@ -406,7 +413,7 @@ function AddFieldModal({ onAdd, onClose, stepCount }) {
             <FormInput label="Placeholder" value={placeholder} onChange={setPlaceholder} placeholder="e.g. Enter plot number" />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 1fr 1fr', gap: 12 }}>
             <div>
               <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#94a3b8', marginBottom: 5, fontFamily: 'Montserrat,sans-serif', letterSpacing: '0.05em' }}>Input Type</label>
               <select value={inputType} onChange={e => setInputType(e.target.value)}
@@ -423,6 +430,9 @@ function AddFieldModal({ onAdd, onClose, stepCount }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 4 }}>
               <Toggle label="Required" checked={required} onChange={setRequired} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 4 }}>
+              <Toggle label="Repeatable" checked={isRepeatable} onChange={setIsRepeatable} />
             </div>
           </div>
 

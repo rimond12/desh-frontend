@@ -423,6 +423,12 @@ export default function ProjectSummaryReportModal({ project, categories, onClose
                   <InfoRow label="Postal Code" value={project.officePostCode} />
                   <InfoRow label="Office Address" value={project.officeAddress} />
                 </div>
+                {project.collaboratorEmails?.length > 0 && (
+                  <InfoRow label="Collaborator Emails" value={project.collaboratorEmails.join(', ')} icon={Mail} />
+                )}
+                {project.ownerEmails?.length > 0 && (
+                  <InfoRow label="Project Owner Emails" value={project.ownerEmails.join(', ')} icon={Mail} />
+                )}
               </div>
             </SectionCard>
           </div>
@@ -443,6 +449,46 @@ export default function ProjectSummaryReportModal({ project, categories, onClose
               </div>
             </div>
           </SectionCard>
+
+          {/* Other Professionals / Engineers — full width */}
+          {project.extraFields?.otherProfessionals?.length > 0 && (
+            <SectionCard title="Other Professionals / Engineers" icon={Users}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {project.extraFields.otherProfessionals.map((prof, idx) => (
+                  <div key={idx} style={{
+                    padding: 14, borderRadius: 12, background: '#F8FAF9',
+                    border: '1px solid #D0E8D8',
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#145C28', marginBottom: 10, fontFamily: 'Montserrat,sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Professional #{idx + 1}: {prof.designation || 'Engineer'}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+                      <InfoRow label="Full Name" value={prof.name} />
+                      <InfoRow label="Organization / Company" value={prof.organization} />
+                      <InfoRow label="Mobile" value={prof.mobile} icon={Phone} />
+                      <InfoRow label="Email Address" value={prof.email} icon={Mail} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          )}
+
+          {/* Additional Information (dynamic custom extra fields) — full width */}
+          {project.extraFields && Object.keys(project.extraFields).filter(k => k !== 'otherProfessionals').length > 0 && (
+            <SectionCard title="Additional Information" icon={Award}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+                {Object.entries(project.extraFields)
+                  .filter(([k]) => k !== 'otherProfessionals')
+                  .map(([k, v]) => {
+                    const label = k.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                    const valueStr = Array.isArray(v) ? v.join('; ') : String(v);
+                    return <InfoRow key={k} label={label} value={valueStr} />;
+                  })
+                }
+              </div>
+            </SectionCard>
+          )}
         </div>
 
         {/* ── Footer ── */}

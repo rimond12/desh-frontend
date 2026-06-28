@@ -1154,24 +1154,6 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
               </Link>
             )}
 
-            {/* ── Edit Collaborators & Owners button ── */}
-            {isCreator && (
-              <button
-                onClick={() => setAccessModalOpen(true)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  padding: '7px 13px', borderRadius: 10, cursor: 'pointer',
-                  background: 'rgba(34,197,94,0.08)', border: '1.5px solid rgba(34,197,94,0.45)',
-                  color: '#15803D',
-                  fontWeight: 700, fontSize: 12, fontFamily: 'Montserrat,sans-serif',
-                  whiteSpace: 'nowrap', transition: 'all 0.18s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(34,197,94,0.18)'; e.currentTarget.style.borderColor = 'rgba(34,197,94,0.8)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(34,197,94,0.08)'; e.currentTarget.style.borderColor = 'rgba(34,197,94,0.45)'; }}
-              >
-                👥 Collaborators &amp; Owners
-              </button>
-            )}
 
             {/* ── Score card toggle button ── */}
             <button

@@ -24,7 +24,6 @@ export default function NewProject() {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(false);
   const [leafLevels, setLeafLevels] = useState(DEFAULT_LEAF_LEVELS);
-  const [ownerEmails, setOwnerEmails] = useState('');
 
   useEffect(() => {
     axiosSecure.get('/categories')
@@ -70,7 +69,7 @@ export default function NewProject() {
         sectionId, 
         categoryId,
         collaboratorEmails: [],
-        ownerEmails
+        ownerEmails: []
       });
       const projectId = res.data?.project?._id;
       if (!projectId) { toast.error('Project created but ID not found'); return; }
@@ -189,17 +188,7 @@ export default function NewProject() {
             )}
 
 
-            {/* Owners (emails) */}
-            <label className="block text-xs font-semibold mb-2 text-gray-400 uppercase tracking-widest">
-              Project Owner Emails (comma separated)
-            </label>
-            <input
-              type="text"
-              value={ownerEmails}
-              onChange={e => setOwnerEmails(e.target.value)}
-              placeholder="e.g. owner1@example.com, owner2@example.com"
-              className="input-dark w-full px-4 py-4"
-            />
+            {/* Create Button will be placed here */}
           </div>
 
           {/* ── Submit button OUTSIDE the card so it is ALWAYS visible ── */}
