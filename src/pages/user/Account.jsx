@@ -67,13 +67,13 @@ export default function Account() {
                             </div>
                         </div>
 
-                        {/* Role chip */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {/* Role chip — shows the currently active role */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                             <span
                                 className="text-xs font-semibold"
                                 style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}
                             >
-                                ROLE
+                                ACTIVE ROLE
                             </span>
                             <span style={{
                                 background: 'var(--g50)',
@@ -85,7 +85,9 @@ export default function Account() {
                                 fontWeight: 700,
                                 textTransform: 'capitalize',
                             }}>
-                                {dbUser?.role === 'user' ? 'DESH Professional' : (dbUser?.role || 'user')}
+                                {(dbUser?.activeRole || dbUser?.role) === 'user'
+                                    ? 'DESH Professional'
+                                    : (dbUser?.activeRole || dbUser?.role || 'user')}
                             </span>
                         </div>
 

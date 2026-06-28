@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider, useAuth, getPrimaryRole, userHasRole } from './context/AuthContext.jsx';
+import { AuthProvider, useAuth, getPrimaryRole, getActiveRole, userHasRole } from './context/AuthContext.jsx';
 
 import Login      from './pages/auth/Login.jsx';
 import Register   from './pages/auth/Register.jsx';
@@ -50,26 +50,48 @@ function needsProfile(dbUser) {
   return !dbUser.userType;
 }
 
-// ── Get the redirect destination based on highest-privilege role ──────────────
-function getRoleRedirect(dbUser) {
-  if (userHasRole(dbUser, 'admin'))        return '/admin';
-  if (userHasRole(dbUser, 'desh_manager')) return '/manager/submissions';
-  if (userHasRole(dbUser, 'desh_reviewer', 'desh_assessor', 'reviewer'))
-                                           return '/reviewer/submissions';
-  return null; // falls through to dashboard / profile setup
+// ── Central redirect resolver ─────────────────────────────────────────────────
+// Single source of truth: maps activeRole → correct destination path.
+// Used by ALL route guards so the logic is never duplicated.
+function resolveRedirect(dbUser) {
+  const active = getActiveRole(dbUser);
+  if (active === 'admin')                                               return '/admin';
+  if (active === 'desh_manager')                                        return '/manager/submissions';
+  if (['desh_reviewer', 'desh_assessor', 'reviewer'].includes(active)) return '/reviewer/submissions';
+  return '/dashboard'; // 'user', 'owner', or any other role
 }
+
+// Kept for backward compat with GuestRoute / ProfileSetupRoute
+function getRoleRedirect(dbUser) {
+  const dest = resolveRedirect(dbUser);
+  // Only return a redirect if the destination is NOT /dashboard
+  // (so profile-setup logic can fall through)
+  return dest !== '/dashboard' ? dest : null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Unified Loading Screen for route transitions ──────────────────────────────
+const RouteLoader = () => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-soft)' }}>
+    <div style={{ width: 44, height: 44, borderRadius: '50%', border: '4px solid var(--g100)', borderTopColor: 'var(--g600)', animation: 'spin 0.8s linear infinite' }} />
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function PrivateRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
+  if (!dbUser) return <RouteLoader />;
   if (needsProfile(dbUser)) return <Navigate to="/create-profile" replace />;
   return children;
 }
 
-// Route for /create-profile — redirect away if already completed
 function ProfileSetupRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
+  if (!dbUser) return <RouteLoader />;
   const redirect = getRoleRedirect(dbUser);
   if (redirect) return <Navigate to={redirect} replace />;
   if (dbUser?.userType) return <Navigate to="/dashboard" replace />;
@@ -79,6 +101,7 @@ function ProfileSetupRoute({ children }) {
 function GuestRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return children;
+  if (!dbUser) return <RouteLoader />;
   const redirect = getRoleRedirect(dbUser);
   if (redirect) return <Navigate to={redirect} replace />;
   if (needsProfile(dbUser)) return <Navigate to="/create-profile" replace />;
@@ -88,47 +111,101 @@ function GuestRoute({ children }) {
 function AdminGuestRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return children;
+  if (!dbUser) return <RouteLoader />;
   if (userHasRole(dbUser, 'admin')) return <Navigate to="/admin" replace />;
   return <Navigate to="/dashboard" replace />;
 }
 
+// ── AdminRoute ────────────────────────────────────────────────────────────────
+// Security: user must actually HAVE the admin role (userHasRole check — unchanged).
+// Routing:  if they've switched their activeRole away from 'admin', redirect them
+//           out of the admin panel to wherever their activeRole points.
 function AdminRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return <Navigate to="/admin/login" replace />;
-  if (!userHasRole(dbUser, 'admin')) return <Navigate to="/dashboard" replace />;
+  if (!dbUser) return <RouteLoader />;
+
+  // 1. Respect activeRole first — if the active role is not admin, redirect
+  const active = getActiveRole(dbUser);
+  if (active !== 'admin') {
+    return <Navigate to={resolveRedirect(dbUser)} replace />;
+  }
+
+  // 2. Security check: must actually have admin role to access this route
+  if (!userHasRole(dbUser, 'admin')) {
+    return <Navigate to={resolveRedirect(dbUser)} replace />;
+  }
+
   return children;
 }
 
+// ── ReviewerRoute ─────────────────────────────────────────────────────────────
+// Security: user must actually HAVE a reviewer-capable role.
+// Routing:  if their activeRole is not a reviewer type, redirect them out.
 function ReviewerRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  // Admin should use /admin routes, not reviewer routes
-  if (userHasRole(dbUser, 'admin')) return <Navigate to="/admin" replace />;
+  if (!dbUser) return <RouteLoader />;
+
+  // 1. Respect activeRole first — if active role is not reviewer-type, redirect
+  const active = getActiveRole(dbUser);
+  const reviewerRoles = ['reviewer', 'desh_reviewer', 'desh_assessor'];
+  if (!reviewerRoles.includes(active)) {
+    return <Navigate to={resolveRedirect(dbUser)} replace />;
+  }
+
+  // 2. Security check: must actually have a reviewer-capable role
   const allowed = ['reviewer', 'desh_reviewer', 'desh_assessor', 'desh_manager'];
-  if (!userHasRole(dbUser, ...allowed))
-    return <Navigate to="/dashboard" replace />;
+  if (!userHasRole(dbUser, ...allowed)) {
+    return <Navigate to={resolveRedirect(dbUser)} replace />;
+  }
+
   return children;
 }
 
+// ── ManagerRoute ──────────────────────────────────────────────────────────────
+// Security: user must actually HAVE manager or admin role.
+// Routing:  if their activeRole is not desh_manager, redirect them out.
 function ManagerRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  if (!userHasRole(dbUser, 'desh_manager', 'admin'))
-    return <Navigate to="/dashboard" replace />;
+  if (!dbUser) return <RouteLoader />;
+
+  // 1. Respect activeRole first — if active role is not manager, redirect
+  const active = getActiveRole(dbUser);
+  if (active !== 'desh_manager') {
+    return <Navigate to={resolveRedirect(dbUser)} replace />;
+  }
+
+  // 2. Security check: must actually have manager or admin role
+  if (!userHasRole(dbUser, 'desh_manager', 'admin')) {
+    return <Navigate to={resolveRedirect(dbUser)} replace />;
+  }
+
   return children;
 }
 
-// ── Multi-role user route: allow users who have the "user" role (for project submission) ──
-// This route allows access even if they also have reviewer/other roles.
+// ── UserRoute ─────────────────────────────────────────────────────────────────
+// Security: user must actually HAVE the 'user' role.
+// Routing:  if their activeRole is not 'user', redirect them to the correct portal.
 function UserRoute({ children }) {
   const { user, dbUser } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  // Admin always goes to admin panel
-  if (userHasRole(dbUser, 'admin')) return <Navigate to="/admin" replace />;
-  // Manager goes to manager panel
-  if (userHasRole(dbUser, 'desh_manager')) return <Navigate to="/manager/submissions" replace />;
-  if (!userHasRole(dbUser, 'user')) return <Navigate to="/reviewer/submissions" replace />;
-  if (needsProfile(dbUser))        return <Navigate to="/create-profile" replace />;
+  if (!dbUser) return <RouteLoader />;
+
+  // 1. Respect activeRole first — if active role is not user, redirect
+  const active = getActiveRole(dbUser);
+  if (active !== 'user') {
+    return <Navigate to={resolveRedirect(dbUser)} replace />;
+  }
+
+  // 2. Security check: must actually have the 'user' role
+  if (!userHasRole(dbUser, 'user')) {
+    return <Navigate to="/reviewer/submissions" replace />;
+  }
+
+  if (needsProfile(dbUser)) return <Navigate to="/create-profile" replace />;
+
   return children;
 }
 

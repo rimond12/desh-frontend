@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 import useNavLabels from '../../hooks/useNavLabels.js';
 import { NAV_CONFIG } from '../../config/navConfig.js';
-import { userHasRole } from '../../context/AuthContext.jsx';
+import { userHasRole, getActiveRole } from '../../context/AuthContext.jsx';
+import ChangeRoleModal from './ChangeRoleModal.jsx';
 
 export default function Sidebar({
   isAdmin = false,
@@ -18,22 +20,15 @@ export default function Sidebar({
   const navigate = useNavigate();
   const { user, logout, dbUser } = useAuth();
   const L = useNavLabels();
+  const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false);
 
   const role = isAdmin ? 'admin' : isManager ? 'manager' : isReviewer ? 'reviewer' : 'user';
   const roleConfig = NAV_CONFIG.find(r => r.role === role);
 
-  // Compute cross-portal links for multi-role users
-  const crossPortalLinks = [];
-  if (!isAdmin && !isManager) {
-    // Reviewer who also has user/professional role → can switch to professional portal
-    if (isReviewer && userHasRole(dbUser, 'user') && !userHasRole(dbUser, 'desh_manager', 'admin')) {
-      crossPortalLinks.push({ label: '⇄ Professional Portal', path: '/dashboard', icon: '⊞' });
-    }
-    // User who also has reviewer role → can switch to reviewer portal
-    if (!isReviewer && userHasRole(dbUser, 'desh_reviewer', 'reviewer', 'desh_assessor')) {
-      crossPortalLinks.push({ label: '⇄ Reviewer Portal', path: '/reviewer/submissions', icon: '◫' });
-    }
-  }
+  // Whether this user has multiple roles (show the switcher button)
+  const assignedRoles  = Array.isArray(dbUser?.roles) ? dbUser.roles : ['user'];
+  const hasMultiRoles  = assignedRoles.length > 1;
+  const currentActive  = getActiveRole(dbUser);
 
   // Build nav groups from config + saved labels
   const navGroups = roleConfig.sections.map(section => ({
@@ -144,29 +139,44 @@ export default function Sidebar({
           ))}
         </nav>
 
-        {/* ── Cross-portal links for multi-role users ──────────────── */}
-        {crossPortalLinks.length > 0 && (
+        {/* ── Role Switcher trigger (multi-role users only) ─────────────── */}
+        {hasMultiRoles && (
           <div style={{ padding: '0 12px', marginBottom: 8 }}>
-            <div className="sidebar-section-label" style={{ color: 'rgba(255,255,255,0.25)' }}>SWITCH PORTAL</div>
-            {crossPortalLinks.map(link => {
-              const active = location.pathname.startsWith(link.path.split('/').slice(0, 3).join('/'));
-              return (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  onClick={onClose}
-                  className={`sidebar-item${active ? ' active' : ''}`}
-                  style={{
-                    border: '1px dashed rgba(52,201,97,0.25)',
-                    background: 'rgba(52,201,97,0.04)',
-                    marginBottom: 4,
-                  }}
-                >
-                  <div className="sidebar-icon" style={{ fontSize: 14 }}>{link.icon}</div>
-                  <span className="sb-label" style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.5)' }}>{link.label}</span>
-                </Link>
-              );
-            })}
+            <div className="sidebar-section-label" style={{ color: 'rgba(255,255,255,0.22)' }}>SWITCH ROLE</div>
+            <button
+              onClick={() => setRoleSwitcherOpen(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                width: '100%', padding: '9px 14px', borderRadius: 11,
+                border: '1px dashed rgba(52,201,97,0.3)',
+                background: 'rgba(52,201,97,0.05)',
+                color: 'rgba(255,255,255,0.6)',
+                cursor: 'pointer', transition: 'all 0.18s',
+                fontSize: 13, fontWeight: 600,
+                fontFamily: 'Nunito,sans-serif',
+                textAlign: 'left',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'rgba(52,201,97,0.1)';
+                e.currentTarget.style.color = 'rgba(255,255,255,0.85)';
+                e.currentTarget.style.borderColor = 'rgba(52,201,97,0.5)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(52,201,97,0.05)';
+                e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
+                e.currentTarget.style.borderColor = 'rgba(52,201,97,0.3)';
+              }}
+            >
+              <div className="sidebar-icon" style={{ fontSize: 14 }}>⇄</div>
+              <div className="sb-label" style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 12.5 }}>Change Role</span>
+                {!collapsed && (
+                  <span style={{ fontSize: 10, color: 'rgba(52,201,97,0.6)', display: 'block', marginTop: 1 }}>
+                    Active: {currentActive === 'user' ? 'DESH Professional' : (currentActive || '—')}
+                  </span>
+                )}
+              </div>
+            </button>
           </div>
         )}
 
@@ -222,6 +232,11 @@ export default function Sidebar({
           </button>
         </div>
       </aside>
+
+      {/* ── Change Role Modal ──────────────────────────────────────────── */}
+      {roleSwitcherOpen && (
+        <ChangeRoleModal onClose={() => setRoleSwitcherOpen(false)} />
+      )}
     </>
   );
 }

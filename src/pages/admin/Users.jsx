@@ -290,7 +290,12 @@ export default function Users() {
             const updated = res.data.user;
             toast.success(`Roles updated: ${pendingRoles.map(r => ROLE_CFG[r]?.label || r).join(', ')}`);
             fetchUsers();
-            setSelected(prev => prev ? { ...prev, roles: updated.roles || pendingRoles } : null);
+            // Update selected state with server response (includes auto-corrected activeRole)
+            setSelected(prev => prev ? {
+                ...prev,
+                roles:      updated.roles      || pendingRoles,
+                activeRole: updated.activeRole || prev.activeRole,
+            } : null);
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to update roles');
         } finally {
@@ -544,6 +549,24 @@ export default function Users() {
                                         {getUserRoles(selected).map(r => <RoleBadge key={r} role={r} />)}
                                         <TypeBadge userType={selected.userType} />
                                     </div>
+                                    {/* Show current active role */}
+                                    {selected.activeRole && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                                            <span style={{
+                                                fontSize: 9, fontWeight: 800, letterSpacing: '0.1em',
+                                                textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)',
+                                                fontFamily: 'Montserrat,sans-serif',
+                                            }}>Active Role</span>
+                                            <span style={{
+                                                fontSize: 10.5, fontWeight: 700, color: 'rgba(52,201,97,0.8)',
+                                                padding: '2px 9px', borderRadius: 99,
+                                                background: 'rgba(52,201,97,0.1)', border: '1px solid rgba(52,201,97,0.25)',
+                                                fontFamily: 'Montserrat,sans-serif',
+                                            }}>
+                                                {ROLE_CFG[selected.activeRole]?.label || selected.activeRole}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', fontSize: 18, color: 'rgba(255,255,255,0.5)', cursor: 'pointer', padding: 4 }}>✕</button>

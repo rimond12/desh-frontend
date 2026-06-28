@@ -24,9 +24,11 @@ export default function CalculationsArchivePage() {
 
     const active = calculations.filter(c => c.active !== false);
 
-    const isAdmin = dbUser?.role === 'admin';
-    const isManager = dbUser?.role === 'desh_manager';
-    const isReviewer = ['reviewer', 'desh_reviewer', 'desh_assessor'].includes(dbUser?.role);
+    // Use activeRole for sidebar — respects the role the user is currently acting as
+    const activeRole = dbUser?.activeRole || dbUser?.role;
+    const isAdmin    = activeRole === 'admin';
+    const isManager  = activeRole === 'desh_manager';
+    const isReviewer = ['reviewer', 'desh_reviewer', 'desh_assessor'].includes(activeRole);
 
     return (
         <Layout isAdmin={isAdmin} isReviewer={isReviewer} isManager={isManager}>

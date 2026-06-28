@@ -1,8 +1,14 @@
 import { useState } from 'react';
 import Sidebar from './Sidebar';
 import PartnerFooter from './PartnerFooter';
+import { useAuth } from '../../context/AuthContext.jsx';
 
+// ── Layout — shell wrapper for all authenticated pages ────────────────────────
+// Pages pass isAdmin/isReviewer/isManager as hints, but Layout also reads
+// dbUser.activeRole as the authoritative source. This prevents any mismatch
+// between what a page declares and what the user has actually switched to.
 export default function Layout({ children, isAdmin = false, isReviewer = false, isManager = false }) {
+  const { dbUser } = useAuth();
   const [mobileOpen,  setMobileOpen]  = useState(false);
   const [collapsed,   setCollapsed]   = useState(
     () => localStorage.getItem('sidebarCollapsed') === 'true'
@@ -15,12 +21,20 @@ export default function Layout({ children, isAdmin = false, isReviewer = false, 
     });
   };
 
+  // ── Derive sidebar type from activeRole (authoritative) ──────────────────────
+  // The page-level props (isAdmin, isReviewer, isManager) are used as fallbacks
+  // only when activeRole is not available (e.g., during initial load).
+  const activeRole    = dbUser?.activeRole || dbUser?.role;
+  const effectiveAdmin    = activeRole ? activeRole === 'admin'                                               : isAdmin;
+  const effectiveManager  = activeRole ? activeRole === 'desh_manager'                                        : isManager;
+  const effectiveReviewer = activeRole ? ['reviewer', 'desh_reviewer', 'desh_assessor'].includes(activeRole) : isReviewer;
+
   return (
     <div className="app-shell">
       <Sidebar
-        isAdmin={isAdmin}
-        isReviewer={isReviewer}
-        isManager={isManager}
+        isAdmin={effectiveAdmin}
+        isReviewer={effectiveReviewer}
+        isManager={effectiveManager}
         mobileOpen={mobileOpen}
         onClose={() => setMobileOpen(false)}
         collapsed={collapsed}
@@ -52,7 +66,7 @@ export default function Layout({ children, isAdmin = false, isReviewer = false, 
             marginLeft: 'auto', fontSize: 11, fontWeight: 700,
             padding: '3px 10px', background: 'var(--g100)', color: 'var(--g700)', borderRadius: 99,
           }}>
-            {isAdmin ? 'Admin' : isManager ? 'Manager' : isReviewer ? 'Reviewer' : 'Portal'}
+            {effectiveAdmin ? 'Admin' : effectiveManager ? 'Manager' : effectiveReviewer ? 'Reviewer' : 'Portal'}
           </span>
         </div>
 

@@ -565,9 +565,11 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
     }
   };
 
-  const isManager = dbUser?.role === 'desh_manager';
-  const isAdmin = dbUser?.role === 'admin';
-  const isReviewerRole = ['reviewer', 'desh_reviewer', 'desh_assessor'].includes(dbUser?.role);
+  // Use activeRole for sidebar — respects the role the user is currently acting as
+  const activeRole     = dbUser?.activeRole || dbUser?.role;
+  const isManager      = activeRole === 'desh_manager';
+  const isAdmin        = activeRole === 'admin';
+  const isReviewerRole = ['reviewer', 'desh_reviewer', 'desh_assessor'].includes(activeRole);
 
   if (loading) return (
     <Layout isAdmin={isAdmin} isReviewer={isReviewerRole} isManager={isManager}>

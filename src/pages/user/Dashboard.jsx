@@ -17,11 +17,13 @@ export default function UserDashboard() {
 
   useEffect(() => {
     if (dbUser) {
-      if (dbUser.role === 'admin') {
+      // Use activeRole for redirect decisions — respects the user's chosen active role
+      const active = dbUser.activeRole || dbUser.role;
+      if (active === 'admin') {
         navigate('/admin', { replace: true });
-      } else if (dbUser.role === 'desh_manager') {
+      } else if (active === 'desh_manager') {
         navigate('/manager/submissions', { replace: true });
-      } else if (dbUser.role === 'reviewer' || dbUser.role === 'desh_reviewer' || dbUser.role === 'desh_assessor') {
+      } else if (['reviewer', 'desh_reviewer', 'desh_assessor'].includes(active)) {
         navigate('/reviewer/submissions', { replace: true });
       }
     }
@@ -30,8 +32,10 @@ export default function UserDashboard() {
   useEffect(() => {
     if (!dbUser) return;
 
+    // Don't load projects if the user is in a system (non-user) active role
+    const active = dbUser.activeRole || dbUser.role;
     const systemRoles = ['admin', 'desh_manager', 'reviewer', 'desh_reviewer', 'desh_assessor'];
-    if (systemRoles.includes(dbUser.role)) return;
+    if (systemRoles.includes(active)) return;
 
     setLoading(true);
     axiosSecure.get('/projects')

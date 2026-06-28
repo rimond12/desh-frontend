@@ -49,9 +49,11 @@ export default function ReviewerSubmissions() {
     return matchSearch && matchLock;
   });
 
-  const isAdmin = dbUser?.role === 'admin';
-  const isManager = dbUser?.role === 'desh_manager';
-  const isReviewerRole = ['reviewer', 'desh_reviewer', 'desh_assessor'].includes(dbUser?.role);
+  // Use activeRole for sidebar — respects the role the user is currently acting as
+  const activeRole     = dbUser?.activeRole || dbUser?.role;
+  const isAdmin        = activeRole === 'admin';
+  const isManager      = activeRole === 'desh_manager';
+  const isReviewerRole = ['reviewer', 'desh_reviewer', 'desh_assessor'].includes(activeRole);
 
   return (
     <Layout isAdmin={isAdmin} isReviewer={isReviewerRole} isManager={isManager}>

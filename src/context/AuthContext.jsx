@@ -24,6 +24,18 @@ export const getPrimaryRole = (dbUser) => {
   return roles[0] || 'user';
 };
 
+// ── Get the currently active role (persisted in DB, falls back to primary) ────
+// This is the role that drives dashboard routing and sidebar rendering.
+export const getActiveRole = (dbUser) => {
+  if (!dbUser) return 'user';
+  const roles = Array.isArray(dbUser.roles) ? dbUser.roles : ['user'];
+  // If activeRole is set and still valid, use it; otherwise fall back to primary
+  if (dbUser.activeRole && roles.includes(dbUser.activeRole)) {
+    return dbUser.activeRole;
+  }
+  return getPrimaryRole(dbUser);
+};
+
 export const userHasRole = (dbUser, ...rolesToCheck) => {
   const roles = Array.isArray(dbUser?.roles) ? dbUser.roles : [dbUser?.role].filter(Boolean);
   return rolesToCheck.some(r => roles.includes(r));
@@ -41,11 +53,12 @@ async function fetchDbUser(firebaseUser) {
 
 export const AuthProvider = ({ children }) => {
   const [user,    setUser]    = useState(null);   // Firebase user
-  const [dbUser,  setDbUser]  = useState(null);   // MongoDB user (has .roles array)
+  const [dbUser,  setDbUser]  = useState(null);   // MongoDB user (has .roles array + .activeRole)
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      setLoading(true);
       setUser(firebaseUser);
       if (firebaseUser) {
         try {
@@ -90,6 +103,31 @@ export const AuthProvider = ({ children }) => {
     } catch { /* silent */ }
   };
 
+  // ── Switch the user's active role ────────────────────────────────────────────
+  // Calls the backend, validates ownership server-side, then refreshes dbUser.
+  // Returns { success, user } or throws on error.
+  const switchActiveRole = async (newRole) => {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) throw new Error('Not authenticated');
+
+    const token = await firebaseUser.getIdToken();
+    const res = await fetch(`${API_BASE}/users/change-active-role`, {
+      method:  'PATCH',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ activeRole: newRole }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed to switch role');
+
+    // Refresh local state from the updated DB doc
+    setDbUser(data.user);
+    return data;
+  };
+
   // Call this immediately after login to get the primary role for navigation
   const getRoleFromDb = async () => {
     const firebaseUser = auth.currentUser;
@@ -97,17 +135,22 @@ export const AuthProvider = ({ children }) => {
     try {
       const mongoUser = await fetchDbUser(firebaseUser);
       setDbUser(mongoUser);
-      return getPrimaryRole(mongoUser);
+      return getActiveRole(mongoUser);
     } catch {
       return 'user';
     }
   };
 
+  // Derived: the current active role string (reactive to dbUser changes)
+  const activeRole = getActiveRole(dbUser);
+
   return (
     <AuthContext.Provider value={{
-      user, dbUser, loading,
+      user, dbUser, loading, activeRole,
       login, loginWithGoogle, register, logout, refreshDbUser, getRoleFromDb,
+      switchActiveRole,
       getPrimaryRole: () => getPrimaryRole(dbUser),
+      getActiveRole:  () => getActiveRole(dbUser),
       userHasRole:    (...roles) => userHasRole(dbUser, ...roles),
     }}>
       {!loading && children}
