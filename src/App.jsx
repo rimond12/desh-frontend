@@ -149,7 +149,7 @@ function ReviewerRoute({ children }) {
 
   // 1. Respect activeRole first — if active role is not reviewer-type, redirect
   const active = getActiveRole(dbUser);
-  const reviewerRoles = ['reviewer', 'desh_reviewer', 'desh_assessor'];
+  const reviewerRoles = ['reviewer', 'desh_reviewer', 'desh_assessor', 'desh_manager'];
   if (!reviewerRoles.includes(active)) {
     return <Navigate to={resolveRedirect(dbUser)} replace />;
   }
@@ -230,7 +230,7 @@ function AppRoutes() {
       <Route path="/manual"             element={<PrivateRoute><Manual/></PrivateRoute>} />
       <Route path="/account"            element={<PrivateRoute><Account/></PrivateRoute>} />
       <Route path="/calculations"       element={<UserRoute><CalculationsArchivePage/></UserRoute>} />
-      <Route path="/calculations/:id"   element={<UserRoute><CalculationViewPage/></UserRoute>} />
+      <Route path="/calculations/:id"   element={<PrivateRoute><CalculationViewPage/></PrivateRoute>} />
 
       {/* Reviewer routes */}
       <Route path="/reviewer/submissions"     element={<ReviewerRoute><ReviewerSubmissions/></ReviewerRoute>} />

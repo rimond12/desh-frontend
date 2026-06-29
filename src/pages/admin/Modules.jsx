@@ -366,8 +366,38 @@ export default function Modules() {
         url:   IM.d?.calcBtn?.url   ?? '',
         name:  IM.d?.calcBtn?.name  ?? globalCalcDefaults.name,
         color: IM.d?.calcBtn?.color ?? globalCalcDefaults.color,
+        calcId: IM.d?.calcBtn?.calcId ?? '',
       },
     });
+
+    const [calcSearch, setCalcSearch] = useState('');
+    const [calcDropdownOpen, setCalcDropdownOpen] = useState(false);
+    const [calcOptions, setCalcOptions] = useState([]);
+
+    useEffect(() => {
+      async function loadCalcOptions() {
+        if (!IM.open) return;
+        const activeTabObj = tabs.find(t => t._id === activeTab);
+        const catId = categoryFilter || (activeTabObj?.categories?.[0]?._id || activeTabObj?.categories?.[0]);
+        const tabId = activeTab;
+        const modId = IM.mId;
+
+        if (!catId || !tabId || !modId) {
+          setCalcOptions([]);
+          return;
+        }
+
+        try {
+          const res = await ax.get('/calc/calculations', {
+            params: { categoryId: catId, tabId, moduleId: modId }
+          });
+          setCalcOptions(res.data.data || []);
+        } catch (err) {
+          console.error("Failed to load calculations options", err);
+        }
+      }
+      loadCalcOptions();
+    }, [IM.open, IM.mId, activeTab, categoryFilter, tabs]);
 
     const addOpt = () => setF({ ...f, options: [...f.options, { label: '', points: 0 }] });
     const delOpt = i => setF({ ...f, options: f.options.filter((_, j) => j !== i) });
@@ -414,6 +444,7 @@ export default function Modules() {
           url:   f.calcBtn.url.trim(),
           name:  f.calcBtn.name.trim() || globalCalcDefaults.name,
           color: f.calcBtn.color || globalCalcDefaults.color,
+          calcId: f.calcBtn.calcId || null,
         },
       };
 
@@ -898,7 +929,7 @@ export default function Modules() {
                   Calculate Button
                 </p>
                 <p style={{ fontSize: 11, color: 'var(--tx-muted)', margin: 0, marginTop: 1 }}>
-                  Shown alongside this field only when a URL is set
+                  Shown alongside this field when a URL or Calculation is set
                 </p>
               </div>
             </div>
@@ -913,6 +944,109 @@ export default function Modules() {
                   onChange={e => setF({ ...f, calcBtn: { ...f.calcBtn, url: e.target.value } })}
                   placeholder="https://example.com/calculator (leave empty to hide)"
                 />
+              </div>
+
+              {/* Searchable Calculation Dropdown */}
+              <div>
+                <Lbl>Or Select Calculation (from Cal Engine)</Lbl>
+                <div style={{ position: 'relative' }}>
+                  <div
+                    onClick={() => setCalcDropdownOpen(!calcDropdownOpen)}
+                    style={{
+                      padding: '10px 14px',
+                      border: '1.5px solid var(--border-md)',
+                      borderRadius: 10,
+                      background: '#fff',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: 13.5,
+                    }}
+                  >
+                    <span style={{ color: f.calcBtn.calcId ? 'var(--tx)' : 'var(--tx-muted)' }}>
+                      {f.calcBtn.calcId
+                        ? calcOptions.find(c => (c._id || c.id) === f.calcBtn.calcId)?.name || 'Select Calculation'
+                        : 'None / Select Calculation'}
+                    </span>
+                    <span style={{ fontSize: 10, color: 'var(--tx-faint)' }}>{calcDropdownOpen ? '▲' : '▼'}</span>
+                  </div>
+
+                  {calcDropdownOpen && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        background: '#fff',
+                        border: '1px solid var(--border-md)',
+                        borderRadius: 10,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        zIndex: 1000,
+                        marginTop: 4,
+                        maxHeight: 200,
+                        overflowY: 'auto',
+                        padding: 8,
+                      }}
+                    >
+                      <input
+                        type="text"
+                        className="input-field"
+                        placeholder="Search calculations..."
+                        value={calcSearch}
+                        onChange={e => setCalcSearch(e.target.value)}
+                        onClick={e => e.stopPropagation()}
+                        style={{ marginBottom: 8, fontSize: 12.5, padding: '6px 10px' }}
+                        autoFocus
+                      />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <div
+                          onClick={() => {
+                            setF({ ...f, calcBtn: { ...f.calcBtn, calcId: '' } });
+                            setCalcDropdownOpen(false);
+                            setCalcSearch('');
+                          }}
+                          style={{
+                            padding: '8px 12px',
+                            borderRadius: 6,
+                            cursor: 'pointer',
+                            background: !f.calcBtn.calcId ? 'var(--bg-muted)' : 'transparent',
+                            fontSize: 13,
+                            fontWeight: !f.calcBtn.calcId ? 'bold' : 'normal',
+                          }}
+                        >
+                          None
+                        </div>
+                        {calcOptions.filter(c => c.name.toLowerCase().includes(calcSearch.toLowerCase())).map(c => (
+                          <div
+                            key={c._id || c.id}
+                            onClick={() => {
+                              setF({ ...f, calcBtn: { ...f.calcBtn, calcId: c._id || c.id } });
+                              setCalcDropdownOpen(false);
+                              setCalcSearch('');
+                            }}
+                            style={{
+                              padding: '8px 12px',
+                              borderRadius: 6,
+                              cursor: 'pointer',
+                              background: f.calcBtn.calcId === (c._id || c.id) ? 'var(--bg-muted)' : 'transparent',
+                              fontSize: 13,
+                              fontWeight: f.calcBtn.calcId === (c._id || c.id) ? 'bold' : 'normal',
+                            }}
+                          >
+                            {c.name}
+                          </div>
+                        ))}
+                        {calcOptions.filter(c => c.name.toLowerCase().includes(calcSearch.toLowerCase())).length === 0 && (
+                          <div style={{ padding: '8px 12px', color: 'var(--tx-faint)', fontSize: 12, textAlign: 'center' }}>
+                            No calculations found for this category/tab/module.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Name + Color */}
@@ -962,17 +1096,17 @@ export default function Modules() {
                     padding: '7px 16px', borderRadius: 9, border: 'none',
                     background: f.calcBtn.color || '#22A84B', color: '#fff',
                     fontWeight: 700, fontSize: 12.5, cursor: 'default',
-                    opacity: f.calcBtn.url ? 1 : 0.35,
-                    boxShadow: f.calcBtn.url ? '0 2px 8px rgba(0,0,0,0.15)' : 'none',
+                    opacity: (f.calcBtn.url || f.calcBtn.calcId) ? 1 : 0.35,
+                    boxShadow: (f.calcBtn.url || f.calcBtn.calcId) ? '0 2px 8px rgba(0,0,0,0.15)' : 'none',
                     transition: 'opacity 0.2s, box-shadow 0.2s',
                     display: 'inline-flex', alignItems: 'center', gap: 6,
                   }}
                 >
                   🧮 {f.calcBtn.name || globalCalcDefaults.name}
                 </button>
-                {!f.calcBtn.url && (
+                {!f.calcBtn.url && !f.calcBtn.calcId && (
                   <span style={{ fontSize: 11, color: 'var(--tx-faint)', fontStyle: 'italic' }}>
-                    hidden — no URL provided
+                    hidden — no URL or Calculation selected
                   </span>
                 )}
               </div>

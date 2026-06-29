@@ -42,7 +42,7 @@ function CopyBtn({ getValue, className = "" }) {
 
 // ── Cell Components ───────────────────────────────────────────────────────────
 
-function DropdownCell({ col, row, dropdowns, onChange }) {
+function DropdownCell({ col, row, dropdowns, onChange, readOnly }) {
   const items = dropdowns[col.dropdown_master_id] || [];
   const cell = row[col.id];
   const selKey = cell?.key || "";
@@ -50,20 +50,26 @@ function DropdownCell({ col, row, dropdowns, onChange }) {
   return (
     <>
       <div className="ce-cell-interactive">
-        <select className="ce-select" value={selKey} onChange={e => {
-          const key = e.target.value;
-          if (key === "__other__") { onChange(col.id, { key: "__other__", label: "Others", numValue: 0, isOther: true, otherText: "" }); return; }
-          const item = items.find(i => (i.item_key || i.k) === key);
-          if (item) onChange(col.id, { key: item.item_key || item.k, label: item.item_label || item.l, numValue: item.num_value ?? item.v ?? 0, isOther: false, ...(item.extra_values || {}) });
-          else onChange(col.id, null);
-        }}>
-          <option value="">-- Select --</option>
-          {items.map(it => <option key={it._id || it.id || it.item_key || it.k} value={it.item_key || it.k}>{it.item_label || it.l}</option>)}
-          {col.allow_others && <option value="__other__">Others</option>}
-        </select>
-        {selKey === "__other__" && (
-          <input type="text" className="ce-others-input" placeholder="Enter option..."
-            value={cell?.otherText || ""} onChange={e => onChange(col.id, { ...cell, otherText: e.target.value })} />
+        {readOnly ? (
+          <span className="ce-locked">{selectedLabel || "-"}</span>
+        ) : (
+          <>
+            <select className="ce-select" value={selKey} onChange={e => {
+              const key = e.target.value;
+              if (key === "__other__") { onChange(col.id, { key: "__other__", label: "Others", numValue: 0, isOther: true, otherText: "" }); return; }
+              const item = items.find(i => (i.item_key || i.k) === key);
+              if (item) onChange(col.id, { key: item.item_key || item.k, label: item.item_label || item.l, numValue: item.num_value ?? item.v ?? 0, isOther: false, ...(item.extra_values || {}) });
+              else onChange(col.id, null);
+            }}>
+              <option value="">-- Select --</option>
+              {items.map(it => <option key={it._id || it.id || it.item_key || it.k} value={it.item_key || it.k}>{it.item_label || it.l}</option>)}
+              {col.allow_others && <option value="__other__">Others</option>}
+            </select>
+            {selKey === "__other__" && (
+              <input type="text" className="ce-others-input" placeholder="Enter option..."
+                value={cell?.otherText || ""} onChange={e => onChange(col.id, { ...cell, otherText: e.target.value })} />
+            )}
+          </>
         )}
       </div>
       <span className="ce-cell-print-only">{selectedLabel || "-"}</span>
@@ -71,12 +77,15 @@ function DropdownCell({ col, row, dropdowns, onChange }) {
   );
 }
 
-function NestedDropdownCell({ col, row, dropdowns, sec, onChange }) {
+function NestedDropdownCell({ col, row, dropdowns, sec, onChange, readOnly }) {
   const parentCell = row[col.parent_col];
   const parentColCfg = sec.config.columns?.find(c => c.id === col.parent_col);
   const allItems = dropdowns[parentColCfg?.dropdown_master_id] || [];
   const cell = row[col.id];
   const selectedLabel = cell?.label || (cell?.key === "__other__" ? cell?.otherText : "") || "";
+  if (readOnly) {
+    return <span className="ce-locked">{selectedLabel || "-"}</span>;
+  }
   if (!parentCell?.key) return (
     <>
       <div className="ce-cell-interactive">
@@ -132,12 +141,15 @@ function NestedDropdownCell({ col, row, dropdowns, sec, onChange }) {
   );
 }
 
-function SectionRefCell({ col, row, sections, sectionRows, crossCalcRows, onChange }) {
+function SectionRefCell({ col, row, sections, sectionRows, crossCalcRows, onChange, readOnly }) {
   const sourceRows = getRefSourceRows(col, sections, sectionRows, crossCalcRows);
   const opts = buildRefOptions(sourceRows);
   const cell = row[col.id];
   const selIdx = cell?.rowIndex !== undefined ? cell.rowIndex : -1;
   const selectedLabel = cell?.label || "";
+  if (readOnly) {
+    return <span className="ce-locked">{selectedLabel || "-"}</span>;
+  }
   return (
     <>
       <div className="ce-cell-interactive">
@@ -159,13 +171,13 @@ function SectionRefCell({ col, row, sections, sectionRows, crossCalcRows, onChan
   );
 }
 
-function LockedCell({ col, row, onUnlockEdit, onToggleLock }) {
+function LockedCell({ col, row, onUnlockEdit, onToggleLock, readOnly }) {
   const cell = row[col.id];
   const rawVal = cell ? (cell.rawValue ?? cell.text ?? cell.numValue ?? cell.v ?? 0) : 0;
   const numVal = parseFloat(rawVal);
   const display = Number.isFinite(numVal) ? fmtNum(numVal) : String(rawVal ?? "");
   const isUnlocked = cell?.unlocked === true;
-  if (col.allow_unlock && isUnlocked) {
+  if (col.allow_unlock && isUnlocked && !readOnly) {
     return (
       <>
         <div className="ce-cell-interactive">
@@ -179,7 +191,7 @@ function LockedCell({ col, row, onUnlockEdit, onToggleLock }) {
       </>
     );
   }
-  if (col.allow_unlock) {
+  if (col.allow_unlock && !readOnly) {
     return (
       <>
         <div className="ce-cell-interactive">
@@ -197,7 +209,7 @@ function LockedCell({ col, row, onUnlockEdit, onToggleLock }) {
 
 // ── Table Row ─────────────────────────────────────────────────────────────────
 
-function TableRow({ sec, rowIdx, sections, sectionRows, summaries, crossCalcRows, dropdowns, onCellChange, onRemove }) {
+function TableRow({ sec, rowIdx, sections, sectionRows, summaries, crossCalcRows, dropdowns, onCellChange, onRemove, readOnly }) {
   const row = sectionRows[sec.order_num]?.[rowIdx] || {};
   const visibleCols = (sec.config.columns || []).filter(col => !isHidden(col));
 
@@ -212,27 +224,35 @@ function TableRow({ sec, rowIdx, sections, sectionRows, summaries, crossCalcRows
   function renderCell(col) {
     const cell = row[col.id];
     switch (col.type) {
-      case "dropdown": return <DropdownCell col={col} row={row} dropdowns={dropdowns} onChange={handleChange} />;
-      case "nested_dropdown": return <NestedDropdownCell col={col} row={row} dropdowns={dropdowns} sec={sec} onChange={handleChange} />;
+      case "dropdown": return <DropdownCell col={col} row={row} dropdowns={dropdowns} onChange={handleChange} readOnly={readOnly} />;
+      case "nested_dropdown": return <NestedDropdownCell col={col} row={row} dropdowns={dropdowns} sec={sec} onChange={handleChange} readOnly={readOnly} />;
       case "section_ref": case "cross_calc_ref":
-        return <SectionRefCell col={col} row={row} sections={sections} sectionRows={sectionRows} crossCalcRows={crossCalcRows} onChange={handleChange} />;
-      case "locked": return <LockedCell col={col} row={row} onUnlockEdit={handleUnlockEdit} onToggleLock={handleToggleLock} />;
+        return <SectionRefCell col={col} row={row} sections={sections} sectionRows={sectionRows} crossCalcRows={crossCalcRows} onChange={handleChange} readOnly={readOnly} />;
+      case "locked": return <LockedCell col={col} row={row} onUnlockEdit={handleUnlockEdit} onToggleLock={handleToggleLock} readOnly={readOnly} />;
       case "formula": { const val = cell?.numValue ?? 0; return <span className="ce-formula">{isNaN(val) ? "-" : fmtNum(val)}</span>; }
       case "number":
         return (
           <>
-            <div className="ce-cell-interactive">
-              <input type="number" className="ce-input ce-input-num" value={cell?.numValue ?? ""} step="any" onChange={e => handleChange(col.id, { numValue: parseFloat(e.target.value) || 0 })} />
-            </div>
+            {readOnly ? (
+              <span className="ce-locked">{cell?.numValue !== undefined ? fmtNum(cell.numValue) : "-"}</span>
+            ) : (
+              <div className="ce-cell-interactive">
+                <input type="number" className="ce-input ce-input-num" value={cell?.numValue ?? ""} step="any" onChange={e => handleChange(col.id, { numValue: parseFloat(e.target.value) || 0 })} />
+              </div>
+            )}
             <span className="ce-cell-print-only">{cell?.numValue !== undefined ? fmtNum(cell.numValue) : "-"}</span>
           </>
         );
       case "text":
         return (
           <>
-            <div className="ce-cell-interactive">
-              <input type="text" className="ce-input" value={cell?.text ?? ""} onChange={e => handleChange(col.id, { text: e.target.value, numValue: 0 })} />
-            </div>
+            {readOnly ? (
+              <span className="ce-locked">{cell?.text || "-"}</span>
+            ) : (
+              <div className="ce-cell-interactive">
+                <input type="text" className="ce-input" value={cell?.text ?? ""} onChange={e => handleChange(col.id, { text: e.target.value, numValue: 0 })} />
+              </div>
+            )}
             <span className="ce-cell-print-only">{cell?.text || "-"}</span>
           </>
         );
@@ -243,14 +263,14 @@ function TableRow({ sec, rowIdx, sections, sectionRows, summaries, crossCalcRows
   return (
     <tr>
       {visibleCols.map(col => <td key={col.id}>{renderCell(col)}</td>)}
-      <td><button className="ce-remove-btn" onClick={onRemove} title="Remove">✕</button></td>
+      {!readOnly && <td><button className="ce-remove-btn" onClick={onRemove} title="Remove">✕</button></td>}
     </tr>
   );
 }
 
 // ── Section Components ────────────────────────────────────────────────────────
 
-function InputTableSection({ sec, sections, sectionRows, setSectionRows, summaries, crossCalcRows, dropdowns, onRecalc }) {
+function InputTableSection({ sec, sections, sectionRows, setSectionRows, summaries, crossCalcRows, dropdowns, onRecalc, readOnly }) {
   const rows = sectionRows[sec.order_num] || [];
   const visibleCols = (sec.config.columns || []).filter(c => !isHidden(c));
   const visibleSums = (sec.config.summaries || []).filter(s => !isHidden(s));
@@ -309,12 +329,12 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
                   ? <th key={i} colSpan={item.colSpan} style={{ background: item.grp.bgColor, color: item.grp.textColor, textAlign: "center" }}>{item.grp.label}</th>
                   : <th key={i} rowSpan={2}>{item.col.label}</th>
                 )}
-                <th rowSpan={2} style={{ width: 40 }}></th>
+                {!readOnly && <th rowSpan={2} style={{ width: 40 }}></th>}
               </tr>
               <tr>{row2Cols.map(c => <th key={c.id}>{c.label}</th>)}</tr>
             </>
           ) : (
-            <tr>{visibleCols.map(c => <th key={c.id}>{c.label}</th>)}<th style={{ width: 40 }}></th></tr>
+            <tr>{visibleCols.map(c => <th key={c.id}>{c.label}</th>)}{!readOnly && <th style={{ width: 40 }}></th>}</tr>
           )}
         </thead>
         <tbody>
@@ -325,11 +345,12 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
               onRemove={() => {
                 setSectionRows(prev => { const n = { ...prev }; n[sec.order_num] = n[sec.order_num].filter((_, i) => i !== ri); return n; });
                 onRecalc();
-              }} />
+              }}
+              readOnly={readOnly} />
           ))}
         </tbody>
       </table>
-      {sec.config.can_add_rows !== false && (
+      {sec.config.can_add_rows !== false && !readOnly && (
         <div className="ce-add-row">
           <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => {
             setSectionRows(prev => { const n = { ...prev }; const row = {}; (sec.config.columns || []).forEach(c => { row[c.id] = null; }); n[sec.order_num] = [...(n[sec.order_num] || []), row]; return n; });
@@ -382,7 +403,7 @@ function FormulaDisplaySection({ sec, summaries }) {
 
 function EditableCalcRefSection({
   sec, srcSec, allSections, refSectionConfigs,
-  sectionRows, setSectionRows, summaries, crossCalcRows, dropdowns, onRecalc
+  sectionRows, setSectionRows, summaries, crossCalcRows, dropdowns, onRecalc, readOnly, projectId, axios
 }) {
   const refCalcId = sec.config.ref_calc_id;
   const refSecOrder = sec.config.ref_section_order;
@@ -411,12 +432,25 @@ function EditableCalcRefSection({
   // back into the source calculation's localStorage entry so Calc 01 stays
   // in sync when it is next opened.
   function handleSyncedRows(updater) {
+    if (readOnly) return;
     setSectionRows(prev => {
       const next = typeof updater === "function" ? updater(prev) : updater;
       const refRows = next[sec.order_num] || [];
-      const srcStored = loadFromStorage(refCalcId) || { rows: {}, sums: {} };
-      srcStored.rows = { ...(srcStored.rows || {}), [refSecOrder]: refRows };
-      saveToStorage(refCalcId, srcStored.rows, srcStored.sums || {});
+      if (projectId) {
+        axios.get(`/projects/${projectId}/calculations/${refCalcId}`).then(res => {
+          const existingRows = res.data.data?.sectionRows || {};
+          const mergedRows = { ...existingRows, [refSecOrder]: refRows };
+          const existingSums = res.data.data?.summaries || {};
+          axios.put(`/projects/${projectId}/calculations/${refCalcId}`, {
+            sectionRows: mergedRows,
+            summaries: existingSums
+          });
+        }).catch(err => console.error(err));
+      } else {
+        const srcStored = loadFromStorage(refCalcId) || { rows: {}, sums: {} };
+        srcStored.rows = { ...(srcStored.rows || {}), [refSecOrder]: refRows };
+        saveToStorage(refCalcId, srcStored.rows, srcStored.sums || {});
+      }
       return next;
     });
   }
@@ -439,6 +473,7 @@ function EditableCalcRefSection({
         crossCalcRows={crossCalcRows}
         dropdowns={dropdowns}
         onRecalc={onRecalc}
+        readOnly={readOnly}
       />
     </div>
   );
@@ -614,7 +649,8 @@ function buildVirtualSections(sections, refConfigs) {
 
 // ── Main CalcEngine ───────────────────────────────────────────────────────────
 
-export default function CalcEngine({ calcId }) {
+export default function CalcEngine({ calcId, projectId = null, inputId = null, readOnly = false }) {
+  const axios = useAxiosSecure();
   const [calcConfig, setCalcConfig] = useState(null);
   const [sectionRows, setSectionRows] = useState({});
   const [summaries, setSummaries] = useState({});
@@ -664,12 +700,29 @@ export default function CalcEngine({ calcId }) {
     return { rows: newRows, sums: newSums };
   }
 
+    async function saveData(rows, sums) {
+    if (projectId) {
+      try {
+        await axios.put(`/projects/${projectId}/calculations/${calcId}`, {
+          sectionRows: rows,
+          summaries: sums,
+          inputId: inputId || null
+        });
+      } catch (err) {
+        console.error("Failed to save calculation inputs to DB", err);
+      }
+    } else {
+      saveToStorage(calcId, rows, sums);
+    }
+  }
+
   function handleRecalc() {
     if (!calcConfig) return;
+    if (readOnly) return;
     setSectionRows(prev => {
       const { rows: newRows, sums: newSums } = doRecalc(prev, {}, calcConfig.sections);
       setSummaries(newSums);
-      saveToStorage(calcId, newRows, newSums);
+      saveData(newRows, newSums);
       return newRows;
     });
   }
@@ -694,6 +747,30 @@ export default function CalcEngine({ calcId }) {
         allCalcs.forEach(c => { calcOrderMapRef.current[c.order_num] = c._id || c.id; });
         const cfg = await publicGet(`/calculations/${calcId}`);
         cfg.sections.sort((a, b) => a.order_num - b.order_num);
+
+        let allProjectCalcs = {};
+        if (projectId) {
+          try {
+            const dbRes = await axios.get(`/projects/${projectId}/calculations`);
+            if (dbRes.data.success && dbRes.data.data) {
+              dbRes.data.data.forEach(item => {
+                allProjectCalcs[item.calcId] = {
+                  rows: item.sectionRows,
+                  sums: item.summaries
+                };
+              });
+            }
+          } catch (e) {
+            console.error("Failed to load project calculations map", e);
+          }
+        }
+
+        Object.entries(allProjectCalcs).forEach(([cId, data]) => {
+          crossCalcCacheRef.current[cId] = {
+            rows: data.rows || {},
+            sums: data.sums || {}
+          };
+        });
 
         // ── 1. Load source section configs for every calc_ref section ─────────
         const refSecConfigs = {};
@@ -741,26 +818,38 @@ export default function CalcEngine({ calcId }) {
         await Promise.all([...masterIds].map(async mid => { ddMap[mid] = await publicGet(`/dropdowns/${mid}`); }));
         setDropdowns(ddMap);
 
-        // ── 3. Load cross-calc rows from localStorage ─────────────────────────
+        // ── 3. Load cross-calc rows from localStorage/DB ─────────────────────────
         const ccRows = {};
         for (const sec of cfg.sections) {
           if (sec.config.type === "calc_ref" || sec.config.cross_calc_fa) {
             const refId = sec.config.ref_calc_id || sec.config.cross_calc_fa?.calc_id;
             const refOrd = sec.config.ref_section_order || sec.config.cross_calc_fa?.section_order;
-            if (refId && refOrd) { const key = `${refId}_${refOrd}`; const stored = loadFromStorage(refId); ccRows[key] = stored?.rows?.[refOrd] || []; }
+            if (refId && refOrd) { 
+              const key = `${refId}_${refOrd}`; 
+              const srcStored = allProjectCalcs[refId] || loadFromStorage(refId); 
+              ccRows[key] = srcStored?.rows?.[refOrd] || []; 
+            }
           }
-          (sec.config.columns || []).forEach(col => { if (col.type === "cross_calc_ref") { const key = `${col.ref_calc_id}_${col.ref_section_order}`; if (!ccRows[key]) { const s = loadFromStorage(col.ref_calc_id); ccRows[key] = s?.rows?.[col.ref_section_order] || []; } } });
+          (sec.config.columns || []).forEach(col => { 
+            if (col.type === "cross_calc_ref") { 
+              const key = `${col.ref_calc_id}_${col.ref_section_order}`; 
+              if (!ccRows[key]) { 
+                const srcStored = allProjectCalcs[col.ref_calc_id] || loadFromStorage(col.ref_calc_id); 
+                ccRows[key] = srcStored?.rows?.[col.ref_section_order] || []; 
+              } 
+            } 
+          });
         }
         setCrossCalcRows(ccRows);
 
         // ── 4. Initialise section rows ────────────────────────────────────────
-        const stored = loadFromStorage(calcId);
+        const stored = allProjectCalcs[calcId] || loadFromStorage(calcId);
         const initRows = {}, initSums = {};
         cfg.sections.forEach(sec => {
           initSums[sec.order_num] = {};
 
           if (sec.config.type === "calc_ref") {
-            // Prefer previously-saved local edits; fall back to source calc data.
+            // Prefer previously-saved edits; fall back to source calc data.
             if (stored?.rows?.[sec.order_num]?.length) {
               initRows[sec.order_num] = stored.rows[sec.order_num];
             } else {
@@ -789,9 +878,10 @@ export default function CalcEngine({ calcId }) {
       } catch (e) { setError(e.message); }
     }
     init();
-  }, [calcId]);
+  }, [calcId, projectId, axios]);
 
   function handleReset() {
+    if (readOnly) return;
     if (!window.confirm("Reset all data?")) return;
     if (!calcConfig) return;
     const initRows = {};
@@ -817,7 +907,7 @@ export default function CalcEngine({ calcId }) {
       }
     });
     const { rows: newRows, sums: newSums } = doRecalc(initRows, {}, calcConfig.sections);
-    setSectionRows(newRows); setSummaries(newSums); saveToStorage(calcId, newRows, newSums);
+    if (readOnly) return; setSectionRows(newRows); setSummaries(newSums); saveData(newRows, newSums);
   }
 
   function handleExport() {
@@ -1364,6 +1454,7 @@ export default function CalcEngine({ calcId }) {
   }
 
   function handleImport(e) {
+    if (readOnly) return;
     const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
@@ -1373,7 +1464,7 @@ export default function CalcEngine({ calcId }) {
         if (!payload.data?.rows) throw new Error("Missing data");
         if (!window.confirm("Import will replace your current inputs. Continue?")) return;
         const { rows: newRows, sums: newSums } = doRecalc(payload.data.rows, payload.data.summaries || {}, calcConfig.sections);
-        setSectionRows(newRows); setSummaries(newSums); saveToStorage(calcId, newRows, newSums);
+        setSectionRows(newRows); setSummaries(newSums); saveData(newRows, newSums);
       } catch (err) { alert("Import failed: " + err.message); }
     };
     reader.readAsText(file); e.target.value = "";
@@ -1438,10 +1529,14 @@ export default function CalcEngine({ calcId }) {
               </div>
             )}
           </div>
-          <label className="ce-btn ce-btn-outline" style={{ cursor: "pointer" }}>
-            📤 Import <input type="file" accept=".json" style={{ display: "none" }} onChange={handleImport} />
-          </label>
-          <button className="ce-btn ce-btn-secondary" onClick={handleReset}>↺ Reset</button>
+          {!readOnly && (
+            <>
+              <label className="ce-btn ce-btn-outline" style={{ cursor: "pointer" }}>
+                📤 Import <input type="file" accept=".json" style={{ display: "none" }} onChange={handleImport} />
+              </label>
+              <button className="ce-btn ce-btn-secondary" onClick={handleReset}>↺ Reset</button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1462,7 +1557,7 @@ export default function CalcEngine({ calcId }) {
             {sec.config.type === "input_table" && (
               <InputTableSection sec={sec} sections={calcConfig.sections} sectionRows={sectionRows}
                 setSectionRows={setSectionRows} summaries={summaries} crossCalcRows={crossCalcRows}
-                dropdowns={dropdowns} onRecalc={handleRecalc} />
+                dropdowns={dropdowns} onRecalc={handleRecalc} readOnly={readOnly} />
             )}
             {sec.config.type === "formula_display" && (
               <FormulaDisplaySection sec={sec} summaries={summaries} />
@@ -1479,6 +1574,9 @@ export default function CalcEngine({ calcId }) {
                 crossCalcRows={crossCalcRows}
                 dropdowns={dropdowns}
                 onRecalc={handleRecalc}
+                readOnly={readOnly}
+                projectId={projectId}
+                axios={axios}
               />
             )}
             {isCalcRef && !srcSec && (

@@ -2221,8 +2221,8 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                                 )}
                                               </div>
                                             )}
-                                            {/* Calculate Button — shown only when URL is configured */}
-                                            {inp.calcBtn?.url && (
+                                            {/* Calculate Button — shown when URL or Calculation is configured */}
+                                            {(inp.calcBtn?.url || inp.calcBtn?.calcId) && (
                                               <div style={{
                                                 marginTop: 14,
                                                 paddingTop: 12,
@@ -2233,7 +2233,10 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                                 flexWrap: 'wrap',
                                               }}>
                                                 <a
-                                                  href={inp.calcBtn.url}
+                                                  href={inp.calcBtn.calcId 
+                                                    ? `/calculations/${inp.calcBtn.calcId}?projectId=${project._id}&inputId=${inp._id}`
+                                                    : inp.calcBtn.url
+                                                  }
                                                   target="_blank"
                                                   rel="noopener noreferrer"
                                                   style={{ textDecoration: 'none', flexShrink: 0 }}

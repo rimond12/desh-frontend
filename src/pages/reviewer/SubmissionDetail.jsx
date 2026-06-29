@@ -1185,6 +1185,39 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                       })()
                                       : (inp.value || <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)}
                                 </div>
+                                {/* Calculate Button (Read-Only Mode for Reviewer) */}
+                                {(inp.calcBtn?.url || inp.calcBtn?.calcId) && (
+                                  <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <a
+                                      href={inp.calcBtn.calcId 
+                                        ? `/calculations/${inp.calcBtn.calcId}?projectId=${project._id}&inputId=${inp._id}&readOnly=true`
+                                        : inp.calcBtn.url
+                                      }
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{ textDecoration: 'none' }}
+                                    >
+                                      <button
+                                        style={{
+                                          padding: '6px 14px',
+                                          borderRadius: 8,
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                          background: inp.calcBtn.color || '#22A84B',
+                                          color: '#fff',
+                                          fontWeight: 700,
+                                          fontSize: 11.5,
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: 5,
+                                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                        }}
+                                      >
+                                        🧮 {inp.calcBtn.name || 'Calculate'} (Read Only)
+                                      </button>
+                                    </a>
+                                  </div>
+                                )}
                               </div>
                               {/* Right-side: points + lock controls */}
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>

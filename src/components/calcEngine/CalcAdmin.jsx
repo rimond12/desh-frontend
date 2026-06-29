@@ -1126,9 +1126,96 @@ export default function CalcAdmin() {
   const [masterModal, setMasterModal] = useState(null);
   const [selectedCalc, setSelectedCalc] = useState(null); // calc to view in engine
 
-  async function loadCalcs() { try { const r = await axios.get(`${API_BASE}/calculations`); setCalcs(r.data.data || []); } catch (e) { console.error(e); } }
-  async function loadMasters() { try { const r = await axios.get(`${API_BASE}/dropdown-masters`); setMasters(r.data.data || []); } catch (e) { console.error(e); } }
-  useEffect(() => { loadCalcs(); loadMasters(); }, []);
+  const [categories, setCategories] = useState([]);
+  const [tabsList, setTabsList] = useState([]);
+  const [modules, setModules] = useState([]);
+  const [selectedCatFilter, setSelectedCatFilter] = useState("");
+  const [selectedTabFilter, setSelectedTabFilter] = useState("");
+  const [selectedModFilter, setSelectedModFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  async function loadCalcs() {
+    try {
+      const params = {};
+      if (selectedCatFilter) params.categoryId = selectedCatFilter;
+      if (selectedTabFilter) params.tabId = selectedTabFilter;
+      if (selectedModFilter) params.moduleId = selectedModFilter;
+      if (searchQuery) params.search = searchQuery;
+      const r = await axios.get(`${API_BASE}/calculations`, { params });
+      setCalcs(r.data.data || []);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function loadMasters() {
+    try {
+      const r = await axios.get(`${API_BASE}/dropdown-masters`);
+      setMasters(r.data.data || []);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  useEffect(() => {
+    async function loadCats() {
+      try {
+        const res = await axios.get("/categories/all");
+        setCategories(res.data.categories || []);
+      } catch (err) {
+        console.error("Failed to load categories", err);
+      }
+    }
+    loadCats();
+    loadMasters();
+  }, []);
+
+  useEffect(() => {
+    async function loadTabsForCat() {
+      if (!selectedCatFilter) {
+        setTabsList([]);
+        setModules([]);
+        setSelectedTabFilter("");
+        setSelectedModFilter("");
+        return;
+      }
+      try {
+        const res = await axios.get("/tabs/all");
+        const filtered = (res.data.tabs || []).filter(t =>
+          t.categories?.some(catId => String(catId) === String(selectedCatFilter) || String(catId?._id) === String(selectedCatFilter))
+        );
+        setTabsList(filtered);
+        setModules([]);
+        setSelectedTabFilter("");
+        setSelectedModFilter("");
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    loadTabsForCat();
+  }, [selectedCatFilter]);
+
+  useEffect(() => {
+    async function loadModulesForTab() {
+      if (!selectedTabFilter) {
+        setModules([]);
+        setSelectedModFilter("");
+        return;
+      }
+      try {
+        const res = await axios.get(`/tabs/${selectedTabFilter}/modules`);
+        setModules(res.data.modules || []);
+        setSelectedModFilter("");
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    loadModulesForTab();
+  }, [selectedTabFilter]);
+
+  useEffect(() => {
+    loadCalcs();
+  }, [selectedCatFilter, selectedTabFilter, selectedModFilter, searchQuery]);
 
   async function handleSaveCalc(vals) {
     try { await axios.post(`${API_BASE}/admin/calculations`, vals); setCalcModal(null); loadCalcs(); }
@@ -1229,13 +1316,88 @@ export default function CalcAdmin() {
               <button className="ce-btn ce-btn-primary" onClick={() => setCalcModal({ edit: null })}>+ New Calculation</button>
             </div>
           </div>
+
+          {/* Filters Bar */}
+          <div style={{
+            display: "flex",
+            gap: "12px",
+            alignItems: "center",
+            marginBottom: "20px",
+            background: "var(--bg-soft)",
+            padding: "12px 16px",
+            borderRadius: "10px",
+            border: "1px solid var(--border)",
+            flexWrap: "wrap"
+          }}>
+            <input
+              type="text"
+              className="ce-input"
+              style={{ flex: 1, minWidth: "180px", margin: 0 }}
+              placeholder="Search calculations..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+
+            <select
+              className="ce-select"
+              style={{ minWidth: "150px" }}
+              value={selectedCatFilter}
+              onChange={e => setSelectedCatFilter(e.target.value)}
+            >
+              <option value="">All Categories</option>
+              {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+            </select>
+
+            <select
+              className="ce-select"
+              style={{ minWidth: "150px" }}
+              value={selectedTabFilter}
+              onChange={e => setSelectedTabFilter(e.target.value)}
+              disabled={!selectedCatFilter}
+            >
+              <option value="">All Tabs</option>
+              {tabsList.map(t => <option key={t._id} value={t._id}>{t.title}</option>)}
+            </select>
+
+            <select
+              className="ce-select"
+              style={{ minWidth: "150px" }}
+              value={selectedModFilter}
+              onChange={e => setSelectedModFilter(e.target.value)}
+              disabled={!selectedTabFilter}
+            >
+              <option value="">All Modules</option>
+              {modules.map(m => <option key={m._id} value={m._id}>{m.title}</option>)}
+            </select>
+
+            {(searchQuery || selectedCatFilter || selectedTabFilter || selectedModFilter) && (
+              <button
+                className="ce-btn ce-btn-outline ce-btn-sm"
+                onClick={() => {
+                  setSearchQuery("");
+                  setSelectedCatFilter("");
+                  setSelectedTabFilter("");
+                  setSelectedModFilter("");
+                }}
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+
           {calcs.length === 0 ? (
-            <div className="ce-empty">No calculations yet. <button className="ce-btn ce-btn-outline ce-btn-sm" style={{ marginLeft: ".5rem" }} onClick={handleSeed}>Seed Sample Data</button></div>
+            <div className="ce-empty">No calculations found matching filters. <button className="ce-btn ce-btn-outline ce-btn-sm" style={{ marginLeft: ".5rem" }} onClick={handleSeed}>Seed Sample Data</button></div>
           ) : (
             <div className="ce-calc-list">
               {calcs.map(c => (
                 <div key={c._id || c.id} className="ce-calc-card">
-                  <div><h3 className="ce-calc-card-title">{c.name}</h3>{c.description && <p className="ce-calc-card-desc">{c.description}</p>}</div>
+                  <div>
+                    <h3 className="ce-calc-card-title">{c.name}</h3>
+                    {c.description && <p className="ce-calc-card-desc">{c.description}</p>}
+                    <div style={{ marginTop: 6, fontSize: 12, color: "var(--tx-muted)" }}>
+                      <strong>Category:</strong> {c.categoryId?.name || "None"} | <strong>Tab:</strong> {c.tabId?.title || "None"} | <strong>Module:</strong> {c.moduleId?.title || "None"}
+                    </div>
+                  </div>
                   <div className="ce-calc-actions">
                     <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => setSelectedCalc(c._id || c.id)}>👁 View</button>
                     <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => setCalcModal({ edit: c })}>✏ Edit</button>
@@ -1281,7 +1443,7 @@ export default function CalcAdmin() {
       )}
 
       {/* ── New/Edit Calc Modal ── */}
-      {calcModal && <CalcEditModal edit={calcModal.edit} count={calcs.length} onClose={() => setCalcModal(null)} onSave={handleSaveCalc} />}
+      {calcModal && <CalcEditModal edit={calcModal.edit} count={calcs.length} onClose={() => setCalcModal(null)} onSave={handleSaveCalc} axios={axios} />}
 
       {/* ── New Master Modal ── */}
       {masterModal !== null && (
@@ -1291,19 +1453,140 @@ export default function CalcAdmin() {
   );
 }
 
-function CalcEditModal({ edit, count, onClose, onSave }) {
+function CalcEditModal({ edit, count, onClose, onSave, axios }) {
   const [name, setName] = useState(edit?.name || "");
   const [desc, setDesc] = useState(edit?.description || "");
   const [order, setOrder] = useState(edit?.order_num ?? count + 1);
-  return (<Modal title={edit ? "Edit Calculation" : "New Calculation"} onClose={onClose}
-    footer={<><button className="ce-btn ce-btn-secondary" onClick={onClose}>Cancel</button><button className="ce-btn ce-btn-primary" onClick={() => { if (!name.trim()) { alert("Name required"); return; } onSave({ id: edit?._id || edit?.id || undefined, name: name.trim(), description: desc, order_num: parseInt(order) || 0 }); }}>Save</button></>}>
-    <label className="ce-label">Name *</label>
-    <input type="text" className="ce-input ce-form-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Calculation C" />
-    <label className="ce-label">Description</label>
-    <textarea className="ce-input ce-form-input" rows={2} value={desc} onChange={e => setDesc(e.target.value)} />
-    <label className="ce-label">Order</label>
-    <input type="number" className="ce-input ce-form-input" style={{ maxWidth: 100 }} value={order} onChange={e => setOrder(e.target.value)} />
-  </Modal>);
+
+  const [categories, setCategories] = useState([]);
+  const [tabs, setTabs] = useState([]);
+  const [modules, setModules] = useState([]);
+
+  const getObjId = (obj) => obj && typeof obj === 'object' ? obj._id : obj;
+
+  const initialCatId = getObjId(edit?.categoryId) || "";
+  const initialTabId = getObjId(edit?.tabId) || "";
+  const initialModId = getObjId(edit?.moduleId) || "";
+
+  const [selectedCat, setSelectedCat] = useState(initialCatId);
+  const [selectedTab, setSelectedTab] = useState(initialTabId);
+  const [selectedMod, setSelectedMod] = useState(initialModId);
+
+  // Load all categories on mount
+  useEffect(() => {
+    async function loadCats() {
+      try {
+        const res = await axios.get("/categories/all");
+        setCategories(res.data.categories || []);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    loadCats();
+  }, [axios]);
+
+  // Load/filter tabs when category changes
+  useEffect(() => {
+    async function loadTabs() {
+      if (!selectedCat) {
+        setTabs([]);
+        setModules([]);
+        setSelectedTab("");
+        setSelectedMod("");
+        return;
+      }
+      try {
+        const res = await axios.get("/tabs/all");
+        const filtered = (res.data.tabs || []).filter(t =>
+          t.categories?.some(catId => String(catId) === String(selectedCat) || String(catId?._id) === String(selectedCat))
+        );
+        setTabs(filtered);
+        // Only reset if selectedCat changed from edit's initial category
+        if (initialCatId && String(initialCatId) === String(selectedCat)) {
+          setSelectedTab(initialTabId);
+        } else {
+          setSelectedTab("");
+          setSelectedMod("");
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    loadTabs();
+  }, [selectedCat, axios, initialCatId, initialTabId]);
+
+  // Load modules when tab changes
+  useEffect(() => {
+    async function loadMods() {
+      if (!selectedTab) {
+        setModules([]);
+        setSelectedMod("");
+        return;
+      }
+      try {
+        const res = await axios.get(`/tabs/${selectedTab}/modules`);
+        setModules(res.data.modules || []);
+        if (initialTabId && String(initialTabId) === String(selectedTab)) {
+          setSelectedMod(initialModId);
+        } else {
+          setSelectedMod("");
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    loadMods();
+  }, [selectedTab, axios, initialTabId, initialModId]);
+
+  const handleSave = () => {
+    if (!selectedCat) { alert("Project Category is required"); return; }
+    if (!selectedTab) { alert("Tab is required"); return; }
+    if (!selectedMod) { alert("Module is required"); return; }
+    if (!name.trim()) { alert("Name is required"); return; }
+
+    onSave({
+      id: edit?._id || edit?.id || undefined,
+      name: name.trim(),
+      description: desc,
+      order_num: parseInt(order) || 0,
+      categoryId: selectedCat,
+      tabId: selectedTab,
+      moduleId: selectedMod
+    });
+  };
+
+  return (
+    <Modal title={edit ? "Edit Calculation" : "New Calculation"} onClose={onClose}
+      footer={<><button className="ce-btn ce-btn-secondary" onClick={onClose}>Cancel</button><button className="ce-btn ce-btn-primary" onClick={handleSave}>Save</button></>}>
+      
+      <label className="ce-label">Project Category *</label>
+      <select className="ce-select ce-form-input" value={selectedCat} onChange={e => setSelectedCat(e.target.value)}>
+        <option value="">-- Select Category --</option>
+        {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+      </select>
+
+      <label className="ce-label">Tab *</label>
+      <select className="ce-select ce-form-input" value={selectedTab} onChange={e => setSelectedTab(e.target.value)} disabled={!selectedCat}>
+        <option value="">-- Select Tab --</option>
+        {tabs.map(t => <option key={t._id} value={t._id}>{t.title}</option>)}
+      </select>
+
+      <label className="ce-label">Module *</label>
+      <select className="ce-select ce-form-input" value={selectedMod} onChange={e => setSelectedMod(e.target.value)} disabled={!selectedTab}>
+        <option value="">-- Select Module --</option>
+        {modules.map(m => <option key={m._id} value={m._id}>{m.title}</option>)}
+      </select>
+
+      <label className="ce-label">Name *</label>
+      <input type="text" className="ce-input ce-form-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Calculation C" />
+      
+      <label className="ce-label">Description</label>
+      <textarea className="ce-input ce-form-input" rows={2} value={desc} onChange={e => setDesc(e.target.value)} />
+      
+      <label className="ce-label">Order</label>
+      <input type="number" className="ce-input ce-form-input" style={{ maxWidth: 100 }} value={order} onChange={e => setOrder(e.target.value)} />
+    </Modal>
+  );
 }
 
 function NewMasterModal({ onClose, onSaved, axios }) {
