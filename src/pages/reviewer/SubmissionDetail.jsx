@@ -642,7 +642,15 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--tx-muted)', fontFamily: 'Montserrat,sans-serif' }}>Status:</label>
           <select
-            value={dbUser?.role === 'desh_assessor' ? (project?.assessorStatus || 'Pending') : (project?.reviewerStatus || 'Pending')}
+            value={(() => {
+              const uid = dbUser?._id || dbUser?.id;
+              if (activeRole === 'desh_assessor') {
+                const entry = project?.assessorStatuses?.find(e => String(e.userId) === String(uid));
+                return entry?.status || 'Pending';
+              }
+              const entry = project?.reviewerStatuses?.find(e => String(e.userId) === String(uid));
+              return entry?.status || 'Pending';
+            })()}
             onChange={(e) => handleStatusChange(e.target.value)}
             disabled={updatingStatus}
             style={{
@@ -662,7 +670,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
         </div>
 
         {/* Lock / Unlock buttons */}
-        {dbUser?.role !== 'desh_assessor' && (
+        {activeRole !== 'desh_assessor' && (
           isLocked ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
               <div style={{
@@ -696,7 +704,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
       </div>
 
       {/* ── Lock / Unlock Banner ── */}
-      {dbUser?.role !== 'desh_assessor' && lockStatus !== 'pending' && (
+      {activeRole !== 'desh_assessor' && lockStatus !== 'pending' && (
         <div style={{
           padding: '14px 20px', borderRadius: 14, marginBottom: 20,
           background: lockStatus === 'unlocked_for_edit' ? 'linear-gradient(135deg,#FEF9C3,#FFFBEB)' : 'linear-gradient(135deg,#EDE9FE,#F5F3FF)',
@@ -1227,7 +1235,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                   </span>
                                 )}
 
-                                {dbUser?.role !== 'desh_assessor' && (
+                                {activeRole !== 'desh_assessor' && (
                                   <>
                                     {/* Lock status badge */}
                                     <span style={{

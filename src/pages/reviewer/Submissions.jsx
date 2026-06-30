@@ -78,7 +78,7 @@ export default function ReviewerSubmissions() {
             <option value="Done">Done</option>
           </select>
 
-          {dbUser?.role !== 'desh_assessor' && (
+          {activeRole !== 'desh_assessor' && (
             <select value={lockFilter} onChange={e => setLockFilter(e.target.value)}
               className="input-dark px-3 py-2 text-sm w-full sm:w-48"
               style={{ borderRadius: '11px', cursor: 'pointer' }}>
@@ -101,27 +101,36 @@ export default function ReviewerSubmissions() {
             <thead>
               <tr>
                 <th>Project</th><th>DESH Professional</th><th>Level</th>
-                <th>Score</th>{dbUser?.role !== 'desh_assessor' && <th>Review Status</th>}
+                <th>Score</th>{activeRole !== 'desh_assessor' && <th>Review Status</th>}
                 <th>Workflow Status</th><th>Date</th><th>Action</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={dbUser?.role === 'desh_assessor' ? 7 : 8} className="text-center py-12" style={{ color: 'var(--tx-muted)' }}>
+                <tr><td colSpan={activeRole === 'desh_assessor' ? 7 : 8} className="text-center py-12" style={{ color: 'var(--tx-muted)' }}>
                   No submissions found
                 </td></tr>
               ) : filtered.map(s => {
                 const level  = s.adminOverride || s.leafLevel;
                 const locked = s.isLocked;
                 const cfg    = locked ? LOCK_CFG.locked : LOCK_CFG.unlocked;
-                const workflowStatus = dbUser?.role === 'desh_assessor' ? s.assessorStatus : s.reviewerStatus;
+                const currentUserId = dbUser?._id || dbUser?.id;
+                // Resolve workflow status from the per-user status arrays
+                let workflowStatus;
+                if (activeRole === 'desh_assessor') {
+                  const entry = s.assessorStatuses?.find(e => String(e.userId) === String(currentUserId));
+                  workflowStatus = entry?.status || 'Pending';
+                } else {
+                  const entry = s.reviewerStatuses?.find(e => String(e.userId) === String(currentUserId));
+                  workflowStatus = entry?.status || 'Pending';
+                }
                 
                 return (
                   <tr key={s._id} style={{ cursor: 'pointer' }}
                     onClick={() => navigate(`/reviewer/submissions/${s._id}`)}>
                     <td className="font-semibold text-sm" style={{ color: 'var(--tx)' }}>
                       {s.title}
-                      {dbUser?.role !== 'desh_assessor' && locked && (
+                      {activeRole !== 'desh_assessor' && locked && (
                         <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#FEF9C3', color: '#92400E' }}>
                           🔒 LOCKED
                         </span>
@@ -143,7 +152,7 @@ export default function ReviewerSubmissions() {
                         </span>
                       </div>
                     </td>
-                    {dbUser?.role !== 'desh_assessor' && (
+                    {activeRole !== 'desh_assessor' && (
                       <td>
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: 4,
