@@ -223,7 +223,6 @@ export default function Users() {
             .then(res => {
                 const received = res.data.users      || [];
                 const pg       = res.data.pagination || null;
-                console.log(`[Users] total=${pg?.total} page=${pg?.page}/${pg?.totalPages} received=${received.length}`);
                 setUsers(received);
                 setPagination(pg);
             })

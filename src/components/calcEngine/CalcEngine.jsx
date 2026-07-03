@@ -1046,7 +1046,7 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
     try {
       logoImg = await new Promise((resolve) => {
         const img = new Image();
-        img.src = "/images/DESH_Picture1.png";
+        img.src = "/images/logo (1).png";
         img.onload = () => resolve(img);
         img.onerror = () => resolve(null);
       });
@@ -1480,7 +1480,7 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
       {/* Printable Report Header Block */}
       <div className="ce-print-header">
         <div className="ce-print-header-top">
-          <img src="/images/DESH_Picture1.png" alt="DESH Logo" className="ce-print-logo" />
+          <img src="/images/logo (1).png" alt="DESH Logo" className="ce-print-logo" />
           <div className="ce-print-header-text">
             <h1 className="ce-print-main-title">DESH CALCULATION REPORT</h1>
             <div className="ce-print-meta-row">

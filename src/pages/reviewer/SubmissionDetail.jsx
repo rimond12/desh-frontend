@@ -143,7 +143,6 @@ export default function ReviewerSubmissionDetail() {
   const [projectComments, setProjectComments] = useState([]);
   // per-question locked inputs (updated live when reviewer posts a comment)
   const [lockedInputsSet, setLockedInputsSet] = useState(new Set());
-  const [payloadSize, setPayloadSize] = useState(0);
 
   useEffect(() => {
     Promise.all([
@@ -153,13 +152,6 @@ export default function ReviewerSubmissionDetail() {
       axiosSecure.get(`/comments/by-project/${id}`),
     ])
       .then(([detailRes, secRes, rulesRes, commentsRes]) => {
-        // Measure and set response payload size
-        const size = JSON.stringify(detailRes.data).length +
-                     JSON.stringify(secRes.data).length +
-                     JSON.stringify(rulesRes.data).length +
-                     JSON.stringify(commentsRes.data).length;
-        setPayloadSize(size);
-
         setProject(detailRes.data.project);
         setTabs(detailRes.data.tabs || []);
         setGlobalSections(secRes.data.sections || []);
@@ -190,15 +182,39 @@ export default function ReviewerSubmissionDetail() {
     finally { setTogglingInput(null); }
   };
 
-  const lockSubmission = async () => {
-    if (!window.confirm('Submit your review and LOCK this submission? The user will no longer be able to edit it.')) return;
+  const [finalizingPillar, setFinalizingPillar] = useState(null);
+  const togglePillarFinalized = async (tabId) => {
+    setFinalizingPillar(String(tabId));
+    try {
+      const res = await axiosSecure.post('/review/finalize-pillar', { projectId: id, tabId });
+      setProject(prev => ({
+        ...prev,
+        finalized_pillars: res.data.finalized_pillars,
+      }));
+      toast.success('Pillar review status updated.');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to update pillar finalization');
+    } finally {
+      setFinalizingPillar(null);
+    }
+  };
+
+  const completeFullReview = async () => {
+    if (!window.confirm('Complete full review and LOCK this submission? The user will no longer be able to edit it, and control will return to the Manager.')) return;
     setLocking(true);
     try {
-      const res = await axiosSecure.post(`/submissions/${id}/lock`);
+      const res = await axiosSecure.post('/review/complete', { projectId: id });
       setProject(res.data.project);
-      toast.success('Review submitted! Submission is now locked.');
-    } catch (e) { toast.error(e.response?.data?.message || 'Failed to lock'); }
-    finally { setLocking(false); }
+      toast.success('Review completed! Submission is now locked and sent to the Manager.');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to complete review');
+    } finally {
+      setLocking(false);
+    }
+  };
+
+  const lockSubmission = async () => {
+    await completeFullReview();
   };
 
   const unlockSubmission = async () => {
@@ -398,10 +414,6 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
     document.body.appendChild(container);
 
     try {
-      const startTime = performance.now();
-      const numDocs = docs.length;
-      const htmlLen = container.innerHTML.length;
-
       // ── Find all the sub-elements (chunks) we want to render ──
       const chunks = [];
       const coverEl = container.querySelector('.rpt-cover');
@@ -546,13 +558,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
       doc.save(filename);
       document.body.removeChild(container);
       toast.success('PDF downloaded successfully!', { id: toastId });
-
-      const duration = performance.now() - startTime;
-      console.log(`[PDF EXPORT DEBUG LOGS]`);
-      console.log(`- Number of documents: ${numDocs}`);
-      console.log(`- Response payload size: ${payloadSize} bytes`);
-      console.log(`- HTML length: ${htmlLen} chars`);
-      console.log(`- Time taken: ${duration.toFixed(1)}ms`);
+      // PDF generated successfully
     } catch (err) {
       if (document.body.contains(container)) document.body.removeChild(container);
       console.error('[PDF EXPORT ERROR]', err);
@@ -599,6 +605,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
   const docs = project?.documents || [];
   const isLocked = project?.isLocked || false;
   const lockStatus = project?.lockStatus || 'pending';
+  const allFinalized = tabs.length > 0 && tabs.every(t => (project?.finalized_pillars || []).some(fp => String(fp) === String(t._id)));
   const ownerId = project?.userId?._id || project?.userId;
 
   const handleBack = () => {
@@ -671,7 +678,33 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 
         {/* Lock / Unlock buttons */}
         {activeRole !== 'desh_assessor' && (
-          isLocked ? (
+          project?.project_status === 'CERTIFICATE_ISSUED' ? (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', borderRadius: 12,
+              background: '#D6F5E3', border: '1.5px solid #A8EFC0', color: '#145C28',
+              fontSize: 13, fontWeight: 700, fontFamily: 'Montserrat,sans-serif',
+            }}>
+              ✓ Certificate Issued
+            </div>
+          ) : project?.project_status === 'REVIEW_COMPLETE' ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', borderRadius: 12,
+                background: '#DBEAFE', border: '1.5px solid #BFDBFE', color: '#1E40AF',
+                fontSize: 13, fontWeight: 700, fontFamily: 'Montserrat,sans-serif',
+              }}>
+                🔒 Review Complete & Locked
+              </div>
+              <button onClick={unlockSubmission} style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 12,
+                background: '#fff', border: '1.5px solid #E0E0E0', color: '#555',
+                fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                fontFamily: 'Montserrat,sans-serif',
+              }}>
+                🔓 Unlock
+              </button>
+            </div>
+          ) : isLocked ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', borderRadius: 12,
@@ -690,14 +723,21 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
               </button>
             </div>
           ) : (
-            <button onClick={lockSubmission} disabled={locking} style={{
-              display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 12,
-              background: locking ? 'var(--bg-soft)' : 'linear-gradient(135deg,#5B21B6,#7C3AED)',
-              color: locking ? 'var(--tx-muted)' : '#fff',
-              fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', flexShrink: 0,
-              boxShadow: '0 2px 12px rgba(91,33,182,0.3)', fontFamily: 'Montserrat,sans-serif',
-            }}>
-              {locking ? '…Locking' : '🔒 Submit Review & Lock'}
+            <button 
+              onClick={completeFullReview} 
+              disabled={locking || !allFinalized} 
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 12,
+                background: !allFinalized ? '#E2E8F0' : locking ? 'var(--bg-soft)' : 'linear-gradient(135deg,#16A34A,#4ADE80)',
+                color: !allFinalized ? '#94A3B8' : locking ? 'var(--tx-muted)' : '#fff',
+                fontWeight: 700, fontSize: 13, border: 'none', 
+                cursor: !allFinalized ? 'not-allowed' : 'pointer', flexShrink: 0,
+                boxShadow: !allFinalized ? 'none' : '0 2px 12px rgba(22,163,74,0.3)', 
+                fontFamily: 'Montserrat,sans-serif',
+              }}
+              title={!allFinalized ? "Mark all 7 asset pillars below as finalized to enable sign-off" : "Submit review and return control to the Manager"}
+            >
+              {locking ? '…Processing' : '🔒 Complete Full Review & Lock'}
             </button>
           )
         )}
@@ -1047,6 +1087,58 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
               <h2 style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 15, color: 'var(--g800)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 {tab.title}
               </h2>
+              {activeRole !== 'desh_assessor' && !project?.isLocked && (
+                <button
+                  disabled={finalizingPillar === String(tab._id)}
+                  onClick={() => togglePillarFinalized(tab._id)}
+                  style={{
+                    marginLeft: 'auto',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '5px 12px',
+                    borderRadius: 8,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    fontFamily: 'Montserrat,sans-serif',
+                    cursor: 'pointer',
+                    border: (project?.finalized_pillars || []).some(fp => String(fp) === String(tab._id)) 
+                      ? '1.5px solid var(--g400)' 
+                      : '1.5px solid var(--border-md)',
+                    background: (project?.finalized_pillars || []).some(fp => String(fp) === String(tab._id)) 
+                      ? 'var(--g100)' 
+                      : '#fff',
+                    color: (project?.finalized_pillars || []).some(fp => String(fp) === String(tab._id)) 
+                      ? 'var(--g700)' 
+                      : 'var(--tx-muted)',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {(project?.finalized_pillars || []).some(fp => String(fp) === String(tab._id)) 
+                    ? '✓ Pillar Finalized' 
+                    : '◯ Mark as Finalized'}
+                </button>
+              )}
+              {(project?.finalized_pillars || []).some(fp => String(fp) === String(tab._id)) && project?.isLocked && (
+                <span
+                  style={{
+                    marginLeft: 'auto',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '4px 10px',
+                    borderRadius: 8,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    fontFamily: 'Montserrat,sans-serif',
+                    border: '1.5px solid var(--g200)',
+                    background: 'var(--g50)',
+                    color: 'var(--g600)',
+                  }}
+                >
+                  ✓ Pillar Finalized
+                </span>
+              )}
             </div>
 
             {/* Modules */}

@@ -30,6 +30,7 @@ export default function Sections() {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reordering, setReordering] = useState(false);
+  const [dragState, setDragState] = useState({ dragId: null, overId: null });
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState({ title: '', sortOrder: '', isConstant: false });
@@ -99,30 +100,20 @@ export default function Sections() {
     } catch { toast.error('Failed to delete'); }
   };
 
-  const moveSection = async (idx, dir) => {
+  const reorderSections = (dragId, overId) => {
     if (reordering) return;
     const arr = [...sections].sort((a, b) => a.sortOrder - b.sortOrder);
-    const targetIdx = idx + dir;
-    if (targetIdx < 0 || targetIdx >= arr.length) return;
-    const a = arr[idx];
-    const b = arr[targetIdx];
-    // Optimistic swap
-    setSections(prev => prev.map(s => {
-      if (s._id === a._id) return { ...s, sortOrder: b.sortOrder };
-      if (s._id === b._id) return { ...s, sortOrder: a.sortOrder };
-      return s;
-    }));
+    const from = arr.findIndex(x => x._id === dragId);
+    const to = arr.findIndex(x => x._id === overId);
+    if (from === -1 || to === -1) return;
+    const reordered = [...arr];
+    reordered.splice(to, 0, reordered.splice(from, 1)[0]);
+    setSections(reordered);
     setReordering(true);
-    try {
-      const fdA = new FormData(); fdA.append('title', a.title); fdA.append('sortOrder', b.sortOrder);
-      const fdB = new FormData(); fdB.append('title', b.title); fdB.append('sortOrder', a.sortOrder);
-      await Promise.all([ax.put(`/sections/${a._id}`, fdA), ax.put(`/sections/${b._id}`, fdB)]);
-    } catch {
-      toast.error('Failed to reorder');
-      fetchSections();
-    } finally {
-      setReordering(false);
-    }
+    ax.patch('/sections/reorder', { orderedIds: reordered.map(s => s._id) })
+      .then(() => toast.success('Order saved'))
+      .catch(() => { toast.error('Failed to save order'); fetchSections(); })
+      .finally(() => setReordering(false));
   };
 
   const sorted = [...sections].sort((a, b) => a.sortOrder - b.sortOrder);
@@ -163,24 +154,12 @@ export default function Sections() {
               </h2>
               <button onClick={() => setShowForm(false)} className="text-white/40 hover:text-white transition-colors text-lg">✕</button>
             </div>
-            <div className="space-y-4">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
               <div>
                 <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>Section Name *</label>
-                <input className="w-full px-4 py-3 text-sm rounded-xl border outline-none bg-black/30 border-white/10 text-white placeholder-white/30 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all" value={form.title}
-                  onChange={e => setForm({ ...form, title: e.target.value })}
-                  placeholder="e.g. Site & Environment, Before Construction"
-                  autoFocus />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>Sort Order</label>
-                <input
-                  type="number" min="1"
-                  className="w-full px-4 py-3 text-sm rounded-xl border outline-none bg-black/30 border-white/10 text-white placeholder-white/30 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all"
-                  value={form.sortOrder}
-                  onChange={e => setForm({ ...form, sortOrder: Number(e.target.value) })}
-                  placeholder="e.g. 1, 2, 3…"
-                  style={{ width: 120 }}
-                />
+                <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
+                  placeholder="e.g. Operational Water Demand" 
+                  className="w-full px-4 py-3 text-sm rounded-xl border outline-none bg-black/30 border-white/10 text-white placeholder-white/30 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all" autoFocus />
               </div>
               <div>
                 <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>Section Icon</label>
@@ -277,7 +256,7 @@ export default function Sections() {
           <div className="table-scroll"><table className="premium-table">
             <thead>
               <tr>
-                <th style={{ width: 80 }}>Order</th>
+                <th style={{ width: 140 }}>Drag & Order</th>
                 <th style={{ width: 64 }}>Icon</th>
                 <th>Section Name</th>
                 <th style={{ width: 120 }}>Type</th>
@@ -285,93 +264,89 @@ export default function Sections() {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((s, i) => (
-                <tr key={s._id}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        {/* <button
-                          onClick={() => moveSection(i, -1)}
-                          disabled={i === 0 || reordering}
-                          title="Move up"
-                          style={{
-                            width: 22, height: 20, padding: 0, border: 'none', borderRadius: 5,
-                            background: i === 0 ? 'transparent' : 'var(--bg-subtle)',
-                            color: i === 0 ? 'var(--border-md)' : 'var(--tx-muted)',
-                            cursor: i === 0 ? 'default' : 'pointer',
-                            fontSize: 11, lineHeight: 1, display: 'flex',
-                            alignItems: 'center', justifyContent: 'center',
-                            transition: 'background 0.15s, color 0.15s',
-                          }}
-                          onMouseEnter={e => { if (i !== 0) { e.currentTarget.style.background = 'var(--g100)'; e.currentTarget.style.color = 'var(--g700)'; } }}
-                          onMouseLeave={e => { e.currentTarget.style.background = i === 0 ? 'transparent' : 'var(--bg-subtle)'; e.currentTarget.style.color = i === 0 ? 'var(--border-md)' : 'var(--tx-muted)'; }}
-                        >▲</button>
-                        <button
-                          onClick={() => moveSection(i, 1)}
-                          disabled={i === sorted.length - 1 || reordering}
-                          title="Move down"
-                          style={{
-                            width: 22, height: 20, padding: 0, border: 'none', borderRadius: 5,
-                            background: i === sorted.length - 1 ? 'transparent' : 'var(--bg-subtle)',
-                            color: i === sorted.length - 1 ? 'var(--border-md)' : 'var(--tx-muted)',
-                            cursor: i === sorted.length - 1 ? 'default' : 'pointer',
-                            fontSize: 11, lineHeight: 1, display: 'flex',
-                            alignItems: 'center', justifyContent: 'center',
-                            transition: 'background 0.15s, color 0.15s',
-                          }}
-                          onMouseEnter={e => { if (i !== sorted.length - 1) { e.currentTarget.style.background = 'var(--g100)'; e.currentTarget.style.color = 'var(--g700)'; } }}
-                          onMouseLeave={e => { e.currentTarget.style.background = i === sorted.length - 1 ? 'transparent' : 'var(--bg-subtle)'; e.currentTarget.style.color = i === sorted.length - 1 ? 'var(--border-md)' : 'var(--tx-muted)'; }}
-                        >▼</button> */}
+              {sorted.map((s, i) => {
+                const isDragging = dragState.dragId === s._id;
+                const isOver = dragState.overId === s._id;
+                return (
+                  <tr key={s._id}
+                      draggable
+                      onDragStart={e => {
+                          e.dataTransfer.effectAllowed = 'move';
+                          setDragState({ dragId: s._id, overId: null });
+                      }}
+                      onDragOver={e => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'move';
+                          if (s._id !== dragState.dragId) setDragState(s => ({ ...s, overId: s._id }));
+                      }}
+                      onDrop={e => {
+                          e.preventDefault();
+                          const { dragId, overId } = dragState;
+                          setDragState({ dragId: null, overId: null });
+                          if (dragId && overId && dragId !== overId) reorderSections(dragId, overId);
+                      }}
+                      onDragEnd={() => setDragState({ dragId: null, overId: null })}
+                      style={{
+                          opacity: isDragging ? 0.4 : 1,
+                          background: isOver ? 'rgba(34,168,75,0.04)' : '',
+                          outline: isOver ? '1.5px solid var(--g400)' : 'none',
+                          transition: 'opacity 0.12s, background 0.12s',
+                          cursor: 'grab',
+                      }}
+                  >
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span title="Drag to reorder" style={{ color: 'var(--tx-faint)', fontSize: 16, cursor: 'grab', flexShrink: 0, userSelect: 'none', lineHeight: 1 }}>⠿</span>
+                        <span className="text-xs font-mono px-2 py-1 rounded"
+                          style={{ background: 'var(--bg-subtle)', color: 'var(--tx-muted)' }}>
+                          #{i + 1}
+                        </span>
                       </div>
-                      <span style={{
-                        fontSize: 11, fontFamily: 'monospace', padding: '2px 6px',
-                        borderRadius: 6, background: 'var(--bg-subtle)', color: 'var(--tx-muted)'
-                      }}>#{i + 1}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <IconImg
-                      src={s.iconUrl ? `${SERVER_URL}${s.iconUrl}` : ''}
-                      fallback={s.title?.[0]?.toUpperCase() || String(i + 1)}
-                      size={32}
-                    />
-                  </td>
-                  <td>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--tx)' }}>{s.title}</span>
-                  </td>
-                  <td>
-                    {s.isConstant ? (
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                        fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99,
-                        background: '#FFF7ED', color: '#9A3412', border: '1px solid #FED7AA',
-                        fontFamily: 'Montserrat,sans-serif',
-                      }}>⚡ Constant</span>
-                    ) : (
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                        fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99,
-                        background: 'var(--g50)', color: 'var(--g700)', border: '1px solid var(--g200)',
-                        fontFamily: 'Montserrat,sans-serif',
-                      }}>Regular</span>
-                    )}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={() => openEdit(s)} style={{
-                        fontSize: 12, padding: '5px 12px', borderRadius: 8, cursor: 'pointer',
-                        fontWeight: 600, border: '1px solid var(--border-md)',
-                        color: 'var(--tx-muted)', background: 'var(--g50)'
-                      }}>✎ Edit</button>
-                      <button onClick={() => deleteSection(s._id)} style={{
-                        fontSize: 12, padding: '5px 12px', borderRadius: 8, cursor: 'pointer',
-                        fontWeight: 600, border: '1px solid rgba(226,103,12,0.15)',
-                        color: 'rgba(226,103,12,0.7)', background: 'rgba(226,103,12,0.05)'
-                      }}>✕ Delete</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>
+                      <IconImg
+                        src={s.iconUrl ? `${SERVER_URL}${s.iconUrl}` : ''}
+                        fallback={s.title?.[0]?.toUpperCase() || String(i + 1)}
+                        size={32}
+                      />
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--tx)' }}>{s.title}</span>
+                    </td>
+                    <td>
+                      {s.isConstant ? (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99,
+                          background: '#FFF7ED', color: '#9A3412', border: '1px solid #FED7AA',
+                          fontFamily: 'Montserrat,sans-serif',
+                        }}>⚡ Constant</span>
+                      ) : (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99,
+                          background: 'var(--g50)', color: 'var(--g700)', border: '1px solid var(--g200)',
+                          fontFamily: 'Montserrat,sans-serif',
+                        }}>Regular</span>
+                      )}
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => openEdit(s)} style={{
+                          fontSize: 12, padding: '5px 12px', borderRadius: 8, cursor: 'pointer',
+                          fontWeight: 600, border: '1px solid var(--border-md)',
+                          color: 'var(--tx-muted)', background: 'var(--g50)'
+                        }}>✎ Edit</button>
+                        <button onClick={() => deleteSection(s._id)} style={{
+                          fontSize: 12, padding: '5px 12px', borderRadius: 8, cursor: 'pointer',
+                          fontWeight: 600, border: '1px solid rgba(226,103,12,0.15)',
+                          color: 'rgba(226,103,12,0.7)', background: 'rgba(226,103,12,0.05)'
+                        }}>✕ Delete</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table></div>
         )}

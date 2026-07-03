@@ -5,6 +5,7 @@ import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 import { NAV_CONFIG, NAV_LABEL_DEFAULTS } from '../../config/navConfig.js';
 import { updateNavLabelsCache } from '../../hooks/useNavLabels.js';
 import ChangePasswordCard from '../../components/shared/ChangePasswordCard.jsx';
+import { updateHiddenRoutesCache } from '../../hooks/useHiddenRoutes.js';
 
 const SERVER_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -47,6 +48,7 @@ export default function Settings() {
 
     // Navigation labels state
     const [navLabels, setNavLabels] = useState({ ...NAV_LABEL_DEFAULTS });
+    const [hiddenRoutes, setHiddenRoutes] = useState({});
     const [savingNav, setSavingNav] = useState(false);
     const [navTab, setNavTab] = useState('shared');
 
@@ -71,8 +73,9 @@ export default function Settings() {
                     ...(s.authSystemLabel && { authSystemLabel: s.authSystemLabel }),
                 }));
                 if (s.authCardLogos && s.authCardLogos.length > 0) setAuthCardLogos(s.authCardLogos);
-                else setAuthCardLogos(['/images/0_HBRI_Picture3-removebg-preview.png', '/images/DESH_Picture1.png']);
+                else setAuthCardLogos(['/images/0_HBRI_Picture3-removebg-preview.png', '/images/logo (1).png']);
                 if (s.navLabels) setNavLabels(prev => ({ ...prev, ...s.navLabels }));
+                if (s.hiddenRoutes) setHiddenRoutes(s.hiddenRoutes);
             }).catch(console.error);
     }, []);
 
@@ -177,9 +180,10 @@ export default function Settings() {
     const saveNavLabels = async () => {
         setSavingNav(true);
         try {
-            await axiosSecure.put('/settings', { navLabels });
+            await axiosSecure.put('/settings', { navLabels, hiddenRoutes });
             updateNavLabelsCache(navLabels);
-            toast.success('Navigation labels saved!');
+            updateHiddenRoutesCache(hiddenRoutes);
+            toast.success('Navigation labels & visibility saved!');
         } catch { toast.error('Failed to save'); }
         finally { setSavingNav(false); }
     };
@@ -627,6 +631,35 @@ export default function Settings() {
                                                             style={{ flex: 1, minWidth: 0 }}
                                                         />
 
+                                                        {/* Hide/Show toggle button — only for actual routes */}
+                                                        {item.path && (
+                                                            <button
+                                                                title={hiddenRoutes[item.key] ? "Show this route on dashboard" : "Hide this route from dashboard"}
+                                                                onClick={() => setHiddenRoutes(prev => ({
+                                                                    ...prev,
+                                                                    [item.key]: !prev[item.key]
+                                                                }))}
+                                                                style={{
+                                                                    background: hiddenRoutes[item.key] ? '#FEE2E2' : '#E0F2FE',
+                                                                    color: hiddenRoutes[item.key] ? '#EF4444' : '#0284C7',
+                                                                    border: '1px solid',
+                                                                    borderColor: hiddenRoutes[item.key] ? '#FCA5A5' : '#7DD3FC',
+                                                                    borderRadius: 8,
+                                                                    padding: '6px 10px',
+                                                                    fontSize: '11px',
+                                                                    fontWeight: 'bold',
+                                                                    cursor: 'pointer',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 4,
+                                                                    flexShrink: 0,
+                                                                    transition: 'all 0.15s',
+                                                                }}
+                                                            >
+                                                                {hiddenRoutes[item.key] ? '🙈 Hidden' : '👁️ Visible'}
+                                                            </button>
+                                                        )}
+
                                                         {/* Reset button — only when value differs from default */}
                                                         {isChanged ? (
                                                             <button
@@ -656,7 +689,10 @@ export default function Settings() {
                             {savingNav ? 'Saving...' : '💾 Save Navigation Labels'}
                         </button>
                         <button
-                            onClick={() => setNavLabels({ ...NAV_LABEL_DEFAULTS })}
+                            onClick={() => {
+                                setNavLabels({ ...NAV_LABEL_DEFAULTS });
+                                setHiddenRoutes({});
+                            }}
                             style={{
                                 background: 'none', border: '1.5px solid var(--border)',
                                 borderRadius: 10, padding: '8px 16px', fontSize: 13,

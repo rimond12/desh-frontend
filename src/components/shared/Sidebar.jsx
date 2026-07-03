@@ -6,6 +6,7 @@ import useNavLabels from '../../hooks/useNavLabels.js';
 import { NAV_CONFIG } from '../../config/navConfig.js';
 import { userHasRole, getActiveRole } from '../../context/AuthContext.jsx';
 import ChangeRoleModal from './ChangeRoleModal.jsx';
+import useHiddenRoutes from '../../hooks/useHiddenRoutes.js';
 
 export default function Sidebar({
   isAdmin = false,
@@ -30,17 +31,24 @@ export default function Sidebar({
   const hasMultiRoles  = assignedRoles.length > 1;
   const currentActive  = getActiveRole(dbUser);
 
-  // Build nav groups from config + saved labels
-  const navGroups = roleConfig.sections.map(section => ({
-    section: section.sectionKey
-      ? (L[section.sectionKey] ?? section.sectionDefault)
-      : section.sectionDefault,
-    items: section.items.map(item => ({
-      icon: item.icon,
-      label: L[item.key] ?? item.defaultLabel,
-      path: item.path,
-    })),
-  }));
+  const hiddenRoutes = useHiddenRoutes();
+
+  // Build nav groups from config + saved labels, filtering out hidden items
+  const navGroups = roleConfig.sections.map(section => {
+    const visibleItems = section.items
+      .filter(item => !hiddenRoutes[item.key])
+      .map(item => ({
+        icon: item.icon,
+        label: L[item.key] ?? item.defaultLabel,
+        path: item.path,
+      }));
+    return {
+      section: section.sectionKey
+        ? (L[section.sectionKey] ?? section.sectionDefault)
+        : section.sectionDefault,
+      items: visibleItems,
+    };
+  }).filter(group => group.items.length > 0);
 
   const handleLogout = async () => {
     await logout();
@@ -67,7 +75,7 @@ export default function Sidebar({
             background: 'white', border: '1px solid rgba(255,255,255,0.15)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}>
-            <img src="/images/DESH_Picture1.png" alt="DESH"
+            <img src="/images/logo (1).png" alt="DESH"
               style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} />
           </div>
 

@@ -58,7 +58,7 @@ export default function Layout({ children, isAdmin = false, isReviewer = false, 
             </span>
           </button>
 
-          <img src="/images/DESH_Picture1.png" alt="DESH" style={{ height: 34, objectFit: 'contain' }} />
+          <img src="/images/logo (1).png" alt="DESH" style={{ height: 34, objectFit: 'contain' }} />
           <span style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 15, color: 'var(--g800)' }}>
             DESH
           </span>

@@ -14,6 +14,7 @@ export default function Categories() {
     const [form, setForm] = useState({ name: '', sortOrder: '' });
     const [cloneName, setCloneName] = useState('');
     const [loading, setLoading] = useState(true);
+    const [dragState, setDragState] = useState({ dragId: null, overId: null });
 
     const fetchCategories = () => {
         axiosSecure.get('/categories/all')
@@ -94,6 +95,19 @@ export default function Categories() {
         } catch { toast.error('Failed to delete'); }
     };
 
+    const reorderCategories = (dragId, overId) => {
+        const arr = [...categories].sort((a, b) => a.sortOrder - b.sortOrder);
+        const from = arr.findIndex(x => x._id === dragId);
+        const to = arr.findIndex(x => x._id === overId);
+        if (from === -1 || to === -1) return;
+        const reordered = [...arr];
+        reordered.splice(to, 0, reordered.splice(from, 1)[0]);
+        setCategories(reordered);
+        axiosSecure.patch('/categories/reorder', { orderedIds: reordered.map(c => c._id) })
+            .then(() => toast.success('Order saved'))
+            .catch(() => { toast.error('Failed to save order'); fetchCategories(); });
+    };
+
     return (
         <Layout isAdmin>
             <div className="flex items-start justify-between mb-8 fade-in-up">
@@ -117,11 +131,6 @@ export default function Categories() {
                                 <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
                                     placeholder="e.g. General Building" 
                                     className="w-full px-4 py-3 text-sm rounded-xl border outline-none bg-black/30 border-white/10 text-white placeholder-white/30 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all" autoFocus />
-                            </div>
-                            <div>
-                                <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>SORT ORDER</label>
-                                <input type="number" value={form.sortOrder} onChange={e => setForm({ ...form, sortOrder: e.target.value })}
-                                    className="w-full px-4 py-3 text-sm rounded-xl border outline-none bg-black/30 border-white/10 text-white placeholder-white/30 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all" />
                             </div>
                             <div className="flex gap-3 pt-3 border-t border-white/5 mt-6">
                                 <button onClick={save} className="btn-primary-green flex-1 justify-center text-sm py-3">
@@ -169,45 +178,79 @@ export default function Categories() {
             <div className="glass-card overflow-hidden">
                 {loading ? <p className="text-center py-8">Loading...</p> : (
                     <div className="table-scroll"><table className="premium-table">
-                        <thead><tr><th>Order</th><th>Category Name</th><th>Status</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>Drag & Order</th><th>Category Name</th><th>Status</th><th>Actions</th></tr></thead>
                         <tbody>
                             {categories.length === 0 ? (
                                 <tr><td colSpan={4} className="text-center py-8" style={{ color: 'var(--tx-muted)' }}>No categories found</td></tr>
-                            ) : categories.sort((a, b) => a.sortOrder - b.sortOrder).map(c => (
-                                <tr key={c._id}>
-                                    <td><span className="text-xs font-mono px-2 py-1 rounded"
-                                        style={{ background: 'var(--bg-subtle)', color: 'var(--tx-muted)' }}>
-                                        #{c.sortOrder}
-                                    </span></td>
-                                    <td className="font-semibold">{c.name}</td>
-                                    <td>
-                                        <button onClick={() => toggleActive(c)}
-                                            className={`text-xs px-3 py-1 rounded-full font-semibold ${c.isActive ? 'status-completed' : 'bg-red-500/10 text-red-400'
-                                                }`}>
-                                            {c.isActive ? '● Active' : '○ Inactive'}
-                                        </button>
-                                    </td>
-                                    <td>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => openEdit(c)}
-                                                className="text-xs px-3 py-1.5 rounded-lg border"
-                                                style={{ borderColor: 'var(--border-md)', color: 'var(--tx-muted)', background: 'var(--g50)' }}>
-                                                ✎ Edit
+                            ) : [...categories].sort((a, b) => a.sortOrder - b.sortOrder).map((c, idx) => {
+                                const isDragging = dragState.dragId === c._id;
+                                const isOver = dragState.overId === c._id;
+                                return (
+                                    <tr key={c._id}
+                                        draggable
+                                        onDragStart={e => {
+                                            e.dataTransfer.effectAllowed = 'move';
+                                            setDragState({ dragId: c._id, overId: null });
+                                        }}
+                                        onDragOver={e => {
+                                            e.preventDefault();
+                                            e.dataTransfer.dropEffect = 'move';
+                                            if (c._id !== dragState.dragId) setDragState(s => ({ ...s, overId: c._id }));
+                                        }}
+                                        onDrop={e => {
+                                            e.preventDefault();
+                                            const { dragId, overId } = dragState;
+                                            setDragState({ dragId: null, overId: null });
+                                            if (dragId && overId && dragId !== overId) reorderCategories(dragId, overId);
+                                        }}
+                                        onDragEnd={() => setDragState({ dragId: null, overId: null })}
+                                        style={{
+                                            opacity: isDragging ? 0.4 : 1,
+                                            background: isOver ? 'rgba(34,168,75,0.04)' : '',
+                                            outline: isOver ? '1.5px solid var(--g400)' : 'none',
+                                            transition: 'opacity 0.12s, background 0.12s',
+                                            cursor: 'grab',
+                                        }}
+                                    >
+                                        <td>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <span title="Drag to reorder" style={{ color: 'var(--tx-faint)', fontSize: 16, cursor: 'grab', flexShrink: 0, userSelect: 'none', lineHeight: 1 }}>⠿</span>
+                                                <span className="text-xs font-mono px-2 py-1 rounded"
+                                                    style={{ background: 'var(--bg-subtle)', color: 'var(--tx-muted)' }}>
+                                                    #{idx + 1}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="font-semibold">{c.name}</td>
+                                        <td>
+                                            <button onClick={() => toggleActive(c)}
+                                                className={`text-xs px-3 py-1 rounded-full font-semibold ${c.isActive ? 'status-completed' : 'bg-red-500/10 text-red-400'
+                                                    }`}>
+                                                {c.isActive ? '● Active' : '○ Inactive'}
                                             </button>
-                                            <button onClick={() => openClone(c)}
-                                                className="text-xs px-3 py-1.5 rounded-lg border"
-                                                style={{ borderColor: 'var(--border-md)', color: 'var(--tx-muted)', background: 'var(--g50)' }}>
-                                                ⎘ Clone
-                                            </button>
-                                            <button onClick={() => deleteCategory(c._id)}
-                                                className="text-xs px-3 py-1.5 rounded-lg border"
-                                                style={{ borderColor: 'rgba(226,103,12,0.15)', color: 'rgba(226,103,12,0.6)', background: 'rgba(226,103,12,0.05)' }}>
-                                                ✕ Delete
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                        </td>
+                                        <td>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => openEdit(c)}
+                                                    className="text-xs px-3 py-1.5 rounded-lg border"
+                                                    style={{ borderColor: 'var(--border-md)', color: 'var(--tx-muted)', background: 'var(--g50)' }}>
+                                                    ✎ Edit
+                                                </button>
+                                                <button onClick={() => openClone(c)}
+                                                    className="text-xs px-3 py-1.5 rounded-lg border"
+                                                    style={{ borderColor: 'var(--border-md)', color: 'var(--tx-muted)', background: 'var(--g50)' }}>
+                                                    ⎘ Clone
+                                                </button>
+                                                <button onClick={() => deleteCategory(c._id)}
+                                                    className="text-xs px-3 py-1.5 rounded-lg border"
+                                                    style={{ borderColor: 'rgba(226,103,12,0.15)', color: 'rgba(226,103,12,0.6)', background: 'rgba(226,103,12,0.05)' }}>
+                                                    ✕ Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table></div>
                 )}

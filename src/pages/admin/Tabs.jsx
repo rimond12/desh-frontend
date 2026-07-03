@@ -39,6 +39,7 @@ export default function Tabs() {
 
     const [search, setSearch] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
+    const [dragState, setDragState] = useState({ dragId: null, overId: null });
 
     const fetchTabs = (searchVal = search, catFilter = categoryFilter) => {
         setLoading(true);
@@ -133,6 +134,19 @@ export default function Tabs() {
         } catch { toast.error('Failed to delete'); }
     };
 
+    const reorderTabs = (dragId, overId) => {
+        const arr = [...tabs].sort((a, b) => a.sortOrder - b.sortOrder);
+        const from = arr.findIndex(x => x._id === dragId);
+        const to = arr.findIndex(x => x._id === overId);
+        if (from === -1 || to === -1) return;
+        const reordered = [...arr];
+        reordered.splice(to, 0, reordered.splice(from, 1)[0]);
+        setTabs(reordered);
+        axiosSecure.patch('/tabs/reorder', { orderedIds: reordered.map(t => t._id) })
+            .then(() => toast.success('Order saved'))
+            .catch(() => { toast.error('Failed to save order'); fetchTabs(search, categoryFilter); });
+    };
+
     return (
         <Layout isAdmin>
             <div className="flex items-start justify-between mb-8 fade-in-up">
@@ -167,11 +181,6 @@ export default function Tabs() {
                                 <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
                                     placeholder="e.g. Site & Environment" 
                                     className="w-full px-4 py-3 text-sm rounded-xl border outline-none bg-black/30 border-white/10 text-white placeholder-white/30 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all" autoFocus />
-                            </div>
-                            <div>
-                                <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>SORT ORDER</label>
-                                <input type="number" value={form.sortOrder} onChange={e => setForm({ ...form, sortOrder: e.target.value })}
-                                    className="w-full px-4 py-3 text-sm rounded-xl border outline-none bg-black/30 border-white/10 text-white placeholder-white/30 focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all" />
                             </div>
                             <div>
                                 <label className="block text-[11px] font-bold mb-2 uppercase tracking-wider" style={{ color: 'var(--g300)' }}>PROJECT CATEGORIES</label>
@@ -237,56 +246,90 @@ export default function Tabs() {
             <div className="glass-card overflow-hidden">
                 {loading ? <p className="text-center py-8">Loading...</p> : (
                     <div className="table-scroll"><table className="premium-table">
-                        <thead><tr><th>Order</th><th>Icon</th><th>Tab Title</th><th>Status</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>Drag & Order</th><th>Icon</th><th>Tab Title</th><th>Status</th><th>Actions</th></tr></thead>
                         <tbody>
                             {tabs.length === 0 ? (
                                 <tr><td colSpan={5} className="text-center py-12" style={{ color: 'var(--tx-muted)' }}>No tabs found</td></tr>
-                            ) : tabs.map(t => (
-                                <tr key={t._id}>
-                                    <td><span className="text-xs font-mono px-2 py-1 rounded"
-                                        style={{ background: 'var(--bg-subtle)', color: 'var(--tx-muted)' }}>
-                                        #{t.sortOrder}
-                                    </span></td>
-                                    <td>
-                                        <IconImg
-                                            src={t.iconUrl ? `${SERVER_URL}${t.iconUrl}` : ''}
-                                            fallback={t.title?.[0]?.toUpperCase() || '?'}
-                                            size={32}
-                                        />
-                                    </td>
-                                    <td className="font-semibold">
-                                        <div>{t.title}</div>
-                                        <div className="flex flex-wrap gap-1 mt-1">
-                                            {t.categories?.map(c => (
-                                                <span key={c._id} className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(34,168,75,0.15)', color: '#34c961', border: '1px solid rgba(34,168,75,0.2)' }}>
-                                                    {c.name}
+                            ) : [...tabs].sort((a, b) => a.sortOrder - b.sortOrder).map((t, idx) => {
+                                const isDragging = dragState.dragId === t._id;
+                                const isOver = dragState.overId === t._id;
+                                return (
+                                    <tr key={t._id}
+                                        draggable
+                                        onDragStart={e => {
+                                            e.dataTransfer.effectAllowed = 'move';
+                                            setDragState({ dragId: t._id, overId: null });
+                                        }}
+                                        onDragOver={e => {
+                                            e.preventDefault();
+                                            e.dataTransfer.dropEffect = 'move';
+                                            if (t._id !== dragState.dragId) setDragState(s => ({ ...s, overId: t._id }));
+                                        }}
+                                        onDrop={e => {
+                                            e.preventDefault();
+                                            const { dragId, overId } = dragState;
+                                            setDragState({ dragId: null, overId: null });
+                                            if (dragId && overId && dragId !== overId) reorderTabs(dragId, overId);
+                                        }}
+                                        onDragEnd={() => setDragState({ dragId: null, overId: null })}
+                                        style={{
+                                            opacity: isDragging ? 0.4 : 1,
+                                            background: isOver ? 'rgba(34,168,75,0.04)' : '',
+                                            outline: isOver ? '1.5px solid var(--g400)' : 'none',
+                                            transition: 'opacity 0.12s, background 0.12s',
+                                            cursor: 'grab',
+                                        }}
+                                    >
+                                        <td>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <span title="Drag to reorder" style={{ color: 'var(--tx-faint)', fontSize: 16, cursor: 'grab', flexShrink: 0, userSelect: 'none', lineHeight: 1 }}>⠿</span>
+                                                <span className="text-xs font-mono px-2 py-1 rounded"
+                                                    style={{ background: 'var(--bg-subtle)', color: 'var(--tx-muted)' }}>
+                                                    #{idx + 1}
                                                 </span>
-                                            ))}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <button onClick={() => toggleActive(t)}
-                                            className={`text-xs px-3 py-1 rounded-full font-semibold ${t.isActive ? 'status-completed' : 'bg-red-500/10 text-red-400'
-                                                }`}>
-                                            {t.isActive ? '● Active' : '○ Inactive'}
-                                        </button>
-                                    </td>
-                                    <td>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => openEdit(t)}
-                                                className="text-xs px-3 py-1.5 rounded-lg border"
-                                                style={{ borderColor: 'var(--border-md)', color: 'var(--tx-muted)', background: 'var(--g50)' }}>
-                                                ✎ Edit
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <IconImg
+                                                src={t.iconUrl ? `${SERVER_URL}${t.iconUrl}` : ''}
+                                                fallback={t.title?.[0]?.toUpperCase() || '?'}
+                                                size={32}
+                                            />
+                                        </td>
+                                        <td className="font-semibold">
+                                            <div>{t.title}</div>
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                {t.categories?.map(c => (
+                                                    <span key={c._id} className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(34,168,75,0.15)', color: '#34c961', border: '1px solid rgba(34,168,75,0.2)' }}>
+                                                        {c.name}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <button onClick={() => toggleActive(t)}
+                                                className={`text-xs px-3 py-1 rounded-full font-semibold ${t.isActive ? 'status-completed' : 'bg-red-500/10 text-red-400'
+                                                    }`}>
+                                                {t.isActive ? '● Active' : '○ Inactive'}
                                             </button>
-                                            <button onClick={() => deleteTab(t._id)}
-                                                className="text-xs px-3 py-1.5 rounded-lg border"
-                                                style={{ borderColor: 'rgba(226,103,12,0.15)', color: 'rgba(226,103,12,0.6)', background: 'rgba(226,103,12,0.05)' }}>
-                                                ✕ Delete
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                        </td>
+                                        <td>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => openEdit(t)}
+                                                    className="text-xs px-3 py-1.5 rounded-lg border"
+                                                    style={{ borderColor: 'var(--border-md)', color: 'var(--tx-muted)', background: 'var(--g50)' }}>
+                                                    ✎ Edit
+                                                </button>
+                                                <button onClick={() => deleteTab(t._id)}
+                                                    className="text-xs px-3 py-1.5 rounded-lg border"
+                                                    style={{ borderColor: 'rgba(226,103,12,0.15)', color: 'rgba(226,103,12,0.6)', background: 'rgba(226,103,12,0.05)' }}>
+                                                    ✕ Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table></div>
                 )}

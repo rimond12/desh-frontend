@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 import toast from 'react-hot-toast';
-import { LeafBadge } from '../../components/shared/LeafLogo.jsx';
+import { LeafBadge, ColoredLeaf } from '../../components/shared/LeafLogo.jsx';
+import html2pdf from 'html2pdf.js';
 
 // Multi-select searchable dropdown — allows selecting multiple users
 function MultiSearchableSelect({ label, value = [], onChange, options, placeholder }) {
@@ -154,6 +155,10 @@ export default function ManagerSubmissions() {
   const [progressData, setProgressData] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState(false);
 
+  const [previewProjData, setPreviewProjData] = useState(null);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
   const fetchSubmissions = async () => {
     try {
       const res = await axiosSecure.get(`/submissions?managerFilter=${managerFilter}`);
@@ -228,6 +233,96 @@ export default function ManagerSubmissions() {
     } finally {
       setLoadingProgress(false);
     }
+  };
+
+  const startCertificateFlow = async (projectId) => {
+    try {
+      const res = await axiosSecure.post('/manager/certificate/generate', { projectId });
+      const data = res.data.certificateData;
+      setPreviewProjData({
+        ...data,
+        mainLogoUrl: data.mainLogoUrl || '/images/DESH_Picture1.png',
+        watermarkUrl: data.watermarkUrl || '/images/0_HBRI_Picture3-removebg-preview.png',
+        watermarkOpacity: data.watermarkOpacity !== undefined ? data.watermarkOpacity : 0.05,
+        leftStripeColor: data.leftStripeColor || '#065F46',
+        rightStripeColor: data.rightStripeColor || '#DC2626',
+        innerBorderColor: data.innerBorderColor || '#065F46',
+        labelForProject: data.labelForProject || 'For the project:',
+        labelLocatedAt: data.labelLocatedAt || 'Located at:',
+        labelScore: data.labelScore || 'SCORE:',
+        labelStatus: data.labelStatus || 'STATUS:',
+        labelPartners: data.labelPartners || 'Institutional Partners & Supporters',
+        partnerLogos: data.partnerLogos || [
+          '/images/1_UNOPS_Picture4.png',
+          '/images/3_UN_HABITAT_Picture8.png',
+          '/images/0_HBRI_Picture3.png',
+          '/images/bdLogo.jpg',
+          '/images/4_UNEP_Picture6.png',
+          '/images/5_GABC_Picture7.png',
+          '/images/federal-ministry.png'
+        ].join(', ')
+      });
+      setPreviewModalOpen(true);
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to analyze project and generate preview.');
+    }
+  };
+
+  const approveAndPublishCertificate = async () => {
+    if (!previewProjData) return;
+    setGeneratingPdf(true);
+    const toastId = toast.loading('Compiling and generating certificate PDF...');
+    try {
+      const element = document.getElementById('cert-render-area');
+      const opt = {
+        margin:       0,
+        filename:     `Certificate-${previewProjData.serialNumber}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2.2, useCORS: true, letterRendering: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      const pdfBase64 = await html2pdf().set(opt).from(element).output('datauristring');
+
+      await axiosSecure.post('/manager/certificate/approve', {
+        projectId: previewProjData.projectId,
+        pdfData: pdfBase64,
+        serialNumber: previewProjData.serialNumber,
+        issuedAt: previewProjData.issuedAt,
+        expiryAt: previewProjData.expiryAt,
+        historicalScores: previewProjData.historicalScores,
+        recipientName: previewProjData.recipientName,
+        projectTitle: previewProjData.projectTitle,
+        location: previewProjData.location,
+      });
+
+      toast.success('Certificate generated and approved successfully!', { id: toastId });
+      setPreviewModalOpen(false);
+      setPreviewProjData(null);
+      fetchSubmissions();
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to generate or approve certificate.', { id: toastId });
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
+  const downloadCertificate = (id, serial) => {
+    axiosSecure.get(`/projects/${id}/certificate/download`, { responseType: 'blob' })
+      .then((response) => {
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Certificate-${serial || id}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        toast.success('Certificate downloaded');
+      })
+      .catch(() => {
+        toast.error('Failed to download certificate');
+      });
   };
 
   const downloadReport = () => {
@@ -385,7 +480,25 @@ export default function ManagerSubmissions() {
                       )}
                     </td>
                     <td className="text-right">
-                      <div className="flex gap-2 justify-end">
+                      <div className="flex gap-2 justify-end flex-wrap">
+                        {p.project_status === 'REVIEW_COMPLETE' && (
+                          <button 
+                            onClick={() => startCertificateFlow(p._id)} 
+                            className="text-xs px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer"
+                            style={{ background: 'linear-gradient(135deg,#047857,#10B981)', color: '#fff', border: 'none' }}
+                          >
+                            Analyze & Preview Cert
+                          </button>
+                        )}
+                        {p.project_status === 'CERTIFICATE_ISSUED' && (
+                          <button 
+                            onClick={() => downloadCertificate(p._id, p.certificate_serial)} 
+                            className="text-xs px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer"
+                            style={{ background: '#EFF6FF', border: '1.5px solid #BFDBFE', color: '#1D4ED8' }}
+                          >
+                            Download Cert
+                          </button>
+                        )}
                         <button 
                           onClick={() => navigate(`/reviewer/submissions/${p._id}`)} 
                           className="text-xs px-3 py-1.5 rounded-lg border font-bold transition-all cursor-pointer" 
@@ -548,11 +661,364 @@ export default function ManagerSubmissions() {
             ) : (
               <div className="text-center py-10 text-sm text-red-500">Failed to load metrics</div>
             )}
-
-            <div className="flex justify-end">
-              <button onClick={() => setProgressProj(null)} className="btn-primary-green text-sm px-4 py-2">
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setProgressProj(null)} className="btn-primary-green text-sm px-4 py-2" style={{ cursor: 'pointer' }}>
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Certificate Preview Modal (Read-Only / Approve-Only for Manager) */}
+      {previewModalOpen && previewProjData && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', zIndex: 100,
+          backdropFilter: 'blur(8px)', padding: '20px 16px', overflowY: 'auto',
+        }}>
+          {/* Modal Header Controls */}
+          <div className="glass-card w-full max-w-2xl p-4 mb-4 flex justify-between items-center sticky top-0" style={{ background: '#091E11', border: '1.5px solid var(--border-md)', zIndex: 110 }}>
+            <div>
+              <h2 style={{ fontFamily: 'Montserrat, sans-serif', color: '#FFF' }} className="text-sm font-bold">Certificate Preview</h2>
+              <p className="text-3xs text-gray-400">Review the generated layout. Only Admins can modify these fields.</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => { setPreviewModalOpen(false); setPreviewProjData(null); }} className="text-2xs px-3 py-1.5 rounded-lg border font-bold transition-all" style={{ background: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)', color: '#FFF', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button 
+                onClick={approveAndPublishCertificate} 
+                disabled={generatingPdf} 
+                className="btn-primary-green text-2xs px-4 py-1.5 font-bold flex items-center gap-1" 
+                style={{ cursor: 'pointer' }}
+              >
+                {generatingPdf ? 'Generating PDF...' : '✓ Generate & Approve'}
+              </button>
+            </div>
+          </div>
+
+          {/* Centered Preview Card */}
+          <div style={{ flex: '0 0 794px', height: '955px', overflow: 'hidden', borderRadius: 12, boxShadow: '0 10px 40px rgba(0,0,0,0.5)', background: '#fff', marginBottom: 40 }}>
+            <div 
+              style={{
+                transform: 'scale(0.85)',
+                transformOrigin: 'top center',
+                width: '794px',
+                height: '1123px',
+              }}
+            >
+              {/* The exact A4 rendering area */}
+              <div 
+                id="cert-render-area" 
+                style={{
+                  width: '794px',
+                  height: '1123px',
+                  padding: '30px 45px 25px',
+                  boxSizing: 'border-box',
+                  background: '#ffffff',
+                  color: '#1F2937',
+                  fontFamily: "'Montserrat', sans-serif",
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+              >
+                {/* Left solid Green Band */}
+                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '12px', background: previewProjData.leftStripeColor || '#065F46', zIndex: 10 }} />
+                
+                {/* Right solid Red Band */}
+                <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '12px', background: previewProjData.rightStripeColor || '#DC2626', zIndex: 10 }} />
+                
+                {/* Inner double border outline */}
+                <div style={{
+                  position: 'absolute',
+                  inset: '12px 24px',
+                  border: `3px double ${previewProjData.innerBorderColor || '#065F46'}`,
+                  pointerEvents: 'none',
+                  zIndex: 5
+                }} />
+
+                {/* Content Wrap to guarantee zIndex > watermark */}
+                <div style={{ zIndex: 2, display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+                  
+                  {/* Top Row: Brand & Logo */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '5px 0' }}>
+                    <img 
+                      src={previewProjData.mainLogoUrl || '/images/DESH_Picture1.png'} 
+                      alt="DESH Logo" 
+                      style={{ height: 75, objectFit: 'contain' }} 
+                    />
+                  </div>
+
+                  {/* Recipient and Project Information */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', margin: '8px 0', gap: 5 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#111827', letterSpacing: '0.02em' }}>
+                      [RECIPIENT NAME: {(previewProjData.recipientName || '').toUpperCase()}]
+                    </div>
+                    <div style={{ fontSize: 9, fontStyle: 'italic', color: '#4B5563' }}>
+                      {previewProjData.labelForProject || 'For the project:'}
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#111827', letterSpacing: '0.02em' }}>
+                      [PROJECT NAME: {(previewProjData.projectTitle || '').toUpperCase()}]
+                    </div>
+                    <div style={{ fontSize: 9, fontStyle: 'italic', color: '#4B5563' }}>
+                      {previewProjData.labelLocatedAt || 'Located at:'}
+                    </div>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: '#374151', letterSpacing: '0.02em' }}>
+                      [LOCATION: {(previewProjData.location || '').toUpperCase()}]
+                    </div>
+                  </div>
+
+                  {/* Middle Section: Two Columns */}
+                  <div style={{ display: 'flex', gap: 20, margin: '5px 0', alignItems: 'stretch' }}>
+                    {/* Left Column: Large Leaf Graphic */}
+                    <div style={{ flex: '0 0 25%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid #E5E7EB', paddingRight: 12 }}>
+                      <ColoredLeaf 
+                        level={previewProjData.leafLevel} 
+                        colorCode={
+                          previewProjData.percentage >= 80 ? '#10B981' : 
+                          previewProjData.percentage >= 60 ? '#F59E0B' : 
+                          previewProjData.percentage >= 40 ? '#EA580C' : '#97542A'
+                        }
+                        size={110} 
+                      />
+                      <span style={{ 
+                        fontSize: 11, 
+                        fontWeight: 800, 
+                        color: previewProjData.percentage >= 80 ? '#145C28' : 
+                               previewProjData.percentage >= 60 ? '#92400E' : 
+                               previewProjData.percentage >= 40 ? '#9A3412' : '#78350F', 
+                        marginTop: 6, 
+                        textTransform: 'uppercase' 
+                      }}>
+                        {previewProjData.leafLevel}
+                      </span>
+                      <span style={{ fontSize: 9, color: '#6B7280', fontWeight: 600 }}>
+                        {previewProjData.percentage >= 80 ? '80 - 100%' : 
+                        previewProjData.percentage >= 60 ? '60 - 79%' : 
+                        previewProjData.percentage >= 40 ? '40 - 59%' : '20 - 39%'}
+                      </span>
+                    </div>
+
+                    {/* Right Column: Score Widget & Assessment breakdown */}
+                    <div style={{ flex: '1 1 75%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      
+                      {/* Score & Status Widget Row */}
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between', 
+                        background: '#FCFAF2', 
+                        borderRadius: '10px', 
+                        padding: '8px 12px', 
+                        border: '1px solid #E5E7EB',
+                      }}>
+                        <div>
+                          <div style={{ fontSize: 8, fontWeight: 800, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{previewProjData.labelScore || 'SCORE:'}</div>
+                          <div style={{ fontSize: 24, fontWeight: 950, color: previewProjData.percentage >= 80 ? '#10B981' : previewProjData.percentage >= 60 ? '#F59E0B' : previewProjData.percentage >= 40 ? '#EA580C' : '#97542A', lineHeight: 1.1 }}>{Math.round(previewProjData.percentage)}%</div>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: '#6B7280' }}>{Math.round(previewProjData.totalPoints)}/{Math.round(previewProjData.maxPoints)} PTS</div>
+                        </div>
+                        
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          <span style={{
+                            background: previewProjData.percentage >= 80 ? '#D1FAE5' : previewProjData.percentage >= 60 ? '#FEF9C3' : previewProjData.percentage >= 40 ? '#FEF3C7' : '#F5F0E8',
+                            color: previewProjData.percentage >= 80 ? '#065F46' : previewProjData.percentage >= 60 ? '#92400E' : previewProjData.percentage >= 40 ? '#9A3412' : '#78350F',
+                            padding: '3px 8px', borderRadius: 99, fontSize: 9, fontWeight: 800, border: `1px solid ${previewProjData.percentage >= 80 ? '#10B981' : previewProjData.percentage >= 60 ? '#F59E0B' : previewProjData.percentage >= 40 ? '#EA580C' : '#97542A'}`
+                          }}>
+                            {previewProjData.leafLevel}
+                          </span>
+                        </div>
+
+                        <div style={{ maxWidth: '50%' }}>
+                          <div style={{ fontSize: 8, fontWeight: 800, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{previewProjData.labelStatus || 'STATUS:'}</div>
+                          <div style={{ fontSize: 10, fontWeight: 900, color: '#111827', marginTop: 2 }}>
+                            {previewProjData.percentage >= 80 ? 'EXCELLENT PERFORMANCE (H)' : 
+                            previewProjData.percentage >= 60 ? 'GOOD PERFORMANCE (S)' : 
+                            previewProjData.percentage >= 40 ? 'AVERAGE PERFORMANCE (E)' : 'POOR PERFORMANCE (D)'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Assessment Areas & Performance Layout */}
+                      <div style={{ 
+                        background: '#F9FAF7', 
+                        border: '1px solid #E5E7EB', 
+                        borderRadius: '10px', 
+                        padding: '10px 12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 6
+                      }}>
+                        <div style={{ fontSize: 8, fontWeight: 800, color: '#065F46', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Assessment Areas & Performance
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
+                          {/* Table Breakdown */}
+                          <div style={{ flex: '0 0 45%' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 9 }}>
+                              <tbody>
+                                {previewProjData.breakdown.map((item, idx) => (
+                                  <tr key={idx} style={{ borderBottom: '1px solid #F3F4F6' }}>
+                                    <td style={{ padding: '2px 0', fontWeight: 700, color: '#374151' }}>{idx + 1}. {item.abbr}</td>
+                                    <td style={{ padding: '2px 0', textAlign: 'right', fontWeight: 600, color: '#4B5563' }}>
+                                      {Math.round(item.achieved)}/{Math.round(item.allocated)}
+                                    </td>
+                                  </tr>
+                                ))}
+                                <tr style={{ borderTop: '1.5px solid #D1D5DB', fontWeight: 900 }}>
+                                  <td style={{ padding: '3px 0', color: '#111827' }}>Total</td>
+                                  <td style={{ padding: '3px 0', textAlign: 'right', color: '#111827' }}>
+                                    {Math.round(previewProjData.totalPoints)}/{Math.round(previewProjData.maxPoints)}
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Bar Chart Breakdown */}
+                          <div style={{ flex: '1 1 55%', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: '80px', borderBottom: '1px solid #D1D5DB', paddingBottom: '4px', width: '100%' }}>
+                              {previewProjData.breakdown.map((item, idx) => {
+                                const percent = item.allocated > 0 ? Math.min(100, Math.round((item.achieved / item.allocated) * 100)) : 0;
+                                const barColor = previewProjData.percentage >= 80 ? '#10B981' : 
+                                                 previewProjData.percentage >= 60 ? '#F59E0B' : 
+                                                 previewProjData.percentage >= 40 ? '#EA580C' : '#97542A';
+                                return (
+                                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                    <div style={{ fontSize: 6, fontWeight: 700, color: '#374151', marginBottom: 1 }}>{percent}%</div>
+                                    <div style={{ width: 12, height: 50, background: '#E5E7EB', borderRadius: '2px 2px 0 0', position: 'relative', overflow: 'hidden' }}>
+                                      <div style={{
+                                        position: 'absolute',
+                                        bottom: 0,
+                                        left: 0,
+                                        right: 0,
+                                        height: `${percent}%`,
+                                        background: barColor,
+                                        borderRadius: '1px 1px 0 0'
+                                      }} />
+                                    </div>
+                                    <div style={{ fontSize: 6, fontWeight: 900, color: '#4B5563', marginTop: 3, textAlign: 'center', lineHeight: 1 }}>
+                                      <div>{idx + 1}.</div>
+                                      <div style={{ fontWeight: 800 }}>{item.abbr}</div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+
+                  {/* Watermark & Achieved Badges Row */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '8px 0', position: 'relative', width: '100%' }}>
+                    
+                    {/* Faded Watermark Background (HBRI silhouette) positioned lower center */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      width: '260px',
+                      height: '260px',
+                      opacity: previewProjData.watermarkOpacity !== undefined ? previewProjData.watermarkOpacity : 0.05,
+                      backgroundImage: `url(${previewProjData.watermarkUrl || '/images/0_HBRI_Picture3-removebg-preview.png'})`,
+                      backgroundSize: 'contain',
+                      backgroundPosition: 'center',
+                      backgroundRepeat: 'no-repeat',
+                      pointerEvents: 'none',
+                      zIndex: 0
+                    }} />
+
+                    <div style={{ display: 'flex', gap: 35, position: 'relative', padding: '15px 0 5px', zIndex: 1 }}>
+                      {['D', 'E', 'S', 'H'].map((letter) => {
+                        const badgeConfig = {
+                          D: { color: '#97542A', dark: '#78350F' },
+                          E: { color: '#EA580C', dark: '#9A3412' },
+                          S: { color: '#F59E0B', dark: '#92400E' },
+                          H: { color: '#10B981', dark: '#145C28' }
+                        };
+                        const c = badgeConfig[letter];
+                        const activeCircle = previewProjData.percentage >= 80 ? 'H' : 
+                                            previewProjData.percentage >= 60 ? 'S' : 
+                                            previewProjData.percentage >= 40 ? 'E' : 'D';
+                        const isSelected = activeCircle === letter;
+                        return (
+                          <div key={letter} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+                            {isSelected && (
+                              <div style={{ position: 'absolute', top: -20, fontSize: 8, fontWeight: 900, color: '#111827', display: 'flex', flexDirection: 'column', alignItems: 'center', width: 60 }}>
+                                <span style={{ fontSize: 7, letterSpacing: '0.05em' }}>ACHIEVED</span>
+                                <span>▼</span>
+                              </div>
+                            )}
+                            <svg viewBox="0 0 80 100" width="30" height="38" xmlns="http://www.w3.org/2000/svg" style={{ filter: isSelected ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))' : 'none' }}>
+                              <path d="M40 8 C12 22 7 58 40 96 C73 58 68 22 40 8Z" fill={isSelected ? c.color : '#E5E7EB'} />
+                              <path d="M40 8 C30 18 22 35 25 55 C30 40 36 25 40 8Z" fill="rgba(255,255,255,0.18)" />
+                              <text x="40" y="55" fill={isSelected ? '#ffffff' : '#9CA3AF'} fontSize="20" fontWeight="900" textAnchor="middle" dominantBaseline="middle" fontFamily="'Montserrat', sans-serif">
+                                {letter}
+                              </text>
+                            </svg>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Historical comparison logs */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, margin: '5px 0', alignItems: 'center' }}>
+                    {(previewProjData.historicalScores || []).map((h, idx) => (
+                      <div key={idx} style={{ fontSize: 9, color: '#4B5563', fontFamily: 'monospace', fontWeight: 600 }}>
+                        {h.label}: {h.leafLevel}; SCORE {Math.round(h.scorePercent)}% ({Math.round(h.totalPoints)}/{Math.round(h.maxPoints)} PTS)
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Cryptographic QR code & Verification Signatures */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '4px 0' }}>
+                    {previewProjData.qrCodeDataUrl && (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                        <img 
+                          src={previewProjData.qrCodeDataUrl} 
+                          alt="Verification QR Code" 
+                          style={{ width: 65, height: 65, objectFit: 'contain' }} 
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer Info Signoff */}
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 12, fontSize: 8, fontWeight: 700, color: '#374151', borderTop: '1px dashed #D1D5DB', paddingTop: 8, margin: '4px 0' }}>
+                    <span>DATE OF ISSUE: {new Date(previewProjData.issuedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                    <span>|</span>
+                    <span>VALID TILL: {new Date(previewProjData.expiryAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                    <span>|</span>
+                    <span>SERIAL NO: {previewProjData.serialNumber}</span>
+                  </div>
+
+                  {/* Institutional Partner Row Footer */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', borderTop: '1px solid #E5E7EB', paddingTop: 8, margin: '2px 0' }}>
+                    <div style={{ fontSize: 7, fontWeight: 800, color: '#9CA3AF', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
+                      {previewProjData.labelPartners || 'Institutional Partners & Supporters'}
+                    </div>
+                    <div style={{ display: 'flex', gap: 14, alignItems: 'center', justifyContent: 'center' }}>
+                      {(previewProjData.partnerLogos || '').split(',').map(s => s.trim()).filter(Boolean).map((logo, idx) => (
+                        <img 
+                          key={idx} 
+                          src={logo} 
+                          alt="" 
+                          style={{ height: 24, objectFit: 'contain' }} 
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+              </div>
             </div>
           </div>
         </div>

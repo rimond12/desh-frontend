@@ -39,7 +39,7 @@ function parseExtraValues(text) {
 // ── Modal wrapper ─────────────────────────────────────────────────────────────
 function Modal({ title, onClose, children, footer, large = false }) {
   return (
-    <div className="ce-modal-overlay" onClick={e => { e.stopPropagation(); if (e.target.classList.contains("ce-modal-overlay")) onClose(); }}>
+    <div className="ce-modal-overlay">
       <div className={`ce-modal${large ? " ce-modal-lg" : ""}`}>
         <div className="ce-modal-header"><h3>{title}</h3><button className="ce-modal-close" onClick={onClose}>×</button></div>
         <div className="ce-modal-body">{children}</div>
@@ -907,6 +907,9 @@ function SectionModal({ calcId, calcOrder, editSec, allCalcs, allMasters, curren
   const [sumModal, setSumModal] = useState(null);
   const [fmlModal, setFmlModal] = useState(null);
   const [grpModal, setGrpModal] = useState(null);
+  const [colDragState, setColDragState] = useState({ dragId: null, overId: null });
+  const [sumDragState, setSumDragState] = useState({ dragId: null, overId: null });
+  const [fmlDragState, setFmlDragState] = useState({ dragId: null, overId: null });
   const [instrBlocks, setInstrBlocks] = useState(() => {
     const cfg = editSec?.config;
     if (!cfg || cfg.type !== "instruction_table") return [];
@@ -955,27 +958,103 @@ function SectionModal({ calcId, calcOrder, editSec, allCalcs, allMasters, curren
             <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => setColModal({ editCol: null, editIdx: null })}>+ Add Column</button>
             <label className="ce-label ce-check-label" style={{ margin: 0 }}><input type="checkbox" checked={canAddRows} onChange={e => setCanAddRows(e.target.checked)} /> Users can add rows</label>
           </div>
-          {columns.map((col, i) => (
-            <div key={i} className="ce-col-row">
-              <span className="ce-type-badge">{col.type}</span>
-              <div className="ce-col-info"><strong>{col.label}</strong> <span className="ce-col-id">[{col.id}]</span><VisibilityBadge item={col} /></div>
-              <button className="ce-icon-btn" onClick={() => { const c = { ...col }; c.hidden = !c.hidden; setColumns(cs => { const n = [...cs]; n[i] = c; return n; }) }}>{isHidden(col) ? "👁" : "🙈"}</button>
-              <button className="ce-icon-btn" onClick={() => setColModal({ editCol: col, editIdx: i })}>✏</button>
-              <button className="ce-icon-btn ce-icon-btn-danger" onClick={() => setColumns(cs => cs.filter((_, j) => j !== i))}>✕</button>
-            </div>
-          ))}
+          {columns.map((col, i) => {
+            const isDragging = colDragState.dragId === col.id;
+            const isOver = colDragState.overId === col.id;
+            return (
+              <div key={col.id} 
+                draggable
+                onDragStart={e => {
+                  e.dataTransfer.effectAllowed = 'move';
+                  setColDragState({ dragId: col.id, overId: null });
+                }}
+                onDragOver={e => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (col.id !== colDragState.dragId) setColDragState(s => ({ ...s, overId: col.id }));
+                }}
+                onDrop={e => {
+                  e.preventDefault();
+                  const { dragId, overId } = colDragState;
+                  setColDragState({ dragId: null, overId: null });
+                  if (!dragId || !overId || dragId === overId) return;
+                  const next = [...columns];
+                  const fromIdx = next.findIndex(c => c.id === dragId);
+                  const toIdx = next.findIndex(c => c.id === overId);
+                  if (fromIdx !== -1 && toIdx !== -1) {
+                    next.splice(toIdx, 0, next.splice(fromIdx, 1)[0]);
+                    setColumns(next);
+                  }
+                }}
+                onDragEnd={() => setColDragState({ dragId: null, overId: null })}
+                className="ce-col-row"
+                style={{
+                  opacity: isDragging ? 0.4 : 1,
+                  background: isOver ? 'rgba(34,168,75,0.04)' : '',
+                  outline: isOver ? '1.5px solid var(--g400)' : 'none',
+                  transition: 'opacity 0.12s, background 0.12s',
+                  cursor: 'grab',
+                }}
+              >
+                <span title="Drag to reorder" style={{ color: 'var(--tx-faint)', fontSize: 14, cursor: 'grab', flexShrink: 0, userSelect: 'none', lineHeight: 1 }}>⠿</span>
+                <span className="ce-type-badge">{col.type}</span>
+                <div className="ce-col-info"><strong>{col.label}</strong> <span className="ce-col-id">[{col.id}]</span><VisibilityBadge item={col} /></div>
+                <button className="ce-icon-btn" onClick={() => { const c = { ...col }; c.hidden = !c.hidden; setColumns(cs => { const n = [...cs]; n[i] = c; return n; }) }}>{isHidden(col) ? "👁" : "🙈"}</button>
+                <button className="ce-icon-btn" onClick={() => setColModal({ editCol: col, editIdx: i })}>✏</button>
+                <button className="ce-icon-btn ce-icon-btn-danger" onClick={() => setColumns(cs => cs.filter((_, j) => j !== i))}>✕</button>
+              </div>
+            );
+          })}
           <div className="ce-section-editor-header" style={{ marginTop: "1rem" }}>
             <strong>Summaries</strong>
             <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => setSumModal({ editSummary: null, editIdx: null })}>+ Add Summary</button>
           </div>
-          {summaries.map((s, i) => (
-            <div key={i} className="ce-col-row">
-              <span className="ce-type-badge">SUM</span>
-              <div className="ce-col-info"><strong>{s.label}</strong> <span className="ce-col-id">[{s.id}]</span> <span>{s.formula}</span></div>
-              <button className="ce-icon-btn" onClick={() => setSumModal({ editSummary: s, editIdx: i })}>✏</button>
-              <button className="ce-icon-btn ce-icon-btn-danger" onClick={() => setSummaries(a => a.filter((_, j) => j !== i))}>✕</button>
-            </div>
-          ))}
+          {summaries.map((s, i) => {
+            const isDragging = sumDragState.dragId === s.id;
+            const isOver = sumDragState.overId === s.id;
+            return (
+              <div key={s.id} 
+                draggable
+                onDragStart={e => {
+                  e.dataTransfer.effectAllowed = 'move';
+                  setSumDragState({ dragId: s.id, overId: null });
+                }}
+                onDragOver={e => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (s.id !== sumDragState.dragId) setSumDragState(sState => ({ ...sState, overId: s.id }));
+                }}
+                onDrop={e => {
+                  e.preventDefault();
+                  const { dragId, overId } = sumDragState;
+                  setSumDragState({ dragId: null, overId: null });
+                  if (!dragId || !overId || dragId === overId) return;
+                  const next = [...summaries];
+                  const fromIdx = next.findIndex(item => item.id === dragId);
+                  const toIdx = next.findIndex(item => item.id === overId);
+                  if (fromIdx !== -1 && toIdx !== -1) {
+                    next.splice(toIdx, 0, next.splice(fromIdx, 1)[0]);
+                    setSummaries(next);
+                  }
+                }}
+                onDragEnd={() => setSumDragState({ dragId: null, overId: null })}
+                className="ce-col-row"
+                style={{
+                  opacity: isDragging ? 0.4 : 1,
+                  background: isOver ? 'rgba(34,168,75,0.04)' : '',
+                  outline: isOver ? '1.5px solid var(--g400)' : 'none',
+                  transition: 'opacity 0.12s, background 0.12s',
+                  cursor: 'grab',
+                }}
+              >
+                <span title="Drag to reorder" style={{ color: 'var(--tx-faint)', fontSize: 14, cursor: 'grab', flexShrink: 0, userSelect: 'none', lineHeight: 1 }}>⠿</span>
+                <span className="ce-type-badge">SUM</span>
+                <div className="ce-col-info"><strong>{s.label}</strong> <span className="ce-col-id">[{s.id}]</span> <span>{s.formula}</span></div>
+                <button className="ce-icon-btn" onClick={() => setSumModal({ editSummary: s, editIdx: i })}>✏</button>
+                <button className="ce-icon-btn ce-icon-btn-danger" onClick={() => setSummaries(a => a.filter((_, j) => j !== i))}>✕</button>
+              </div>
+            );
+          })}
           <div className="ce-section-editor-header" style={{ marginTop: "1rem" }}>
             <strong>Merged Header Groups</strong>
             <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => setGrpModal({ editGroup: null, editIdx: null })}>+ Add Group</button>
@@ -999,14 +1078,52 @@ function SectionModal({ calcId, calcOrder, editSec, allCalcs, allMasters, curren
             <strong>Formulas</strong>
             <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => setFmlModal({ editFormula: null, editIdx: null })}>+ Add Formula</button>
           </div>
-          {formulas.map((f, i) => (
-            <div key={i} className="ce-col-row">
-              <span className="ce-type-badge">expr</span>
-              <div className="ce-col-info"><strong>{f.label}</strong> <span className="ce-col-id">[{f.id}]</span> <span>{f.expr}</span></div>
-              <button className="ce-icon-btn" onClick={() => setFmlModal({ editFormula: f, editIdx: i })}>✏</button>
-              <button className="ce-icon-btn ce-icon-btn-danger" onClick={() => setFormulas(a => a.filter((_, j) => j !== i))}>✕</button>
-            </div>
-          ))}
+          {formulas.map((f, i) => {
+            const isDragging = fmlDragState.dragId === f.id;
+            const isOver = fmlDragState.overId === f.id;
+            return (
+              <div key={f.id} 
+                draggable
+                onDragStart={e => {
+                  e.dataTransfer.effectAllowed = 'move';
+                  setFmlDragState({ dragId: f.id, overId: null });
+                }}
+                onDragOver={e => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (f.id !== fmlDragState.dragId) setFmlDragState(sState => ({ ...sState, overId: f.id }));
+                }}
+                onDrop={e => {
+                  e.preventDefault();
+                  const { dragId, overId } = fmlDragState;
+                  setFmlDragState({ dragId: null, overId: null });
+                  if (!dragId || !overId || dragId === overId) return;
+                  const next = [...formulas];
+                  const fromIdx = next.findIndex(item => item.id === dragId);
+                  const toIdx = next.findIndex(item => item.id === overId);
+                  if (fromIdx !== -1 && toIdx !== -1) {
+                    next.splice(toIdx, 0, next.splice(fromIdx, 1)[0]);
+                    setFormulas(next);
+                  }
+                }}
+                onDragEnd={() => setFmlDragState({ dragId: null, overId: null })}
+                className="ce-col-row"
+                style={{
+                  opacity: isDragging ? 0.4 : 1,
+                  background: isOver ? 'rgba(34,168,75,0.04)' : '',
+                  outline: isOver ? '1.5px solid var(--g400)' : 'none',
+                  transition: 'opacity 0.12s, background 0.12s',
+                  cursor: 'grab',
+                }}
+              >
+                <span title="Drag to reorder" style={{ color: 'var(--tx-faint)', fontSize: 14, cursor: 'grab', flexShrink: 0, userSelect: 'none', lineHeight: 1 }}>⠿</span>
+                <span className="ce-type-badge">expr</span>
+                <div className="ce-col-info"><strong>{f.label}</strong> <span className="ce-col-id">[{f.id}]</span> <span>{f.expr}</span></div>
+                <button className="ce-icon-btn" onClick={() => setFmlModal({ editFormula: f, editIdx: i })}>✏</button>
+                <button className="ce-icon-btn ce-icon-btn-danger" onClick={() => setFormulas(a => a.filter((_, j) => j !== i))}>✕</button>
+              </div>
+            );
+          })}
           <p className="ce-hint">
             <code>SEC(n).id</code> – same-calc section · <code>CAL(c).SEC(n).id</code> – cross-calc · <code>CAL(c).SEC(n).SUM(col)</code> – aggregate
           </p>

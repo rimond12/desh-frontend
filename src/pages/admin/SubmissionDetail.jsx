@@ -289,7 +289,6 @@ export default function SubmissionDetail() {
   const [togglingInput, setTogglingInput] = useState(null);
   // score card collapse
   const [scoreOpen, setScoreOpen] = useState(true);
-  const [payloadSize, setPayloadSize] = useState(0);
   // edit project info modal
   const [showInfoModal, setShowInfoModal] = useState(false);
 
@@ -302,14 +301,6 @@ export default function SubmissionDetail() {
       axiosSecure.get('/categories'),
     ])
       .then(([detailRes, secRes, rulesRes, commentsRes, catRes]) => {
-        // Measure and set response payload size
-        const size = JSON.stringify(detailRes.data).length +
-                     JSON.stringify(secRes.data).length +
-                     JSON.stringify(rulesRes.data).length +
-                     JSON.stringify(commentsRes.data).length +
-                     JSON.stringify(catRes.data).length;
-        setPayloadSize(size);
-
         const p = detailRes.data.project;
         setProject(p);
         setTabs(detailRes.data.tabs || []);
@@ -320,9 +311,16 @@ export default function SubmissionDetail() {
         setProjectComments(commentsRes.data.comments || []);
 
         if (p) {
+          const fetchedCategories = catRes.data.categories || [];
+          const dbCategoryName = 
+            (p.projectType && fetchedCategories.find(c => String(c._id) === String(p.projectType))?.name) || 
+            p.projectType || 
+            fetchedCategories.find(c => String(c._id) === String(p.categoryId?._id || p.categoryId))?.name || 
+            '';
+
           setEditForm({
             projectName: p.projectName || p.title || '',
-            projectType: p.projectType || p.categoryId || '',
+            projectType: dbCategoryName,
             projectSize: p.projectSize || '',
             address: p.address || '',
             postCode: p.postCode || '',
@@ -636,10 +634,6 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
     document.body.appendChild(container);
 
     try {
-      const startTime = performance.now();
-      const numDocs = docs.length;
-      const htmlLen = container.innerHTML.length;
-
       // ── Find all the sub-elements (chunks) we want to render ──
       const chunks = [];
       const coverEl = container.querySelector('.rpt-cover');
@@ -784,13 +778,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
       doc.save(filename);
       document.body.removeChild(container);
       toast.success('PDF downloaded successfully!', { id: toastId });
-
-      const duration = performance.now() - startTime;
-      console.log(`[PDF EXPORT DEBUG LOGS]`);
-      console.log(`- Number of documents: ${numDocs}`);
-      console.log(`- Response payload size: ${payloadSize} bytes`);
-      console.log(`- HTML length: ${htmlLen} chars`);
-      console.log(`- Time taken: ${duration.toFixed(1)}ms`);
+      // PDF generated successfully
     } catch (err) {
       if (document.body.contains(container)) document.body.removeChild(container);
       console.error('[PDF EXPORT ERROR]', err);
@@ -1195,7 +1183,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: 'rgba(5,26,10,0.72)', backdropFilter: 'blur(6px)',
           padding: 16,
-        }} onClick={() => setShowInfoModal(false)}>
+        }} onClick={e => { if (e.target === e.currentTarget) setShowInfoModal(false); }}>
           <div className="fade-in-up" style={{
             width: '100%', maxWidth: 760, maxHeight: '90vh', overflowY: 'auto',
             borderRadius: 22, background: '#F4F8F5',
@@ -1242,7 +1230,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                   <div><label style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-muted)', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Montserrat,sans-serif' }}>Project Type</label>
                     <select value={editForm.projectType} onChange={e => setEditForm({ ...editForm, projectType: e.target.value })} className="input-dark w-full px-3 py-2 text-sm" style={{ appearance: 'auto' }}>
                       <option value="">— Select Type —</option>
-                      {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                      {categories.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
                       <option value="Residential">Residential Building</option>
                       <option value="Commercial">Commercial Building</option>
                       <option value="Industrial">Industrial Building</option>

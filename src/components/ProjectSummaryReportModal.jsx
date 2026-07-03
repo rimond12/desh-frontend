@@ -123,7 +123,7 @@ export default function ProjectSummaryReportModal({ project, categories, onClose
         backdropFilter: 'blur(6px)',
         WebkitBackdropFilter: 'blur(6px)',
       }}
-      onClick={onClose}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
         className="fade-in-up"

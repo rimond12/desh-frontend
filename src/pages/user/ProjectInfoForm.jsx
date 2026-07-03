@@ -534,8 +534,9 @@ export default function ProjectInfoForm() {
           axiosSecure.get('/form-schema'),
           axiosSecure.get('/categories'),
         ]);
+        const fetchedCategories = catRes.data.categories || [];
         setFormSchema(schemaRes.data.schema);
-        setCategories(catRes.data.categories || []);
+        setCategories(fetchedCategories);
 
         if (id) {
           const projRes = await axiosSecure.get(`/projects/${id}`);
@@ -549,10 +550,18 @@ export default function ProjectInfoForm() {
               navigate(`/projects/${id}`);
               return;
             }
+
+            // Look up project category name by ID if projectType is not set yet or is stored as an ID
+            const dbCategoryName = 
+              (p.projectType && fetchedCategories.find(c => String(c._id) === String(p.projectType))?.name) || 
+              p.projectType || 
+              fetchedCategories.find(c => String(c._id) === String(p.categoryId?._id || p.categoryId))?.name || 
+              '';
+
             // Core fields
             const coreMap = {
               projectName: p.projectName || p.title || '',
-              projectType: p.projectType || '',
+              projectType: dbCategoryName,
               projectSize: p.projectSize || '',
               address: p.address || '',
               postCode: p.postCode || '',
@@ -643,11 +652,26 @@ export default function ProjectInfoForm() {
       return;
     }
     const isValid = await trigger(keys);
-    if (isValid) setStep(p => p + 1);
-    else toast.error('Please fix the errors before continuing.');
+    if (isValid) {
+      try {
+        await axiosSecure.patch(`/projects/${id}/info`, buildPayload(getValues()));
+      } catch (err) {
+        console.error('Auto-save failed:', err);
+      }
+      setStep(p => p + 1);
+    } else {
+      toast.error('Please fix the errors before continuing.');
+    }
   };
 
-  const handleBack = () => setStep(p => p - 1);
+  const handleBack = async () => {
+    try {
+      await axiosSecure.patch(`/projects/${id}/info`, buildPayload(getValues()));
+    } catch (err) {
+      console.error('Auto-save failed on back:', err);
+    }
+    setStep(p => p - 1);
+  };
 
   const buildPayload = (data) => {
     const extraFields = {};
@@ -671,7 +695,7 @@ export default function ProjectInfoForm() {
   const onSubmit = async (data) => {
     setSaving(true);
     try {
-      await axiosSecure.patch(`/projects/${id}/info`, buildPayload(data));
+      await axiosSecure.patch(`/projects/${id}/info`, buildPayload(getValues()));
       toast.success('Project registered successfully!');
       navigate(`/projects/${id}`);
     } catch (err) {
@@ -893,7 +917,7 @@ export default function ProjectInfoForm() {
                 setValue, getValues
               })}
 
-              {step === 2 && (
+              {currentStepData?.stepNum === 2 && (
                 <OtherProfessionalsSection
                   register={register}
                   setValue={setValue}

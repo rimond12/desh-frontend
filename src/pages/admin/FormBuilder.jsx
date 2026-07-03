@@ -154,21 +154,8 @@ function FieldCard({ field, groupIdx, fieldIdx, onUpdate, onDelete, onMoveUp, on
         borderBottom: expanded ? '1px solid rgba(255,255,255,0.08)' : 'none',
       }} onClick={() => setExpanded(v => !v)}>
 
-        {/* Drag handles (up/down) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
-          <button type="button" onClick={e => { e.stopPropagation(); onMoveUp(); }} disabled={isFirst}
-            style={{
-              width: 18, height: 16, border: 'none', borderRadius: 3, cursor: isFirst ? 'not-allowed' : 'pointer',
-              background: isFirst ? 'rgba(255,255,255,0.04)' : 'rgba(52,201,97,0.15)',
-              color: isFirst ? '#475569' : '#5DD882', fontSize: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>▲</button>
-          <button type="button" onClick={e => { e.stopPropagation(); onMoveDown(); }} disabled={isLast}
-            style={{
-              width: 18, height: 16, border: 'none', borderRadius: 3, cursor: isLast ? 'not-allowed' : 'pointer',
-              background: isLast ? 'rgba(255,255,255,0.04)' : 'rgba(52,201,97,0.15)',
-              color: isLast ? '#475569' : '#5DD882', fontSize: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>▼</button>
-        </div>
+        {/* Drag handle */}
+        <span title="Drag to reorder" style={{ color: '#475569', fontSize: 16, cursor: 'grab', flexShrink: 0, userSelect: 'none', lineHeight: 1 }}>⠿</span>
 
         {/* Type badge */}
         <span style={{
@@ -385,7 +372,7 @@ function AddFieldModal({ onAdd, onClose, stepCount }) {
       position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }} onClick={onClose}>
+    }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{
         background: 'linear-gradient(135deg, #0A1F0F, #0E2818)',
         border: '1.5px solid rgba(52,201,97,0.25)', borderRadius: 18,
@@ -510,6 +497,7 @@ export default function FormBuilder() {
   const [showAddStepModal, setShowAddStepModal] = useState(false);
   const [resetConfirm, setResetConfirm] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [dragState, setDragState] = useState({ dragId: null, overId: null, groupIdx: null });
 
   useEffect(() => {
     axiosSecure.get('/form-schema')
@@ -610,6 +598,19 @@ export default function FormBuilder() {
       const target = fieldIdx + dir;
       if (target < 0 || target >= fields.length) return next;
       [fields[fieldIdx], fields[target]] = [fields[target], fields[fieldIdx]];
+      return next;
+    });
+    markChanged();
+  }, [markChanged]);
+
+  const reorderFields = useCallback((stepIdx, groupIdx, dragId, overId) => {
+    setSchema(prev => {
+      const next = deepClone(prev);
+      const fields = next.steps[stepIdx].groups[groupIdx].fields;
+      const from = fields.findIndex(f => f.fieldKey === dragId);
+      const to = fields.findIndex(f => f.fieldKey === overId);
+      if (from === -1 || to === -1) return next;
+      fields.splice(to, 0, fields.splice(from, 1)[0]);
       return next;
     });
     markChanged();
@@ -976,21 +977,54 @@ export default function FormBuilder() {
                       </div>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {fields.map((field, fi) => (
-                          <div key={field.fieldKey} className="fb-field-card">
-                            <FieldCard
-                              field={field}
-                              groupIdx={gi}
-                              fieldIdx={fi}
-                              onUpdate={(gIdx, fIdx, key, val) => updateField(activeStep, gIdx, fIdx, key, val)}
-                              onDelete={(gIdx, fIdx) => deleteField(activeStep, gIdx, fIdx)}
-                              onMoveUp={() => moveField(activeStep, gi, fi, -1)}
-                              onMoveDown={() => moveField(activeStep, gi, fi, 1)}
-                              isFirst={fi === 0}
-                              isLast={fi === fields.length - 1}
-                            />
-                          </div>
-                        ))}
+                        {fields.map((field, fi) => {
+                          const isDragging = dragState.dragId === field.fieldKey;
+                          const isOver = dragState.overId === field.fieldKey && dragState.groupIdx === gi;
+                          return (
+                            <div key={field.fieldKey} 
+                              draggable
+                              onDragStart={e => {
+                                e.dataTransfer.effectAllowed = 'move';
+                                setDragState({ dragId: field.fieldKey, overId: null, groupIdx: gi });
+                              }}
+                              onDragOver={e => {
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = 'move';
+                                if (field.fieldKey !== dragState.dragId) {
+                                  setDragState(s => ({ ...s, overId: field.fieldKey }));
+                                }
+                              }}
+                              onDrop={e => {
+                                e.preventDefault();
+                                const { dragId, overId, groupIdx } = dragState;
+                                setDragState({ dragId: null, overId: null, groupIdx: null });
+                                if (dragId && overId && dragId !== overId && groupIdx === gi) {
+                                  reorderFields(activeStep, gi, dragId, overId);
+                                }
+                              }}
+                              onDragEnd={() => setDragState({ dragId: null, overId: null, groupIdx: null })}
+                              className="fb-field-card"
+                              style={{
+                                opacity: isDragging ? 0.4 : 1,
+                                border: isOver ? '1.5px solid var(--g400)' : '',
+                                borderRadius: 12,
+                                transition: 'opacity 0.12s, border-color 0.12s',
+                              }}
+                            >
+                              <FieldCard
+                                field={field}
+                                groupIdx={gi}
+                                fieldIdx={fi}
+                                onUpdate={(gIdx, fIdx, key, val) => updateField(activeStep, gIdx, fIdx, key, val)}
+                                onDelete={(gIdx, fIdx) => deleteField(activeStep, gIdx, fIdx)}
+                                onMoveUp={() => moveField(activeStep, gi, fi, -1)}
+                                onMoveDown={() => moveField(activeStep, gi, fi, 1)}
+                                isFirst={fi === 0}
+                                isLast={fi === fields.length - 1}
+                              />
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1020,7 +1054,7 @@ export default function FormBuilder() {
 
       {/* ── Reset Confirm Modal ── */}
       {resetConfirm && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setResetConfirm(false)}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { if (e.target === e.currentTarget) setResetConfirm(false); }}>
           <div style={{ background: 'linear-gradient(135deg, #1a0a0a, #2d1414)', border: '1.5px solid rgba(239,68,68,0.3)', borderRadius: 16, padding: 28, maxWidth: 420, boxShadow: '0 24px 80px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: 32, marginBottom: 12 }}>⚠️</div>
             <h3 style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 17, color: '#fff', margin: '0 0 8px' }}>Reset to Defaults?</h3>
@@ -1057,7 +1091,7 @@ function AddStepModal({ onAdd, onClose }) {
       position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }} onClick={onClose}>
+    }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{
         background: 'linear-gradient(135deg, #0A1F0F, #0E2818)',
         border: '1.5px solid rgba(52,201,97,0.25)', borderRadius: 18,

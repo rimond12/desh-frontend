@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useLayoutEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
 import { LeafBadge, ColoredLeaf } from '../../components/shared/LeafLogo.jsx';
@@ -247,12 +247,10 @@ export default function ProjectAssessment() {
   const [accessModalOpen, setAccessModalOpen] = useState(false);
   // Instruction popup modal
   const [instrModal, setInstrModal] = useState({ open: false, label: '', html: '' });
-  const [payloadSize, setPayloadSize] = useState(0);
 
   const loadProject = useCallback(async () => {
     try {
       const r = await ax.get(`/projects/${id}`);
-      setPayloadSize(prev => prev + JSON.stringify(r.data).length);
       setProject(r.data.project);
       setTabs(r.data.tabs || []);
       setDisplayLeaf(r.data.displayLeaf);
@@ -281,19 +279,16 @@ export default function ProjectAssessment() {
   useEffect(() => {
     ax.get('/sections')
       .then(r => {
-        setPayloadSize(prev => prev + JSON.stringify(r.data).length);
         setGlobalSections(r.data.sections || []);
       })
       .catch(() => { });
     ax.get('/settings/eval-rules')
       .then(r => {
-        setPayloadSize(prev => prev + JSON.stringify(r.data).length);
         setLeafRules(r.data.rules || []);
       })
       .catch(() => { });
     ax.get(`/comments/by-project/${id}`)
       .then(r => {
-        setPayloadSize(prev => prev + JSON.stringify(r.data).length);
         setProjectComments(r.data.comments || []);
         const counts = {};
         (r.data.comments || []).forEach(c => {
@@ -304,6 +299,37 @@ export default function ProjectAssessment() {
       })
       .catch(() => { });
   }, [id]);
+
+  useLayoutEffect(() => {
+    if (openMod) {
+      const element = document.getElementById(`module-${openMod}`);
+      if (element) {
+        const scorecard = document.getElementById('sticky-scorecard');
+        const scorecardHeight = scorecard ? scorecard.offsetHeight : 0;
+        const pageContent = document.querySelector('.page-content');
+        if (pageContent) {
+          const rect = element.getBoundingClientRect();
+          const pageContentRect = pageContent.getBoundingClientRect();
+          const absoluteTop = pageContent.scrollTop + (rect.top - pageContentRect.top);
+          const targetY = absoluteTop - scorecardHeight - 15;
+          pageContent.scrollTo({ top: targetY, behavior: 'auto' });
+        } else {
+          const rect = element.getBoundingClientRect();
+          const targetY = window.pageYOffset + rect.top - scorecardHeight - 15;
+          window.scrollTo({ top: targetY, behavior: 'auto' });
+        }
+      }
+    }
+  }, [openMod]);
+
+  const scrollToTop = (behavior = 'smooth') => {
+    const pageContent = document.querySelector('.page-content');
+    if (pageContent) {
+      pageContent.scrollTo({ top: 0, behavior });
+    } else {
+      window.scrollTo({ top: 0, behavior });
+    }
+  };
 
   const handleChange = (inputId, value, inputType) => {
     if (inputType === 'checkbox') {
@@ -520,6 +546,23 @@ export default function ProjectAssessment() {
   // Legacy flag kept only for the Submit button and module-level save visibility
   const isEditable = !isOwner && !isLocked && project?.status !== 'submitted';
 
+  const downloadOfficialCertificate = () => {
+    ax.get(`/projects/${id}/certificate/download`, { responseType: 'blob' })
+      .then((response) => {
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Certificate-${project?.certificate_serial || id}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        toast.success('Certificate downloaded successfully!');
+      })
+      .catch(() => {
+        toast.error('Failed to download certificate');
+      });
+  };
+
   const exportPdf = async () => {
     const API_PDF_BASE = getDynamicApiBaseUrl();
     const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -700,19 +743,6 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
     document.body.appendChild(container);
 
     try {
-      const startTime = performance.now();
-      let numDocs = 0;
-      (tabs || []).forEach(tab => {
-        (tab.modules || []).forEach(mod => {
-          (mod.inputs || []).forEach(inp => {
-            if (inp.inputType === 'file') {
-              numDocs += (inp.documents || []).length;
-            }
-          });
-        });
-      });
-      const htmlLen = container.innerHTML.length;
-
       // ── Find all the sub-elements (chunks) we want to render ──
       const chunks = [];
       const coverEl = container.querySelector('.rpt-cover');
@@ -857,13 +887,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
       doc.save(filename);
       document.body.removeChild(container);
       toast.success('PDF downloaded successfully!', { id: toastId });
-
-      const duration = performance.now() - startTime;
-      console.log(`[PDF EXPORT DEBUG LOGS]`);
-      console.log(`- Number of documents: ${numDocs}`);
-      console.log(`- Response payload size: ${payloadSize} bytes`);
-      console.log(`- HTML length: ${htmlLen} chars`);
-      console.log(`- Time taken: ${duration.toFixed(1)}ms`);
+      // PDF generated successfully
     } catch (err) {
       if (document.body.contains(container)) document.body.removeChild(container);
       console.error('[PDF EXPORT ERROR]', err);
@@ -926,7 +950,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: 16,
           }}
-          onClick={() => setInstrModal({ open: false, label: '', html: '' })}
+          onClick={e => { if (e.target === e.currentTarget) setInstrModal({ open: false, label: '', html: '' }); }}
         >
           <div
             style={{
@@ -973,7 +997,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
       )}
 
       {/* ── Unified Sticky Score Card ── */}
-      <div style={{
+      <div id="sticky-scorecard" style={{
         position: 'sticky', top: 0, zIndex: 20,
         background: 'linear-gradient(135deg, #EFF9F4, #D6F5E3)',
         border: '1.5px solid var(--g200)',
@@ -1339,6 +1363,32 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                     {Math.round(displayPts)} / {displayMax} pts
                   </span>
                   {displayLevel ? <LeafBadge level={displayLevel} /> : null}
+                  {project?.allow_user_download && (
+                    <button
+                      onClick={downloadOfficialCertificate}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '3px 12px',
+                        borderRadius: 8,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        fontFamily: 'Montserrat,sans-serif',
+                        cursor: 'pointer',
+                        background: 'linear-gradient(135deg, #059669, #10B981)',
+                        color: '#fff',
+                        border: 'none',
+                        boxShadow: '0 2px 8px rgba(5,150,105,0.25)',
+                        transition: 'all 0.2s',
+                        whiteSpace: 'nowrap',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(5,150,105,0.35)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(5,150,105,0.25)'; }}
+                    >
+                      <span>📜</span> Download Official Leaf Certificate
+                    </button>
+                  )}
                   <span className={project?.status === 'submitted'
                     ? 'status-chip status-completed'
                     : 'status-chip status-progress'}>
@@ -1603,7 +1653,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
               const modPts = allInputs.reduce((s, inp) => s + calcInputPoints(inp, answers[inp._id]), 0);
 
               return (
-                <div key={mod._id} style={{
+                <div key={mod._id} id={`module-${mod._id}`} style={{
                   border: '1px solid var(--border)',
                   borderRadius: 16, background: '#fff',
                   marginBottom: 12,
@@ -2345,7 +2395,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
           }}>
             <button
               disabled={activeTab === 0}
-              onClick={() => { setActiveTab(t => t - 1); setOpenMod(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              onClick={() => { setActiveTab(t => t - 1); setOpenMod(null); scrollToTop('smooth'); }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '10px 18px', borderRadius: 12,
@@ -2363,7 +2413,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 
             <button
               disabled={activeTab === tabs.length - 1}
-              onClick={() => { setActiveTab(t => t + 1); setOpenMod(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              onClick={() => { setActiveTab(t => t + 1); setOpenMod(null); scrollToTop('smooth'); }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '10px 18px', borderRadius: 12,

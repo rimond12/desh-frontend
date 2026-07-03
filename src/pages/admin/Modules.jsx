@@ -75,6 +75,7 @@ export default function Modules() {
   const [MM, setMM] = useState({ open: false, d: null });
   const [IM, setIM] = useState({ open: false, d: null, mId: null });
   const [dragState, setDragState] = useState({ dragId: null, overId: null, groupId: null });
+  const [moduleDragState, setModuleDragState] = useState({ dragId: null, overId: null });
   const [globalCalcDefaults, setGlobalCalcDefaults] = useState({ name: 'Calculate', color: '#22A84B' });
 
   const loadTabs = useCallback(async () => {
@@ -134,6 +135,19 @@ export default function Modules() {
   }, [activeTab, loadModules]);
 
   const refresh = () => loadModules(activeTab);
+
+  const reorderModules = (dragId, overId) => {
+    const arr = [...modules].sort((a, b) => a.sortOrder - b.sortOrder);
+    const from = arr.findIndex(x => x._id === dragId);
+    const to = arr.findIndex(x => x._id === overId);
+    if (from === -1 || to === -1) return;
+    const reordered = [...arr];
+    reordered.splice(to, 0, reordered.splice(from, 1)[0]);
+    setModules(reordered);
+    ax.patch(`/tabs/${activeTab}/modules/reorder`, { orderedIds: reordered.map(m => m._id) })
+      .then(() => toast.success('Order saved'))
+      .catch(() => { toast.error('Failed to save order'); refresh(); });
+  };
 
   const filteredTabs = tabs.filter(t => {
     const matchesSearch = t.title.toLowerCase().includes(tabSearch.toLowerCase());
@@ -297,12 +311,6 @@ export default function Modules() {
             <textarea className="input-field" rows={3} value={f.readDetails}
               onChange={e => setF({ ...f, readDetails: e.target.value })}
               placeholder="Describe this module…" style={{ resize: 'vertical' }} />
-          </div>
-          <div>
-            <Lbl>Sort Order</Lbl>
-            <input type="number" className="input-field" value={f.sortOrder}
-              onChange={e => setF({ ...f, sortOrder: Number(e.target.value) })}
-              style={{ maxWidth: 100 }} />
           </div>
           <div>
             <Lbl>Module Icon</Lbl>
@@ -1288,14 +1296,43 @@ export default function Modules() {
                 ...(grouped['none'] ? [{ id: 'none', title: 'Uncategorized', inputs: grouped['none'] }] : []),
               ];
 
+              const isModDragging = moduleDragState.dragId === mod._id;
+              const isModOver = moduleDragState.overId === mod._id;
               return (
-                <div key={mod._id} className="fade-in-up" style={{
-                  border: '1px solid var(--border)', borderRadius: 16,
-                  background: '#fff', marginBottom: 12,
-                  boxShadow: isOpen ? 'var(--sh-md)' : 'var(--sh-xs)',
-                  transition: 'box-shadow 0.2s',
-                  animationDelay: `${mi * 0.05}s`
-                }}>
+                <div key={mod._id}
+                  draggable
+                  onDragStart={e => {
+                    // Avoid conflict with input dragging
+                    if (e.target.closest('[draggable]') !== e.currentTarget) return;
+                    e.dataTransfer.effectAllowed = 'move';
+                    setModuleDragState({ dragId: mod._id, overId: null });
+                  }}
+                  onDragOver={e => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (mod._id !== moduleDragState.dragId) {
+                      setModuleDragState(s => ({ ...s, overId: mod._id }));
+                    }
+                  }}
+                  onDrop={e => {
+                    e.preventDefault();
+                    const { dragId, overId } = moduleDragState;
+                    setModuleDragState({ dragId: null, overId: null });
+                    if (dragId && overId && dragId !== overId) reorderModules(dragId, overId);
+                  }}
+                  onDragEnd={() => setModuleDragState({ dragId: null, overId: null })}
+                  className="fade-in-up" 
+                  style={{
+                    border: isModOver ? '1.5px solid var(--g400)' : '1px solid var(--border)', 
+                    borderRadius: 16,
+                    background: '#fff', marginBottom: 12,
+                    boxShadow: isModOver ? '0 0 0 3px rgba(34,168,75,0.12)' : (isOpen ? 'var(--sh-md)' : 'var(--sh-xs)'),
+                    opacity: isModDragging ? 0.4 : 1,
+                    transition: 'border-color 0.12s, opacity 0.12s, box-shadow 0.2s',
+                    animationDelay: `${mi * 0.05}s`,
+                    cursor: 'grab'
+                  }}
+                >
                   {/* Module header */}
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 14,
@@ -1305,6 +1342,7 @@ export default function Modules() {
                     borderRadius: isOpen ? '16px 16px 0 0' : 16,
                     transition: 'background 0.18s'
                   }} onClick={() => setOpenMod(isOpen ? null : mod._id)}>
+                    <span title="Drag to reorder module" style={{ color: 'var(--tx-faint)', fontSize: 16, cursor: 'grab', flexShrink: 0, userSelect: 'none', lineHeight: 1 }}>⠿</span>
                     <IconImg
                       src={mod.iconUrl ? `${SERVER_URL}${mod.iconUrl}` : ''}
                       fallback={String(mi + 1)}

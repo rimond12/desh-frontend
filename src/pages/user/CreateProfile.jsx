@@ -52,7 +52,7 @@ export default function CreateProfile() {
       }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <img src="/images/DESH_Picture1.png" alt="DESH"
+          <img src="/images/logo (1).png" alt="DESH"
             style={{ height: 64, objectFit: 'contain', marginBottom: 16 }} />
           <h1 style={{
             fontFamily: 'Montserrat, sans-serif', fontWeight: 900,
