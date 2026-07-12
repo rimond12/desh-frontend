@@ -917,7 +917,7 @@ export default function ProjectInfoForm() {
                 setValue, getValues
               })}
 
-              {currentStepData?.stepNum === 2 && (
+              {currentStepData?.showOtherProfessionals && (
                 <OtherProfessionalsSection
                   register={register}
                   setValue={setValue}

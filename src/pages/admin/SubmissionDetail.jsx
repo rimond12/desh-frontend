@@ -14,6 +14,7 @@ import {
   BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import CertificatePanel from './CertificatePanel.jsx';
 
 const getDynamicApiBaseUrl = () => {
   if (process.env.REACT_APP_API_URL && !process.env.REACT_APP_API_URL.includes("localhost")) {
@@ -267,7 +268,7 @@ export default function SubmissionDetail() {
   const [selectedSection, setSelectedSection] = useState('');
   const [showEdit, setShowEdit] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
-  const [showInfoPanel, setShowInfoPanel] = useState(false); // kept for compatibility
+  const [showCertPanel, setShowCertPanel] = useState(false);
   const [categories, setCategories] = useState([]);
   const [editForm, setEditForm] = useState({
     projectName: '', projectType: '', projectSize: '', address: '', postCode: '',
@@ -373,7 +374,7 @@ export default function SubmissionDetail() {
       const res = await axiosSecure.patch(`/submissions/${id}/info`, editForm);
       setProject(res.data.project);
       toast.success('Project details updated!');
-      setShowInfoPanel(false);
+      setShowInfoModal(false);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to update details');
     } finally {
@@ -862,6 +863,40 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
             border: '1.5px solid var(--g200)', background: '#fff', color: 'var(--g700)',
             fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
           }}>⬇ PDF</button>
+
+          {/* 🏅 Certificate Studio button */}
+          <button
+            onClick={() => setShowCertPanel(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 10,
+              border: '1.5px solid rgba(31,110,52,0.5)',
+              background: project?.project_status === 'CERTIFICATE_ISSUED'
+                ? 'linear-gradient(135deg,#1f6e34,#22A84B)'
+                : 'linear-gradient(135deg,rgba(31,110,52,0.12),rgba(34,168,75,0.08))',
+              color: project?.project_status === 'CERTIFICATE_ISSUED' ? '#fff' : '#1f6e34',
+              fontWeight: 800, fontSize: 12, cursor: 'pointer',
+              fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+              boxShadow: project?.project_status === 'CERTIFICATE_ISSUED' ? '0 3px 12px rgba(31,110,52,0.35)' : 'none',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'linear-gradient(135deg,#1f6e34,#22A84B)';
+              e.currentTarget.style.color = '#fff';
+              e.currentTarget.style.boxShadow = '0 4px 16px rgba(31,110,52,0.4)';
+            }}
+            onMouseLeave={e => {
+              if (project?.project_status !== 'CERTIFICATE_ISSUED') {
+                e.currentTarget.style.background = 'linear-gradient(135deg,rgba(31,110,52,0.12),rgba(34,168,75,0.08))';
+                e.currentTarget.style.color = '#1f6e34';
+                e.currentTarget.style.boxShadow = 'none';
+              } else {
+                e.currentTarget.style.background = 'linear-gradient(135deg,#1f6e34,#22A84B)';
+                e.currentTarget.style.color = '#fff';
+              }
+            }}
+          >
+            🏅 {project?.project_status === 'CERTIFICATE_ISSUED' ? 'View Certificate' : 'Issue Certificate'}
+          </button>
 
           {/* Edit Status (primary green CTA) */}
           <button onClick={() => setShowEdit(true)} className="btn-primary-green" style={{ padding: '8px 18px', fontSize: 12 }}>
@@ -1767,6 +1802,20 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
       {/* Edit modal */}
       {showEdit && (
         <EditModal project={project} globalSections={sortedSections} onSave={saveStatus} onClose={() => setShowEdit(false)} />
+      )}
+
+      {/* 🏅 Certificate Studio Panel */}
+      {showCertPanel && project && (
+        <CertificatePanel
+          project={project}
+          onClose={() => setShowCertPanel(false)}
+          onIssued={() => {
+            // Refresh project to reflect CERTIFICATE_ISSUED status
+            axiosSecure.get(`/submissions/${id}/detail`)
+              .then(res => setProject(res.data.project))
+              .catch(() => {});
+          }}
+        />
       )}
 
       <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style>

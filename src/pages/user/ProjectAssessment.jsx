@@ -547,19 +547,22 @@ export default function ProjectAssessment() {
   const isEditable = !isOwner && !isLocked && project?.status !== 'submitted';
 
   const downloadOfficialCertificate = () => {
+    const toastId = toast.loading('Downloading certificate...');
     ax.get(`/projects/${id}/certificate/download`, { responseType: 'blob' })
       .then((response) => {
-        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.setAttribute('download', `Certificate-${project?.certificate_serial || id}.pdf`);
         document.body.appendChild(link);
         link.click();
         link.remove();
-        toast.success('Certificate downloaded successfully!');
+        window.URL.revokeObjectURL(url);
+        toast.success('Certificate downloaded successfully!', { id: toastId });
       })
       .catch(() => {
-        toast.error('Failed to download certificate');
+        toast.error('Failed to download certificate', { id: toastId });
       });
   };
 
@@ -1493,7 +1496,6 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
           );
         })()}
       </div>
-
       {/* ── No tabs ── */}
       {tabs.length === 0 ? (
         <div className="card" style={{ padding: 40, textAlign: 'center' }}>

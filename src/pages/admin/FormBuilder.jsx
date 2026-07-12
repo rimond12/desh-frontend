@@ -931,6 +931,13 @@ export default function FormBuilder() {
                   <FormInput label="Sub-title" value={currentStep.sub} onChange={v => updateStepMeta(activeStep, 'sub', v)} placeholder="e.g. Site & project details" />
                   <FormInput label="Icon" value={currentStep.icon} onChange={v => updateStepMeta(activeStep, 'icon', v)} placeholder="🏗️" />
                 </div>
+                <div style={{ marginTop: 14, display: 'flex', alignItems: 'center' }}>
+                  <Toggle
+                    label="Show 'Other Professionals / Engineers' Section in this Step"
+                    checked={!!currentStep.showOtherProfessionals}
+                    onChange={v => updateStepMeta(activeStep, 'showOtherProfessionals', v)}
+                  />
+                </div>
               </div>
 
               {/* Groups + fields */}

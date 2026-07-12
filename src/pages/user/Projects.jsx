@@ -42,6 +42,26 @@ export default function Projects() {
     }
   };
 
+  const downloadCertificate = (id, serial) => {
+    const toastId = toast.loading('Downloading certificate...');
+    axiosSecure.get(`/projects/${id}/certificate/download`, { responseType: 'blob' })
+      .then((response) => {
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Certificate-${serial || id}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success('Certificate downloaded successfully!', { id: toastId });
+      })
+      .catch(() => {
+        toast.error('Failed to download certificate', { id: toastId });
+      });
+  };
+
   const filtered = projects.filter(p =>
     p.title.toLowerCase().includes(search.toLowerCase())
   );
@@ -84,6 +104,7 @@ export default function Projects() {
               delay={i * 0.07}
               onRename={handleRename}
               onDelete={handleDelete}
+              onDownloadCertificate={downloadCertificate}
               dbUser={dbUser}
             />
           ))}
@@ -99,7 +120,7 @@ export default function Projects() {
   );
 }
 
-function ProjectCard({ project: p, delay, onRename, onDelete, dbUser }) {
+function ProjectCard({ project: p, delay, onRename, onDelete, onDownloadCertificate, dbUser }) {
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(p.title);
@@ -261,11 +282,57 @@ function ProjectCard({ project: p, delay, onRename, onDelete, dbUser }) {
           </div>
         </div>
         <div className="flex-1">
-          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${p.status === 'submitted' ? 'status-completed' : 'status-pending'}`}>
-            {p.status === 'submitted' ? '✓ Submitted' : '◌ Draft'}
-          </span>
+          {p.project_status === 'CERTIFICATE_ISSUED' ? (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 800,
+              background: 'rgba(31,110,52,0.2)', color: '#22A84B',
+              border: '1px solid rgba(34,168,75,0.4)',
+              fontFamily: 'Montserrat,sans-serif',
+            }}>
+              🏅 Certificate Issued
+            </span>
+          ) : (
+            <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${p.status === 'submitted' ? 'status-completed' : 'status-pending'}`}>
+              {p.status === 'submitted' ? '✓ Submitted' : '◌ Draft'}
+            </span>
+          )}
         </div>
       </div>
+
+      {/* Certificate download button — shown when issued */}
+      {p.project_status === 'CERTIFICATE_ISSUED' && p.allow_user_download && (
+        <div onClick={e => e.stopPropagation()}>
+          <button
+            onClick={() => onDownloadCertificate(p._id, p.certificate_serial)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              width: '100%',
+              padding: '10px 12px', borderRadius: 10,
+              background: 'linear-gradient(135deg,rgba(31,110,52,0.15),rgba(34,168,75,0.1))',
+              border: '1.5px solid rgba(34,168,75,0.35)',
+              color: '#22A84B',
+              fontWeight: 800, fontSize: 12, cursor: 'pointer',
+              fontFamily: 'Montserrat,sans-serif',
+              transition: 'all 0.18s',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'linear-gradient(135deg,#1f6e34,#22A84B)';
+              e.currentTarget.style.color = '#fff';
+              e.currentTarget.style.borderColor = 'transparent';
+              e.currentTarget.style.boxShadow = '0 4px 16px rgba(34,168,75,0.35)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'linear-gradient(135deg,rgba(31,110,52,0.15),rgba(34,168,75,0.1))';
+              e.currentTarget.style.color = '#22A84B';
+              e.currentTarget.style.borderColor = 'rgba(34,168,75,0.35)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            ⬇ Download Certificate
+          </button>
+        </div>
+      )}
 
       {/* Delete button — draft only */}
       {isCreator && p.status === 'draft' && (

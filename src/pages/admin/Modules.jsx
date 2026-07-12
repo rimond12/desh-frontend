@@ -35,7 +35,7 @@ const INPUT_TYPES = [
 function Modal({ open, onClose, title, children, width = 520 }) {
   if (!open) return null;
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-overlay">
       <div className="modal-box fade-in-up" style={{ maxWidth: width, padding: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <h3 style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 17, color: 'var(--tx)', margin: 0 }}>
