@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Layout from '../../components/shared/Layout.jsx';
 import toast from 'react-hot-toast';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
@@ -18,7 +18,7 @@ export default function ChatbotRules() {
     const [isActive, setIsActive] = useState(true);
     const [presets, setPresets] = useState([]);
 
-    const fetchRules = async () => {
+    const fetchRules = useCallback(async () => {
         setLoading(true);
         try {
             const res = await axiosSecure.get('/chatbot/admin/rules');
@@ -29,11 +29,11 @@ export default function ChatbotRules() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [axiosSecure]);
 
     useEffect(() => {
         fetchRules();
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [fetchRules]);
 
     const handleOpenCreateModal = () => {
         setEditingId(null);
@@ -133,16 +133,16 @@ export default function ChatbotRules() {
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-white" style={{ fontFamily: 'Montserrat, sans-serif' }}>
-                            🤖 Chatbot Rules Manager
+                        <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                            🤖 DESH Ai Manager
                         </h1>
-                        <p className="text-xs text-white/50 mt-1">
+                        <p className="text-xs mt-1" style={{ color: 'var(--tx-muted)' }}>
                             Configure triggers, answers, and quick reply presets for the DESH Ai floating assistant.
                         </p>
                     </div>
                     <button
                         onClick={handleOpenCreateModal}
-                        className="btn-primary-green text-sm px-4 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer flex-shrink-0"
+                        className="btn-primary-green"
                     >
                         <span>+</span> Add Q&A Rule
                     </button>
@@ -156,7 +156,7 @@ export default function ChatbotRules() {
                             placeholder="Search by trigger phrase or answer text..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="input-dark w-full pl-4 pr-4 py-2.5 rounded-xl text-sm"
+                            className="input-field w-full pl-4 pr-4 py-2.5 rounded-xl text-sm"
                         />
                     </div>
                 </div>
@@ -170,18 +170,18 @@ export default function ChatbotRules() {
                                 border: '3px solid var(--g100)', borderTopColor: 'var(--g600)',
                                 animation: 'spin 0.8s linear infinite', flexShrink: 0,
                             }} />
-                            <span className="text-sm">Loading Q&A rules...</span>
+                            <span className="text-sm" style={{ color: 'var(--tx-muted)' }}>Loading rules...</span>
                         </div>
                     ) : filteredRules.length === 0 ? (
-                        <div className="text-center py-20 text-white/40">
+                        <div className="text-center py-20" style={{ color: 'var(--tx-faint)' }}>
                             <p className="text-3xl mb-2">🤖</p>
                             <p className="font-semibold text-sm">No rules found</p>
-                            <p className="text-xs mt-1 text-white/30">Create a rule to get started.</p>
+                            <p className="text-xs mt-1">Create a rule to get started.</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="min-w-full text-sm text-left">
-                                <thead className="text-[11px] font-bold text-white/40 uppercase tracking-wider bg-black/10 border-b border-white/5">
+                            <table className="premium-table">
+                                <thead>
                                     <tr>
                                         <th className="px-6 py-4">Trigger / Keywords</th>
                                         <th className="px-6 py-4">Answer Response</th>
@@ -190,22 +190,27 @@ export default function ChatbotRules() {
                                         <th className="px-6 py-4 text-center">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-white/5">
+                                <tbody>
                                     {filteredRules.map(rule => (
-                                        <tr key={rule._id} className="hover:bg-white/5 transition-colors">
-                                            <td className="px-6 py-4 font-bold text-emerald-300 max-w-[200px] truncate">
+                                        <tr key={rule._id}>
+                                            <td className="px-6 py-4 font-bold max-w-[200px] truncate" style={{ color: 'var(--g700)' }}>
                                                 {rule.trigger}
                                             </td>
-                                            <td className="px-6 py-4 text-white/80 max-w-[320px] truncate">
+                                            <td className="px-6 py-4 max-w-[320px] truncate" style={{ color: 'var(--tx-2)' }}>
                                                 {rule.answer}
                                             </td>
-                                            <td className="px-6 py-4 text-xs text-white/60">
+                                            <td className="px-6 py-4 text-xs">
                                                 {rule.presets && rule.presets.length > 0 ? (
                                                     <div className="flex flex-wrap gap-1.5">
                                                         {rule.presets.map((preset, idx) => (
                                                             <span
                                                                 key={idx}
-                                                                className="px-2 py-0.5 rounded bg-white/5 border border-white/10"
+                                                                className="px-2 py-0.5 rounded text-[10px] font-semibold"
+                                                                style={{ 
+                                                                    background: 'var(--bg-soft)', 
+                                                                    border: '1px solid var(--border)', 
+                                                                    color: 'var(--tx-muted)' 
+                                                                }}
                                                                 title={`${preset.action} -> ${preset.url || '(none)'}`}
                                                             >
                                                                 {preset.label}
@@ -213,14 +218,14 @@ export default function ChatbotRules() {
                                                         ))}
                                                     </div>
                                                 ) : (
-                                                    <span className="italic text-white/30">None</span>
+                                                    <span className="italic" style={{ color: 'var(--tx-faint)' }}>None</span>
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase ${
                                                     rule.isActive !== false
-                                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                                        : 'bg-white/5 text-white/30 border border-white/10'
+                                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                                        : 'bg-neutral-100 text-neutral-400 border border-neutral-200'
                                                 }`}>
                                                     {rule.isActive !== false ? 'Active' : 'Inactive'}
                                                 </span>
@@ -229,13 +234,15 @@ export default function ChatbotRules() {
                                                 <div className="flex items-center justify-center gap-2">
                                                     <button
                                                         onClick={() => handleOpenEditModal(rule)}
-                                                        className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/80 hover:text-white transition-all text-xs font-semibold cursor-pointer"
+                                                        className="btn-secondary"
+                                                        style={{ padding: '6px 12px', fontSize: '12px' }}
                                                     >
                                                         Edit
                                                     </button>
                                                     <button
                                                         onClick={() => handleDeleteRule(rule._id, rule.trigger)}
-                                                        className="px-3 py-1.5 rounded-lg bg-red-950/20 hover:bg-red-950/40 text-red-300 hover:text-red-200 border border-red-900/30 hover:border-red-600/40 transition-all text-xs font-semibold cursor-pointer"
+                                                        className="btn-danger"
+                                                        style={{ padding: '6px 12px', fontSize: '12px' }}
                                                     >
                                                         Delete
                                                     </button>
@@ -252,31 +259,32 @@ export default function ChatbotRules() {
 
             {/* Modal Edit / Create */}
             {modalOpen && (
-                <div style={{ zIndex: 9999 }} className="fixed inset-0 flex items-center justify-center px-4">
+                <div className="modal-overlay">
                     {/* Backdrop */}
-                    <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
+                    <div className="absolute inset-0" onClick={() => setModalOpen(false)} />
                     {/* Card container */}
                     <div
-                        className="relative w-full max-w-xl max-h-[90vh] flex flex-col rounded-3xl overflow-hidden border border-white/10 text-white bg-neutral-900 shadow-2xl"
+                        className="modal-box relative w-full max-w-xl max-h-[90vh] flex flex-col p-6 shadow-2xl"
                     >
                         {/* Modal Header */}
-                        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-                            <h3 className="font-bold text-base" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                        <div className="pb-4 border-b border-white/5 flex items-center justify-between mb-4">
+                            <h3 className="font-bold text-base" style={{ fontFamily: 'Montserrat, sans-serif', color: 'var(--tx)' }}>
                                 {editingId ? 'Edit Q&A Rule' : 'Add New Q&A Rule'}
                             </h3>
                             <button
                                 onClick={() => setModalOpen(false)}
-                                className="p-1 rounded hover:bg-white/10 text-white/60 hover:text-white transition-all cursor-pointer"
+                                className="p-1 rounded hover:bg-black/5"
+                                style={{ color: 'var(--tx-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '18px' }}
                             >
                                 ✕
                             </button>
                         </div>
 
                         {/* Modal Body */}
-                        <form onSubmit={handleSaveRule} className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                        <form onSubmit={handleSaveRule} className="flex-1 overflow-y-auto space-y-4 pr-1">
                             {/* Trigger Field */}
                             <div>
-                                <label className="block text-[11px] font-bold text-white/50 uppercase tracking-wider mb-2">
+                                <label className="block text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--tx-muted)' }}>
                                     Trigger Keyword / Phrase
                                 </label>
                                 <input
@@ -285,13 +293,13 @@ export default function ChatbotRules() {
                                     value={trigger}
                                     onChange={(e) => setTrigger(e.target.value)}
                                     placeholder="e.g. How to use, resources, leaf levels"
-                                    className="input-dark w-full px-4 py-2.5 rounded-xl text-sm"
+                                    className="input-field w-full"
                                 />
                             </div>
 
                             {/* Answer Field */}
                             <div>
-                                <label className="block text-[11px] font-bold text-white/50 uppercase tracking-wider mb-2">
+                                <label className="block text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--tx-muted)' }}>
                                     Bot Answer Response
                                 </label>
                                 <textarea
@@ -300,7 +308,7 @@ export default function ChatbotRules() {
                                     value={answer}
                                     onChange={(e) => setAnswer(e.target.value)}
                                     placeholder="Type the bot response text here. Markdown double asterisks (e.g. **bold**) are supported."
-                                    className="input-dark w-full px-4 py-2.5 rounded-xl text-sm leading-relaxed"
+                                    className="input-field w-full leading-relaxed"
                                 />
                             </div>
 
@@ -311,30 +319,31 @@ export default function ChatbotRules() {
                                     id="isActive"
                                     checked={isActive}
                                     onChange={(e) => setIsActive(e.target.checked)}
-                                    className="rounded border-white/10 text-emerald-600 bg-neutral-800"
+                                    className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
                                 />
-                                <label htmlFor="isActive" className="text-xs font-semibold text-white/70 select-none cursor-pointer">
+                                <label htmlFor="isActive" className="text-xs font-semibold select-none cursor-pointer" style={{ color: 'var(--tx-muted)' }}>
                                     Rule is Active (bot can match this trigger)
                                 </label>
                             </div>
 
                             {/* Presets Manager */}
-                            <div className="border-t border-white/5 pt-4">
+                            <div className="border-t border-neutral-100 pt-4">
                                 <div className="flex justify-between items-center mb-3">
-                                    <label className="block text-[11px] font-bold text-white/50 uppercase tracking-wider">
+                                    <label className="block text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--tx-muted)' }}>
                                         Clickable Presets (Quick Actions)
                                     </label>
                                     <button
                                         type="button"
                                         onClick={handleAddPreset}
-                                        className="text-xs font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                                        className="text-xs font-bold hover:underline cursor-pointer"
+                                        style={{ color: 'var(--g700)' }}
                                     >
                                         + Add Preset Button
                                     </button>
                                 </div>
 
                                 {presets.length === 0 ? (
-                                    <p className="text-xs text-white/30 italic py-2">
+                                    <p className="text-xs italic py-2" style={{ color: 'var(--tx-faint)' }}>
                                         No presets configured. Default assistant options will be used if no presets are set.
                                     </p>
                                 ) : (
@@ -342,20 +351,22 @@ export default function ChatbotRules() {
                                         {presets.map((preset, idx) => (
                                             <div
                                                 key={idx}
-                                                className="p-3 rounded-xl border border-white/5 bg-black/10 flex flex-col gap-3 relative"
+                                                className="p-3 rounded-xl relative"
+                                                style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)' }}
                                             >
                                                 <button
                                                     type="button"
                                                     onClick={() => handleRemovePreset(idx)}
-                                                    className="absolute top-2 right-2 text-xs text-red-400 hover:text-red-300 font-bold cursor-pointer"
+                                                    className="absolute top-2 right-2 text-xs font-bold cursor-pointer"
+                                                    style={{ color: '#DC2626', border: 'none', background: 'transparent' }}
                                                     title="Remove preset"
                                                 >
                                                     Remove
                                                 </button>
 
-                                                <div className="grid sm:grid-cols-2 gap-3">
+                                                <div className="grid sm:grid-cols-2 gap-3 mt-1.5">
                                                     <div>
-                                                        <label className="block text-[9px] font-bold text-white/40 uppercase mb-1">
+                                                        <label className="block text-[9px] font-bold uppercase mb-1" style={{ color: 'var(--tx-faint)' }}>
                                                             Button Label
                                                         </label>
                                                         <input
@@ -364,17 +375,19 @@ export default function ChatbotRules() {
                                                             placeholder="Button Text"
                                                             value={preset.label}
                                                             onChange={(e) => handleUpdatePresetField(idx, "label", e.target.value)}
-                                                            className="input-dark w-full px-3 py-1.5 rounded-lg text-xs"
+                                                            className="input-field w-full"
+                                                            style={{ padding: '6px 10px', fontSize: '12px' }}
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-[9px] font-bold text-white/40 uppercase mb-1">
+                                                        <label className="block text-[9px] font-bold uppercase mb-1" style={{ color: 'var(--tx-faint)' }}>
                                                             Action Type
                                                         </label>
                                                         <select
                                                             value={preset.action}
                                                             onChange={(e) => handleUpdatePresetField(idx, "action", e.target.value)}
-                                                            className="input-dark w-full px-3 py-1.5 rounded-lg text-xs"
+                                                            className="input-field w-full"
+                                                            style={{ padding: '6px 10px', fontSize: '12px' }}
                                                         >
                                                             <option value="query">Ask Trigger (Quick Reply)</option>
                                                             <option value="resources">Show Manual Resources</option>
@@ -385,8 +398,8 @@ export default function ChatbotRules() {
                                                 </div>
 
                                                 {preset.action === "link" && (
-                                                    <div>
-                                                        <label className="block text-[9px] font-bold text-white/40 uppercase mb-1">
+                                                    <div className="mt-2.5">
+                                                        <label className="block text-[9px] font-bold uppercase mb-1" style={{ color: 'var(--tx-faint)' }}>
                                                             Redirect URL Link
                                                         </label>
                                                         <input
@@ -395,7 +408,8 @@ export default function ChatbotRules() {
                                                             placeholder="e.g. /manual or https://..."
                                                             value={preset.url || ""}
                                                             onChange={(e) => handleUpdatePresetField(idx, "url", e.target.value)}
-                                                            className="input-dark w-full px-3 py-1.5 rounded-lg text-xs"
+                                                            className="input-field w-full"
+                                                            style={{ padding: '6px 10px', fontSize: '12px' }}
                                                         />
                                                     </div>
                                                 )}
@@ -406,18 +420,18 @@ export default function ChatbotRules() {
                             </div>
 
                             {/* Modal Footer */}
-                            <div className="border-t border-white/5 pt-4 flex justify-end gap-3">
+                            <div className="border-t border-neutral-100 pt-4 flex justify-end gap-3">
                                 <button
                                     type="button"
                                     onClick={() => setModalOpen(false)}
-                                    className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all text-xs font-semibold cursor-pointer"
+                                    className="btn-secondary"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={saving}
-                                    className="btn-primary-green px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                                    className="btn-primary-green"
                                 >
                                     {saving ? 'Saving...' : 'Save Rule'}
                                 </button>

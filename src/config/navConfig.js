@@ -76,7 +76,7 @@ export const NAV_CONFIG = [
                     { key: 'adminNav_users',       defaultLabel: 'DESH Professionals',       path: '/admin/users',       icon: '◉' },
                     { key: 'adminNav_submissions', defaultLabel: 'Submissions', path: '/admin/submissions', icon: '◫' },
                     { key: 'adminNav_activity',    defaultLabel: 'Activity',    path: '/admin/activity',    icon: '⏱' },
-                    { key: 'adminNav_chatbotRules', defaultLabel: 'Chatbot Rules', path: '/admin/chatbot-rules', icon: '🤖' },
+                    { key: 'adminNav_chatbotRules', defaultLabel: 'DESH Ai Manager', path: '/admin/desh-ai-manager', icon: '🤖' },
                     { key: 'adminNav_supportChat',  defaultLabel: 'Support Chat',   path: '/admin/support-chat',   icon: '💬' },
                 ],
             },

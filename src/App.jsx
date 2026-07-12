@@ -259,7 +259,8 @@ function AppRoutes() {
       <Route path="/admin/calc-engine"     element={<AdminRoute><CalcEnginePage/></AdminRoute>} />
       <Route path="/admin/resources"       element={<AdminRoute><Resources/></AdminRoute>} />
       <Route path="/admin/form-builder"    element={<AdminRoute><FormBuilder/></AdminRoute>} />
-      <Route path="/admin/chatbot-rules"   element={<AdminRoute><ChatbotRules/></AdminRoute>} />
+      <Route path="/admin/chatbot-rules"   element={<AdminRoute><Navigate to="/admin/desh-ai-manager" replace /></AdminRoute>} />
+      <Route path="/admin/desh-ai-manager" element={<AdminRoute><ChatbotRules/></AdminRoute>} />
       <Route path="/admin/support-chat"    element={<AdminRoute><SupportChat/></AdminRoute>} />
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
