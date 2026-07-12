@@ -174,7 +174,7 @@ export default function Manual() {
                             [...evalRules]
                                 .sort((a, b) => a.minPercent - b.minPercent)
                                 .map((l, i) => {
-                                    const imgUrl = l.imageUrl ? `${BASE_URL}${l.imageUrl}` : null;
+                                    const imgUrl = l.imageUrl ? (l.imageUrl.startsWith('data:') ? l.imageUrl : `${BASE_URL}${l.imageUrl}`) : null;
                                     const color = l.colorCode || '#94A3B8';
                                     const size = 60;
                                     return (
@@ -295,7 +295,7 @@ export default function Manual() {
                                         {[...evalRules]
                                             .sort((a, b) => b.minPercent - a.minPercent)
                                             .map((l, idx) => {
-                                                const imgUrl = l.imageUrl ? `${BASE_URL}${l.imageUrl}` : null;
+                                                const imgUrl = l.imageUrl ? (l.imageUrl.startsWith('data:') ? l.imageUrl : `${BASE_URL}${l.imageUrl}`) : null;
                                                 const color = l.colorCode || '#94A3B8';
                                                 return (
                                                     <div

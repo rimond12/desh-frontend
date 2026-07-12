@@ -62,7 +62,7 @@ function getLeafInfoForPercent(percent, rules) {
       range: `${match.minPercent} – ${match.maxPercent}%`,
       statusText: (match.name || 'Performance').toUpperCase(),
       statusGrade: getDeshGrade(match.minPercent, match.maxPercent, match.name),
-      imageUrl: match.imageUrl ? `${SERVER_BASE}${match.imageUrl}` : null,
+      imageUrl: match.imageUrl ? (match.imageUrl.startsWith('data:') ? match.imageUrl : `${SERVER_BASE}${match.imageUrl}`) : null,
     };
   }
   // Fallback defaults
@@ -101,7 +101,7 @@ function buildCertificateHTML(data, settings, evalRules) {
   const tierItems = rulesToUse.map(r => {
     const isActive = data.scorePercent >= r.minPercent && data.scorePercent <= r.maxPercent;
     const isCustom = !!r.imageUrl;
-    const src = isCustom ? (r.imageUrl.startsWith('/uploads/') ? `${SERVER_BASE}${r.imageUrl}` : r.imageUrl) : null;
+    const src = isCustom ? (r.imageUrl.startsWith('data:') ? r.imageUrl : (r.imageUrl.startsWith('/uploads/') ? `${SERVER_BASE}${r.imageUrl}` : r.imageUrl)) : null;
     const grade = getDeshGrade(r.minPercent, r.maxPercent, r.name);
 
     return `
@@ -167,9 +167,9 @@ function buildCertificateHTML(data, settings, evalRules) {
       <path d="M40 34 C50 36 55 46 51 55 C47 64 36 68 30 63 C24 58 23 48 28 41 C32 36 36 34 40 34 Z" fill="#d9a41e" opacity="0.9"/>
     </svg>`;
   if (settings?.authHeaderLogo) {
-    const src = settings.authHeaderLogo.startsWith('/uploads/') 
-      ? `${SERVER_BASE}${settings.authHeaderLogo}` 
-      : settings.authHeaderLogo;
+    const src = settings.authHeaderLogo.startsWith('data:') 
+      ? settings.authHeaderLogo 
+      : (settings.authHeaderLogo.startsWith('/uploads/') ? `${SERVER_BASE}${settings.authHeaderLogo}` : settings.authHeaderLogo);
     logoHTML = `<img crossorigin="anonymous" class="logo-img" src="${src}" alt="DESH Logo" onerror="this.style.opacity='0.5'" />`;
   }
 
@@ -188,7 +188,7 @@ function buildCertificateHTML(data, settings, evalRules) {
 
   const partnersHTML = partnerLogos.map(logo => {
     if (!logo) return '';
-    const src = logo.startsWith('/uploads/') ? `${SERVER_BASE}${logo}` : logo;
+    const src = logo.startsWith('data:') ? logo : (logo.startsWith('/uploads/') ? `${SERVER_BASE}${logo}` : logo);
     return `<img crossorigin="anonymous" src="${src}" alt="Partner" onerror="this.style.display='none'">`;
   }).join('');
 
@@ -530,7 +530,7 @@ export default function CertificatePanel({ project, onClose, onIssued }) {
         issueDate: fmt(now),
         expiryDate: fmt(expiry),
         serialNumber: d.serialNumber || `DESH-${new Date().getFullYear()}-BAN-00001`,
-        leafImageUrl: d.leafImageUrl ? `${SERVER_BASE}${d.leafImageUrl}` : null,
+        leafImageUrl: d.leafImageUrl ? (d.leafImageUrl.startsWith('data:') ? d.leafImageUrl : `${SERVER_BASE}${d.leafImageUrl}`) : null,
       });
       toast.success('Certificate data loaded from database');
     } catch (err) {

@@ -45,7 +45,7 @@ export default function NewProject() {
             name: rule.name,
             colorCode: rule.colorCode,
             imageUrl: rule.imageUrl
-              ? (rule.imageUrl.startsWith('/uploads/') ? `${SERVER_URL}${rule.imageUrl}` : rule.imageUrl)
+              ? (rule.imageUrl.startsWith('data:') ? rule.imageUrl : (rule.imageUrl.startsWith('/uploads/') ? `${SERVER_URL}${rule.imageUrl}` : rule.imageUrl))
               : undefined,
           })));
         }

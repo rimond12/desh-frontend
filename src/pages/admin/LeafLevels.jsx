@@ -139,7 +139,7 @@ export default function LeafLevels() {
     };
 
     const currentImageUrl = editItem?.imageUrl
-        ? (imagePreview || `${SERVER_BASE}${editItem.imageUrl}`)
+        ? (imagePreview || (editItem.imageUrl.startsWith('data:') ? editItem.imageUrl : `${SERVER_BASE}${editItem.imageUrl}`))
         : imagePreview;
 
     return (
@@ -263,7 +263,7 @@ export default function LeafLevels() {
             {/* ── Level cards ── */}
             <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 {levels.sort((a, b) => b.minPercent - a.minPercent).map(l => {
-                    const imgUrl = l.imageUrl ? `${SERVER_BASE}${l.imageUrl}` : null;
+                    const imgUrl = l.imageUrl ? (l.imageUrl.startsWith('data:') ? l.imageUrl : `${SERVER_BASE}${l.imageUrl}`) : null;
                     return (
                         <div key={l._id} className="glass-card p-5 relative overflow-hidden">
                             <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl" style={{ background: l.colorCode }} />

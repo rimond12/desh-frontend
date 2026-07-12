@@ -1047,7 +1047,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                             <ColoredLeaf
                               level=""
                               colorCode={rule.colorCode}
-                              imageUrl={rule.imageUrl ? `${SERVER_URL}${rule.imageUrl}` : null}
+                              imageUrl={rule.imageUrl ? (rule.imageUrl.startsWith('data:') ? rule.imageUrl : `${SERVER_URL}${rule.imageUrl}`) : null}
                               size={leafSize}
                             />
                           </div>
