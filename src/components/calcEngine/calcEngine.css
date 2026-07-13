@@ -395,3 +395,156 @@
     margin-bottom: 1.2rem !important;
   }
 }
+
+/* ==========================================
+   Searchable Select styles
+   ========================================== */
+
+/* Wrapper – just needs to be a relative block so the trigger button fills it */
+.ce-searchable-select {
+  position: relative;
+  width: 100%;
+}
+
+/* Trigger button */
+.ce-searchable-select-trigger {
+  width: 100%;
+  padding: .38rem .6rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  font-size: .82rem;
+  background: #fff;
+  color: #1e293b;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  box-sizing: border-box;
+  height: 34px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.ce-searchable-select-trigger:hover:not(.disabled) {
+  border-color: #cbd5e1;
+}
+.ce-searchable-select-trigger:focus {
+  outline: none;
+  border-color: var(--g500, #22C55E);
+  box-shadow: 0 0 0 2px rgba(34,197,94,.12);
+}
+.ce-searchable-select-trigger.disabled {
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+  border-color: #e2e8f0;
+}
+.ce-searchable-select-trigger-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ce-searchable-select-caret {
+  font-size: 0.6rem;
+  transition: transform 0.2s ease;
+  color: #94a3b8;
+  margin-left: 0.4rem;
+  flex-shrink: 0;
+}
+.ce-searchable-select-caret.open {
+  transform: rotate(180deg);
+  color: var(--g500, #22C55E);
+}
+
+/* Floating dropdown panel — positioned by JS via position:fixed,
+   rendered into document.body via React portal so it escapes
+   any overflow:hidden / overflow:clip parent.                    */
+.ce-searchable-select-dropdown {
+  /* position / top / left / width are set inline by JS */
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow:
+    0 4px 6px -1px rgba(0,0,0,0.08),
+    0 12px 24px -4px rgba(0,0,0,0.12);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+  animation: ceSSFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes ceSSFadeIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+
+/* Search container */
+.ce-searchable-select-search-container {
+  padding: 0.4rem 0.4rem 0.35rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+.ce-searchable-select-search-input {
+  width: 100%;
+  padding: 0.38rem 0.5rem 0.38rem 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  outline: none;
+  box-sizing: border-box;
+  background: #fff;
+  color: #1e293b;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.ce-searchable-select-search-input::placeholder {
+  color: #94a3b8;
+}
+.ce-searchable-select-search-input:focus {
+  border-color: var(--g500, #22C55E);
+  box-shadow: 0 0 0 2px rgba(34,197,94,.10);
+}
+
+/* Options list */
+.ce-searchable-select-options {
+  overflow-y: auto;
+  max-height: 190px;
+  padding: 0.25rem 0;
+}
+.ce-searchable-select-options::-webkit-scrollbar { width: 4px; }
+.ce-searchable-select-options::-webkit-scrollbar-track { background: transparent; }
+.ce-searchable-select-options::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+/* Individual option rows */
+.ce-searchable-select-option {
+  padding: 0.42rem 0.7rem;
+  font-size: 0.82rem;
+  color: #1e293b;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ce-searchable-select-option:hover,
+.ce-searchable-select-option.highlighted {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.ce-searchable-select-option.selected {
+  background: #f0fdf4;
+  color: #15803d;
+  font-weight: 600;
+}
+.ce-searchable-select-option.selected.highlighted {
+  background: #dcfce7;
+}
+.ce-searchable-select-no-results {
+  padding: 0.8rem 0.6rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  text-align: center;
+}
+

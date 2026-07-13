@@ -134,10 +134,10 @@ export default function ChatbotRules() {
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Montserrat, sans-serif' }}>
-                            🤖 DESH Ai Manager
+                            🤖 DESHai Manager
                         </h1>
                         <p className="text-xs mt-1" style={{ color: 'var(--tx-muted)' }}>
-                            Configure triggers, answers, and quick reply presets for the DESH Ai floating assistant.
+                            Configure triggers, answers, and quick reply presets for the DESHai floating assistant.
                         </p>
                     </div>
                     <button

@@ -11,6 +11,7 @@ import {
   saveToStorage, loadFromStorage, evalExpr,
   evalSummaryExpr, calcFormulaSection,
 } from "./calcEngine.js";
+import { createPortal } from "react-dom";
 import "./calcEngine.css";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -40,6 +41,218 @@ function CopyBtn({ getValue, className = "" }) {
   );
 }
 
+// ── Searchable Select Component ───────────────────────────────────────────────
+function SearchableSelect({ value, onChange, options, placeholder = "-- Select --", disabled = false }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [dropdownStyle, setDropdownStyle] = useState({});
+  const triggerRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const optionsRef = useRef(null);
+
+  // Find the selected option's label
+  const selectedOption = options.find(opt => opt.value === value);
+  const displayLabel = selectedOption ? selectedOption.label : placeholder;
+
+  // Filter options based on tokenized search query
+  const cleanStr = (s) => (s || "").toLowerCase();
+  const matchOption = (label, query) => {
+    if (!query) return true;
+    const target = cleanStr(label);
+    const tokens = cleanStr(query).split(/\s+/).filter(Boolean);
+    return tokens.every(token => target.includes(token));
+  };
+
+  const filteredOptions = options.filter(opt => matchOption(opt.label, searchQuery));
+
+  // Compute fixed-position coordinates from trigger's viewport rect
+  // This lets the dropdown escape any parent overflow:hidden container
+  const computeDropdownStyle = () => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const dropdownH = 256; // max expected height (search box + list)
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < dropdownH && rect.top > dropdownH;
+
+    const style = {
+      position: "fixed",
+      left: rect.left,
+      width: rect.width,
+      zIndex: 99999,
+      minWidth: Math.max(rect.width, 180),
+    };
+    if (openUp) {
+      style.bottom = window.innerHeight - rect.top + 2;
+      style.top = "auto";
+    } else {
+      style.top = rect.bottom + 2;
+      style.bottom = "auto";
+    }
+    setDropdownStyle(style);
+  };
+
+  // Reset highlighted index when filtered options change
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [searchQuery]);
+
+  // Compute position and focus search input when dropdown opens
+  useEffect(() => {
+    if (isOpen) {
+      computeDropdownStyle();
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Recompute on scroll / resize so the dropdown tracks the trigger
+  useEffect(() => {
+    if (!isOpen) return;
+    const recompute = () => computeDropdownStyle();
+    window.addEventListener("scroll", recompute, true);
+    window.addEventListener("resize", recompute);
+    return () => {
+      window.removeEventListener("scroll", recompute, true);
+      window.removeEventListener("resize", recompute);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Close dropdown on click outside (both trigger and floating panel)
+  useEffect(() => {
+    function handleOutsideClick(e) {
+      const clickedTrigger = triggerRef.current && triggerRef.current.contains(e.target);
+      const clickedDropdown = dropdownRef.current && dropdownRef.current.contains(e.target);
+      if (!clickedTrigger && !clickedDropdown) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [isOpen]);
+
+  // Reset search query when dropdown closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchQuery("");
+    }
+  }, [isOpen]);
+
+  // Auto-scroll highlighted option into view
+  useEffect(() => {
+    if (isOpen && optionsRef.current) {
+      const highlightedEl = optionsRef.current.querySelector(".highlighted");
+      if (highlightedEl) {
+        highlightedEl.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [highlightedIndex, isOpen]);
+
+  const handleKeyDown = (e) => {
+    if (!isOpen) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") {
+        e.preventDefault();
+        setIsOpen(true);
+      }
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (filteredOptions.length > 0) {
+        setHighlightedIndex(prev => (prev + 1) % filteredOptions.length);
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (filteredOptions.length > 0) {
+        setHighlightedIndex(prev => (prev - 1 + filteredOptions.length) % filteredOptions.length);
+      }
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (filteredOptions[highlightedIndex]) {
+        onChange(filteredOptions[highlightedIndex].value);
+        setIsOpen(false);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setIsOpen(false);
+    }
+  };
+
+  const handleSelect = (val) => {
+    onChange(val);
+    setIsOpen(false);
+  };
+
+  // Render the floating dropdown panel via a React portal so it sits above
+  // ALL stacking contexts and is never clipped by overflow:hidden parents.
+  const dropdownPanel = isOpen ? (
+    <div
+      ref={dropdownRef}
+      className="ce-searchable-select-dropdown"
+      style={dropdownStyle}
+      onMouseDown={e => e.stopPropagation()}
+    >
+      <div className="ce-searchable-select-search-container">
+        <input
+          ref={searchInputRef}
+          type="text"
+          className="ce-searchable-select-search-input"
+          placeholder="🔍 Search..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+        />
+      </div>
+      <div className="ce-searchable-select-options" ref={optionsRef}>
+        {filteredOptions.length > 0 ? (
+          filteredOptions.map((opt, idx) => {
+            const isSelected = opt.value === value;
+            const isHighlighted = idx === highlightedIndex;
+            return (
+              <div
+                key={opt.value}
+                className={`ce-searchable-select-option${isSelected ? " selected" : ""}${isHighlighted ? " highlighted" : ""}`}
+                onMouseDown={() => handleSelect(opt.value)}
+                title={opt.label}
+              >
+                {opt.label}
+              </div>
+            );
+          })
+        ) : (
+          <div className="ce-searchable-select-no-results">No options found</div>
+        )}
+      </div>
+    </div>
+  ) : null;
+
+  // Use a portal so the panel is mounted at document.body level,
+  // escaping any overflow:hidden parent containers.
+  return (
+    <div className="ce-searchable-select" onKeyDown={handleKeyDown}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`ce-searchable-select-trigger${disabled ? " disabled" : ""}`}
+        onClick={() => !disabled && setIsOpen(prev => !prev)}
+        disabled={disabled}
+      >
+        <span className="ce-searchable-select-trigger-text">{displayLabel}</span>
+        <span className={`ce-searchable-select-caret${isOpen ? " open" : ""}`}>▼</span>
+      </button>
+
+      {createPortal(dropdownPanel, document.body)}
+    </div>
+  );
+}
+
 // ── Cell Components ───────────────────────────────────────────────────────────
 
 function DropdownCell({ col, row, dropdowns, onChange, readOnly }) {
@@ -47,6 +260,39 @@ function DropdownCell({ col, row, dropdowns, onChange, readOnly }) {
   const cell = row[col.id];
   const selKey = cell?.key || "";
   const selectedLabel = cell?.label || (selKey === "__other__" ? cell?.otherText : "") || "";
+
+  const options = [
+    { value: "", label: "-- Select --" },
+    ...items.map(it => ({
+      value: it.item_key || it.k,
+      label: it.item_label || it.l
+    })),
+    ...(col.allow_others ? [{ value: "__other__", label: "Others" }] : [])
+  ];
+
+  const handleSelect = (key) => {
+    if (!key) {
+      onChange(col.id, null);
+      return;
+    }
+    if (key === "__other__") {
+      onChange(col.id, { key: "__other__", label: "Others", numValue: 0, isOther: true, otherText: "" });
+      return;
+    }
+    const item = items.find(i => (i.item_key || i.k) === key);
+    if (item) {
+      onChange(col.id, {
+        key: item.item_key || item.k,
+        label: item.item_label || item.l,
+        numValue: item.num_value ?? item.v ?? 0,
+        isOther: false,
+        ...(item.extra_values || {})
+      });
+    } else {
+      onChange(col.id, null);
+    }
+  };
+
   return (
     <>
       <div className="ce-cell-interactive">
@@ -54,17 +300,12 @@ function DropdownCell({ col, row, dropdowns, onChange, readOnly }) {
           <span className="ce-locked">{selectedLabel || "-"}</span>
         ) : (
           <>
-            <select className="ce-select" value={selKey} onChange={e => {
-              const key = e.target.value;
-              if (key === "__other__") { onChange(col.id, { key: "__other__", label: "Others", numValue: 0, isOther: true, otherText: "" }); return; }
-              const item = items.find(i => (i.item_key || i.k) === key);
-              if (item) onChange(col.id, { key: item.item_key || item.k, label: item.item_label || item.l, numValue: item.num_value ?? item.v ?? 0, isOther: false, ...(item.extra_values || {}) });
-              else onChange(col.id, null);
-            }}>
-              <option value="">-- Select --</option>
-              {items.map(it => <option key={it._id || it.id || it.item_key || it.k} value={it.item_key || it.k}>{it.item_label || it.l}</option>)}
-              {col.allow_others && <option value="__other__">Others</option>}
-            </select>
+            <SearchableSelect
+              value={selKey}
+              onChange={handleSelect}
+              options={options}
+              placeholder="-- Select --"
+            />
             {selKey === "__other__" && (
               <input type="text" className="ce-others-input" placeholder="Enter option..."
                 value={cell?.otherText || ""} onChange={e => onChange(col.id, { ...cell, otherText: e.target.value })} />
@@ -89,7 +330,13 @@ function NestedDropdownCell({ col, row, dropdowns, sec, onChange, readOnly }) {
   if (!parentCell?.key) return (
     <>
       <div className="ce-cell-interactive">
-        <select className="ce-select" disabled><option>-- Select {col.parent_col} first --</option></select>
+        <SearchableSelect
+          value=""
+          onChange={() => {}}
+          options={[{ value: "", label: `-- Select ${parentColCfg?.label || col.parent_col} first --` }]}
+          placeholder={`-- Select ${parentColCfg?.label || col.parent_col} first --`}
+          disabled={true}
+        />
       </div>
       <span className="ce-cell-print-only">-</span>
     </>
@@ -104,33 +351,45 @@ function NestedDropdownCell({ col, row, dropdowns, sec, onChange, readOnly }) {
   );
   const parentItem = allItems.find(i => (i.item_key || i.k) === parentCell.key);
   const children = parentItem?.children || [];
+
+  const options = [
+    { value: "", label: "-- Select --" },
+    ...children.map(c => ({
+      value: c.item_key || c.k,
+      label: c.item_label || c.l
+    })),
+    ...(col.allow_others ? [{ value: "__other__", label: "Others" }] : [])
+  ];
+
+  const handleSelect = (key) => {
+    if (!key) { onChange(col.id, null); return; }
+    if (key === "__other__") {
+      onChange(col.id, { key: "__other__", label: "Others", numValue: 0, isOther: true, otherText: "" });
+      return;
+    }
+    const found = children.find(c => (c.item_key || c.k) === key);
+    if (found) {
+      onChange(col.id, {
+        key: found.item_key || found.k,
+        label: found.item_label || found.l,
+        numValue: found.num_value ?? found.v ?? 0,
+        isOther: false,
+        ...(found.extra_values || {})
+      });
+    } else {
+      onChange(col.id, null);
+    }
+  };
+
   return (
     <>
       <div className="ce-cell-interactive">
-        <select className="ce-select" value={cell?.key || ""} onChange={e => {
-          const key = e.target.value;
-          if (!key) { onChange(col.id, null); return; }
-          if (key === "__other__") {
-            onChange(col.id, { key: "__other__", label: "Others", numValue: 0, isOther: true, otherText: "" });
-            return;
-          }
-          const found = children.find(c => (c.item_key || c.k) === key);
-          if (found) {
-            onChange(col.id, {
-              key: found.item_key || found.k,
-              label: found.item_label || found.l,
-              numValue: found.num_value ?? found.v ?? 0,
-              isOther: false,
-              ...(found.extra_values || {})
-            });
-          } else {
-            onChange(col.id, null);
-          }
-        }}>
-          <option value="">-- Select --</option>
-          {children.map(c => <option key={c._id || c.id || c.item_key || c.k} value={c.item_key || c.k}>{c.item_label || c.l}</option>)}
-          {col.allow_others && <option value="__other__">Others</option>}
-        </select>
+        <SearchableSelect
+          value={cell?.key || ""}
+          onChange={handleSelect}
+          options={options}
+          placeholder="-- Select --"
+        />
         {cell?.key === "__other__" && (
           <input type="text" className="ce-others-input" placeholder="Enter option..."
             value={cell?.otherText || ""} onChange={e => onChange(col.id, { ...cell, otherText: e.target.value })} />
@@ -150,21 +409,33 @@ function SectionRefCell({ col, row, sections, sectionRows, crossCalcRows, onChan
   if (readOnly) {
     return <span className="ce-locked">{selectedLabel || "-"}</span>;
   }
+
+  const options = [
+    { value: "", label: "-- Select --" },
+    ...opts.map(o => ({
+      value: String(o.rowIndex),
+      label: o.label
+    }))
+  ];
+
+  const handleSelect = (val) => {
+    if (val === "") { onChange(col.id, null); return; }
+    const rowIndex = parseInt(val);
+    const srcRow = sourceRows[rowIndex] || {};
+    const area = getNum(srcRow["area"]);
+    const opt = opts.find(o => o.rowIndex === rowIndex);
+    onChange(col.id, { rowIndex, label: opt?.label || "", area, numValue: area, _sourceRow: srcRow });
+  };
+
   return (
     <>
       <div className="ce-cell-interactive">
-        <select className="ce-select" value={selIdx === -1 ? "" : selIdx} onChange={e => {
-          const val = e.target.value;
-          if (val === "") { onChange(col.id, null); return; }
-          const rowIndex = parseInt(val);
-          const srcRow = sourceRows[rowIndex] || {};
-          const area = getNum(srcRow["area"]);
-          const opt = opts.find(o => o.rowIndex === rowIndex);
-          onChange(col.id, { rowIndex, label: opt?.label || "", area, numValue: area, _sourceRow: srcRow });
-        }}>
-          <option value="">-- Select --</option>
-          {opts.map(o => <option key={o.rowIndex} value={o.rowIndex}>{o.label}</option>)}
-        </select>
+        <SearchableSelect
+          value={selIdx === -1 ? "" : String(selIdx)}
+          onChange={handleSelect}
+          options={options}
+          placeholder="-- Select --"
+        />
       </div>
       <span className="ce-cell-print-only">{selectedLabel || "-"}</span>
     </>
