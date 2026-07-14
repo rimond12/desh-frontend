@@ -15,6 +15,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 let cssInjected = false;
 function injectLeafletCss() {
   if (cssInjected) return;
+
   cssInjected = true;
   const link = document.createElement('link');
   link.rel = 'stylesheet';
