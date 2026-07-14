@@ -684,7 +684,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
               background: '#D6F5E3', border: '1.5px solid #A8EFC0', color: '#145C28',
               fontSize: 13, fontWeight: 700, fontFamily: 'Montserrat,sans-serif',
             }}>
-              ✓ Certificate Issued
+              ✓ Label Issued
             </div>
           ) : project?.project_status === 'REVIEW_COMPLETE' ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>

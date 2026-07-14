@@ -80,11 +80,63 @@ function ItemModal({ masterId, parentId, editItem, onClose, onSaved, axios }) {
   );
 }
 
+// ── Clone Dropdown Modal ─────────────────────────────────────────────────────
+function CloneDropdownModal({ master, onClose, onCloned, axios }) {
+  const [newName, setNewName] = useState(`${master.name} (copy)`);
+  const [loading, setLoading] = useState(false);
+
+  async function handleClone() {
+    if (!newName.trim()) { alert("Name is required"); return; }
+    setLoading(true);
+    try {
+      const r = await axios.post(
+        `${API_BASE}/admin/dropdown-masters/${master._id || master.id}/clone`,
+        { name: newName.trim() }
+      );
+      onCloned(r.data.data.name);
+      onClose();
+    } catch (e) {
+      alert("Clone failed: " + (e.response?.data?.error || e.message));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Modal
+      title={`Clone: ${master.name}`}
+      onClose={onClose}
+      footer={
+        <>
+          <button className="ce-btn ce-btn-secondary" onClick={onClose} disabled={loading}>Cancel</button>
+          <button className="ce-btn ce-btn-primary" onClick={handleClone} disabled={loading}>
+            {loading ? "Cloning…" : "⧉ Clone List"}
+          </button>
+        </>
+      }
+    >
+      <p style={{ color: "var(--tx-muted)", fontSize: ".83rem", marginBottom: ".75rem" }}>
+        A full copy of <strong>{master.name}</strong> will be created including all items and nested children.
+      </p>
+      <label className="ce-label">New List Name *</label>
+      <input
+        type="text"
+        className="ce-input ce-form-input"
+        value={newName}
+        onChange={e => setNewName(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter") handleClone(); }}
+        autoFocus
+      />
+    </Modal>
+  );
+}
+
 // ── Master Card ───────────────────────────────────────────────────────────────
 function MasterCard({ master, onRefresh, axios }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState(null);
   const [editing, setEditing] = useState(false);
+  const [cloneModal, setCloneModal] = useState(false);
   const [name, setName] = useState(master.name);
   const [desc, setDesc] = useState(master.description || "");
   const [itemModal, setItemModal] = useState(null);
@@ -131,6 +183,11 @@ function MasterCard({ master, onRefresh, axios }) {
         <span className="ce-master-title">{master.name}</span>
         <div onClick={e => e.stopPropagation()} style={{ display: "flex", gap: ".35rem" }}>
           <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => setEditing(true)}>✏ Edit</button>
+          <button
+            className="ce-btn ce-btn-outline ce-btn-sm"
+            title="Clone this dropdown list with all its items"
+            onClick={() => setCloneModal(true)}
+          >⧉ Clone</button>
           <button className="ce-btn ce-btn-danger ce-btn-sm" onClick={handleDelete}>✕</button>
         </div>
       </div>
@@ -155,6 +212,17 @@ function MasterCard({ master, onRefresh, axios }) {
       )}
       {itemModal && <ItemModal masterId={master._id || master.id} parentId={itemModal.parentId} editItem={itemModal.editItem}
         onClose={() => setItemModal(null)} onSaved={loadItems} axios={axios} />}
+      {cloneModal && (
+        <CloneDropdownModal
+          master={master}
+          onClose={() => setCloneModal(false)}
+          onCloned={(clonedName) => {
+            alert(`✅ Cloned successfully as "${clonedName}"`);
+            onRefresh();
+          }}
+          axios={axios}
+        />
+      )}
     </div>
   );
 }
@@ -1242,6 +1310,7 @@ export default function CalcAdmin() {
   const [calcModal, setCalcModal] = useState(null);
   const [masterModal, setMasterModal] = useState(null);
   const [selectedCalc, setSelectedCalc] = useState(null); // calc to view in engine
+  const [dropdownSearch, setDropdownSearch] = useState("");
 
   const [categories, setCategories] = useState([]);
   const [tabsList, setTabsList] = useState([]);
@@ -1540,9 +1609,60 @@ export default function CalcAdmin() {
               <button className="ce-btn ce-btn-primary" onClick={() => setMasterModal({ edit: null })}>+ New List</button>
             </div>
           </div>
+
+          {/* Search / Filter Bar */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            marginBottom: "16px",
+            background: "var(--bg-soft)",
+            padding: "10px 14px",
+            borderRadius: "10px",
+            border: "1px solid var(--border)",
+          }}>
+            <span style={{ fontSize: "1rem", flexShrink: 0, color: "var(--tx-muted)" }}>🔍</span>
+            <input
+              id="dropdown-search-input"
+              type="text"
+              className="ce-input"
+              style={{ flex: 1, margin: 0 }}
+              placeholder="Search dropdown lists by name…"
+              value={dropdownSearch}
+              onChange={e => setDropdownSearch(e.target.value)}
+            />
+            {dropdownSearch && (
+              <button
+                className="ce-btn ce-btn-outline ce-btn-sm"
+                onClick={() => setDropdownSearch("")}
+                title="Clear search"
+              >✕ Clear</button>
+            )}
+            <span style={{ fontSize: ".8rem", color: "var(--tx-muted)", flexShrink: 0, whiteSpace: "nowrap" }}>
+              {(() => {
+                const q = dropdownSearch.trim().toLowerCase();
+                const count = q ? masters.filter(m => m.name.toLowerCase().includes(q)).length : masters.length;
+                return `${count} / ${masters.length} list${masters.length !== 1 ? "s" : ""}`;
+              })()}
+            </span>
+          </div>
+
           <div className="ce-master-list">
             {masters.length === 0 && <div className="ce-empty">No dropdown lists yet.</div>}
-            {masters.map(m => <MasterCard key={m._id || m.id} master={m} onRefresh={loadMasters} axios={axios} />)}
+            {masters.length > 0 && (() => {
+              const q = dropdownSearch.trim().toLowerCase();
+              const filtered = q ? masters.filter(m => m.name.toLowerCase().includes(q)) : masters;
+              if (filtered.length === 0) {
+                return (
+                  <div className="ce-empty" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: ".5rem" }}>
+                    <span style={{ fontSize: "1.5rem" }}>🔍</span>
+                    <span>No dropdown lists match <strong>"{dropdownSearch}"</strong></span>
+                    <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => setDropdownSearch("")}>Clear Search</button>
+                  </div>
+                );
+              }
+              return filtered.map(m => <MasterCard key={m._id || m.id} master={m} onRefresh={loadMasters} axios={axios} />);
+            })()}
           </div>
         </div>
       )}

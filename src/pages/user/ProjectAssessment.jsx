@@ -547,22 +547,22 @@ export default function ProjectAssessment() {
   const isEditable = !isOwner && !isLocked && project?.status !== 'submitted';
 
   const downloadOfficialCertificate = () => {
-    const toastId = toast.loading('Downloading certificate...');
+    const toastId = toast.loading('Downloading label...');
     ax.get(`/projects/${id}/certificate/download`, { responseType: 'blob' })
       .then((response) => {
         const blob = new Blob([response.data], { type: 'application/pdf' });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `Certificate-${project?.certificate_serial || id}.pdf`);
+        link.setAttribute('download', `Label-${project?.certificate_serial || id}.pdf`);
         document.body.appendChild(link);
         link.click();
         link.remove();
         window.URL.revokeObjectURL(url);
-        toast.success('Certificate downloaded successfully!', { id: toastId });
+        toast.success('Label downloaded successfully!', { id: toastId });
       })
       .catch(() => {
-        toast.error('Failed to download certificate', { id: toastId });
+        toast.error('Failed to download label', { id: toastId });
       });
   };
 
@@ -1389,7 +1389,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(5,150,105,0.35)'; }}
                       onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(5,150,105,0.25)'; }}
                     >
-                      <span>📜</span> Download Official Leaf Certificate
+                      <span>📜</span> Download Official Leaf Label
                     </button>
                   )}
                   <span className={project?.status === 'submitted'

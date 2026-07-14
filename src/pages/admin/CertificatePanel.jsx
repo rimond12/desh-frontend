@@ -196,7 +196,7 @@ function buildCertificateHTML(data, settings, evalRules) {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>DESH Certificate — ${escHtml(data.serialNumber || '')}</title>
+<title>DESH Label — ${escHtml(data.serialNumber || '')}</title>
 <style>
   :root{
     --tier-active-color: ${activeColor};
@@ -377,7 +377,7 @@ function buildCertificateHTML(data, settings, evalRules) {
 
   <div class="cert-footer">
     <div class="qr-wrap">
-      <img crossorigin="anonymous" src="${escHtml(data.qrImageUrl || '')}" alt="Certificate verification QR code" onerror="this.style.opacity='0.3'">
+      <img crossorigin="anonymous" src="${escHtml(data.qrImageUrl || '')}" alt="Label verification QR code" onerror="this.style.opacity='0.3'">
     </div>
 
     <div class="meta-line">
@@ -490,7 +490,7 @@ export default function CertificatePanel({ project, onClose, onIssued }) {
     try {
       const res = await axiosSecure.post('/manager/certificate/generate', { projectId: project._id });
       const d = res.data.certificateData;
-      if (!d) { toast.error('No certificate data returned'); return; }
+      if (!d) { toast.error('No label data returned'); return; }
 
 
       const now = new Date(d.issuedAt || Date.now());
@@ -532,9 +532,9 @@ export default function CertificatePanel({ project, onClose, onIssued }) {
         serialNumber: d.serialNumber || `DESH-${new Date().getFullYear()}-BAN-00001`,
         leafImageUrl: d.leafImageUrl ? (d.leafImageUrl.startsWith('data:') ? d.leafImageUrl : `${SERVER_BASE}${d.leafImageUrl}`) : null,
       });
-      toast.success('Certificate data loaded from database');
+      toast.success('Label data loaded from database');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to generate certificate data');
+      toast.error(err.response?.data?.message || 'Failed to generate label data');
     } finally {
       setLoading(false);
     }
@@ -635,7 +635,7 @@ export default function CertificatePanel({ project, onClose, onIssued }) {
         padding:10px 22px;display:flex;align-items:center;gap:14px;z-index:9999;
         border-bottom:1px solid #ddd;box-shadow:0 2px 14px rgba(0,0,0,.08)">
         <div style="flex:1;font-family:Montserrat,sans-serif;font-weight:800;font-size:13px;color:#111">
-          ${escHtml(form.serialNumber)} — DESH Certificate
+          ${escHtml(form.serialNumber)} — DESH Label
         </div>
         <button onclick="window.print()" style="
           background:#1f6e34;color:#fff;border:none;padding:9px 22px;border-radius:9px;
@@ -656,9 +656,9 @@ export default function CertificatePanel({ project, onClose, onIssued }) {
 
   // ── Approve & Issue ──────────────────────────────────────────
   const handleApprove = async () => {
-    if (!window.confirm('Issue this certificate? The project status will change to CERTIFICATE ISSUED and the user will be able to download it.')) return;
+    if (!window.confirm('Issue this label? The project status will change to LABEL ISSUED and the user will be able to download it.')) return;
     setApproving(true);
-    const toastId = toast.loading('Issuing certificate…');
+    const toastId = toast.loading('Issuing label…');
     try {
       // Capture the cert page as PDF via html2canvas + jsPDF in a hidden iframe
       const pdfDataUrl = await captureCertAsPdf(certHTML);
@@ -681,11 +681,11 @@ export default function CertificatePanel({ project, onClose, onIssued }) {
         })),
       });
 
-      toast.success('Certificate issued successfully! The professional can now download it.', { id: toastId });
+      toast.success('Label issued successfully! The professional can now download it.', { id: toastId });
       onIssued?.();
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to issue certificate', { id: toastId });
+      toast.error(err.response?.data?.message || 'Failed to issue label', { id: toastId });
     } finally {
       setApproving(false);
     }
@@ -714,7 +714,7 @@ export default function CertificatePanel({ project, onClose, onIssued }) {
           }}>🏅</div>
           <div style={{ minWidth: 0 }}>
             <p style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 900, fontSize: 14, color: '#fff', margin: 0 }}>
-              Certificate Studio
+              Label Studio
             </p>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {project?.title}
@@ -805,7 +805,7 @@ export default function CertificatePanel({ project, onClose, onIssued }) {
           {loading ? (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid rgba(34,168,75,0.2)', borderTopColor: '#22A84B', animation: 'cspin 0.8s linear infinite' }} />
-              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Loading certificate data…</p>
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Loading label data…</p>
               <style>{`@keyframes cspin{to{transform:rotate(360deg);}}`}</style>
             </div>
           ) : (
@@ -879,7 +879,7 @@ export default function CertificatePanel({ project, onClose, onIssued }) {
               {/* ── HISTORY ── */}
               {activeSection === 'history' && <>
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: 'Montserrat,sans-serif' }}>
-                  Past years' performance (shown at the bottom of the certificate)
+                  Past years' performance (shown at the bottom of the label)
                 </p>
                 {form.history.map((h, i) => (
                   <div key={i} style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -950,7 +950,7 @@ export default function CertificatePanel({ project, onClose, onIssued }) {
             display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
           }}>
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', fontFamily: 'Montserrat,sans-serif' }}>
-              LIVE PREVIEW — CERTIFICATE
+              LIVE PREVIEW — LABEL
             </span>
             <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>
               Updates instantly as you edit
@@ -960,7 +960,7 @@ export default function CertificatePanel({ project, onClose, onIssued }) {
             <iframe
               ref={iframeRef}
               srcDoc={certHTML}
-              title="Certificate Preview"
+              title="Label Preview"
               style={{
                 width: '100%',
                 minHeight: 900,

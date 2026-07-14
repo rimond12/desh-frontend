@@ -43,22 +43,22 @@ export default function Projects() {
   };
 
   const downloadCertificate = (id, serial) => {
-    const toastId = toast.loading('Downloading certificate...');
+    const toastId = toast.loading('Downloading label...');
     axiosSecure.get(`/projects/${id}/certificate/download`, { responseType: 'blob' })
       .then((response) => {
         const blob = new Blob([response.data], { type: 'application/pdf' });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `Certificate-${serial || id}.pdf`);
+        link.setAttribute('download', `Label-${serial || id}.pdf`);
         document.body.appendChild(link);
         link.click();
         link.remove();
         window.URL.revokeObjectURL(url);
-        toast.success('Certificate downloaded successfully!', { id: toastId });
+        toast.success('Label downloaded successfully!', { id: toastId });
       })
       .catch(() => {
-        toast.error('Failed to download certificate', { id: toastId });
+        toast.error('Failed to download label', { id: toastId });
       });
   };
 
@@ -290,7 +290,7 @@ function ProjectCard({ project: p, delay, onRename, onDelete, onDownloadCertific
               border: '1px solid rgba(34,168,75,0.4)',
               fontFamily: 'Montserrat,sans-serif',
             }}>
-              🏅 Certificate Issued
+              🏅 Label Issued
             </span>
           ) : (
             <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${p.status === 'submitted' ? 'status-completed' : 'status-pending'}`}>
@@ -329,7 +329,7 @@ function ProjectCard({ project: p, delay, onRename, onDelete, onDownloadCertific
               e.currentTarget.style.boxShadow = 'none';
             }}
           >
-            ⬇ Download Certificate
+            ⬇ Download Label
           </button>
         </div>
       )}

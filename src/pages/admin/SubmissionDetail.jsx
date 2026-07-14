@@ -895,7 +895,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
               }
             }}
           >
-            🏅 {project?.project_status === 'CERTIFICATE_ISSUED' ? 'View Certificate' : 'Issue Certificate'}
+            🏅 {project?.project_status === 'CERTIFICATE_ISSUED' ? 'View Label' : 'Issue Label'}
           </button>
 
           {/* Edit Status (primary green CTA) */}

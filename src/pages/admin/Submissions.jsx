@@ -250,15 +250,15 @@ export default function Submissions() {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `Certificate-${serial || id}.pdf`);
+        link.setAttribute('download', `Label-${serial || id}.pdf`);
         document.body.appendChild(link);
         link.click();
         link.remove();
         window.URL.revokeObjectURL(url);
-        toast.success('Certificate downloaded');
+        toast.success('Label downloaded');
       })
       .catch(() => {
-        toast.error('Failed to download certificate');
+        toast.error('Failed to download label');
       });
   };
 
