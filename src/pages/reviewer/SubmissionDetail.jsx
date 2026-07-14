@@ -1283,7 +1283,100 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                           </div>
                                         );
                                       })()
-                                      : (inp.value || <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)}
+                                      : inp.inputType === 'number'
+                                        ? (() => {
+                                            // ── Read-only range bar for NUMBER questions ──
+                                            const sMin = inp.sliderMin != null ? Number(inp.sliderMin) : (inp.line?.x1 ?? 0);
+                                            const sMax = inp.sliderMax != null ? Number(inp.sliderMax) : (inp.line?.x2 ?? 100);
+                                            const rawVal = inp.value;
+                                            const hasVal = rawVal !== '' && rawVal !== undefined && rawVal !== null;
+                                            const numVal = hasVal ? Number(rawVal) : null;
+                                            const pct = (hasVal && sMax > sMin)
+                                              ? Math.min(Math.max(((numVal - sMin) / (sMax - sMin)) * 100, 0), 100)
+                                              : 0;
+                                            const maxPts = calcInputMax(inp);
+                                            const earnedPts = inp.points || 0;
+                                            // Color: green = full, amber = partial, grey = zero/empty
+                                            const barColor = !hasVal ? '#D1D5DB'
+                                              : maxPts > 0 && earnedPts >= maxPts ? '#16A34A'
+                                              : earnedPts > 0 ? '#D97706'
+                                              : '#9CA3AF';
+                                            const scoreBadgeBg = !hasVal ? 'var(--bg-muted)'
+                                              : maxPts > 0 && earnedPts >= maxPts ? '#D6F5E3'
+                                              : earnedPts > 0 ? '#FEF9C3'
+                                              : 'var(--bg-muted)';
+                                            const scoreBadgeColor = !hasVal ? 'var(--tx-faint)'
+                                              : maxPts > 0 && earnedPts >= maxPts ? '#145C28'
+                                              : earnedPts > 0 ? '#92400E'
+                                              : 'var(--tx-faint)';
+                                            const scoreBadgeBorder = !hasVal ? 'var(--border)'
+                                              : maxPts > 0 && earnedPts >= maxPts ? '#A8EFC0'
+                                              : earnedPts > 0 ? '#FDE68A'
+                                              : 'var(--border)';
+                                            return (
+                                              <div style={{ marginTop: 2, maxWidth: 340 }}>
+                                                {/* Value + score badge row */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                                                  <span style={{
+                                                    fontSize: 20, fontWeight: 900,
+                                                    fontFamily: 'Montserrat,sans-serif',
+                                                    color: hasVal ? 'var(--tx)' : 'var(--tx-faint)',
+                                                    lineHeight: 1,
+                                                  }}>
+                                                    {hasVal ? rawVal : '—'}
+                                                  </span>
+                                                  {hasVal && maxPts > 0 && (
+                                                    <span style={{
+                                                      fontSize: 11, fontWeight: 700,
+                                                      padding: '3px 9px', borderRadius: 7,
+                                                      background: scoreBadgeBg,
+                                                      color: scoreBadgeColor,
+                                                      border: `1px solid ${scoreBadgeBorder}`,
+                                                      whiteSpace: 'nowrap',
+                                                    }}>
+                                                      → {earnedPts.toFixed(1)} / {maxPts} pts
+                                                    </span>
+                                                  )}
+                                                </div>
+
+                                                {/* Progress bar track */}
+                                                <div style={{
+                                                  width: '100%', height: 8, borderRadius: 99,
+                                                  background: 'var(--bg-muted)',
+                                                  overflow: 'hidden', position: 'relative',
+                                                }}>
+                                                  <div style={{
+                                                    position: 'absolute', left: 0, top: 0, bottom: 0,
+                                                    width: `${pct}%`,
+                                                    background: barColor,
+                                                    borderRadius: 99,
+                                                    transition: 'width 0.6s cubic-bezier(0.4,0,0.2,1)',
+                                                  }} />
+                                                </div>
+
+                                                {/* Min / Max range labels */}
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                                                  <span style={{ fontSize: 10, color: 'var(--tx-faint)', fontWeight: 600 }}>{sMin}</span>
+                                                  <span style={{ fontSize: 10, color: 'var(--tx-faint)', fontWeight: 600 }}>{sMax}</span>
+                                                </div>
+
+                                                {/* Scoring line hint */}
+                                                {inp.line && (inp.line.x1 != null || inp.line.x2 != null) && (
+                                                  <div style={{
+                                                    marginTop: 7,
+                                                    display: 'inline-block',
+                                                    fontSize: 10, fontWeight: 600,
+                                                    padding: '2px 8px', borderRadius: 5,
+                                                    background: '#EFF6FF', color: '#1D4ED8',
+                                                    border: '1px solid #BFDBFE',
+                                                  }}>
+                                                    ({inp.line.x1}, {inp.line.y1}pts) → ({inp.line.x2}, {inp.line.y2}pts)
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+                                          })()
+                                        : (inp.value || <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)}
                                 </div>
                                 {/* Calculate Button (Read-Only Mode for Reviewer) */}
                                 {(inp.calcBtn?.url || inp.calcBtn?.calcId) && (
