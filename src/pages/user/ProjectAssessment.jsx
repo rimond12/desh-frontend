@@ -1142,7 +1142,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
               fontWeight: 700, fontSize: 13, fontFamily: 'Montserrat,sans-serif',
               whiteSpace: 'nowrap', transition: 'all 0.15s',
             }}>
-              ⬇ Download PDF
+              ⬇ Download Report
             </button>
             {isCreator && (
               <button

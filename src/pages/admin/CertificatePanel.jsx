@@ -744,7 +744,7 @@ export default function CertificatePanel({ project, onClose, onIssued }) {
             🖨 Print
           </button>
           <button onClick={handleDownload} style={btnStyle('#1a2d3a', '#60A5FA')}>
-            ⬇ Download PDF
+            ⬇ Download Report
           </button>
           <button onClick={handleApprove} disabled={approving} style={{
             display: 'flex', alignItems: 'center', gap: 7,

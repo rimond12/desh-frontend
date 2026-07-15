@@ -678,7 +678,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
           display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 12,
           border: '1.5px solid #BFDBFE', background: '#EFF6FF', color: '#1D4ED8',
           fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'Montserrat,sans-serif', flexShrink: 0,
-        }}>⬇ Download PDF</button>
+        }}>⬇ Download Report</button>
 
         {/* Workflow Status dropdown */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
