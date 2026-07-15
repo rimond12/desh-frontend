@@ -1749,21 +1749,50 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                     {inp.points.toFixed(1)} pts
                                   </span>
                                 )}
-                                <button
-                                  onClick={() => toggleInputLock(inp._id, isInputLocked)}
-                                  disabled={isToggling}
-                                  style={{
-                                    fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 7,
-                                    border: `1px solid ${isInputLocked ? '#FDE68A' : 'var(--g200)'}`,
-                                    background: isInputLocked ? '#FEF9C3' : 'var(--g50)',
-                                    color: isInputLocked ? '#92400E' : 'var(--g700)',
-                                    cursor: isToggling ? 'wait' : 'pointer',
-                                    whiteSpace: 'nowrap', opacity: isToggling ? 0.6 : 1,
-                                    transition: 'all 0.2s',
-                                  }}
-                                >
-                                  {isToggling ? '...' : isInputLocked ? '🔓 Unlock' : '🔒 Lock'}
-                                </button>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 4, alignItems: 'flex-end' }}>
+                                  {/* Dual Lock Indicators */}
+                                  <div style={{ display: 'flex', gap: 6 }}>
+                                    {/* Assessor check indicator */}
+                                    <span 
+                                      title={inp.assessorChecked ? `Locked by ${inp.assessorCheckedBy?.name || 'Assessor'}${inp.assessorCheckedAt ? ' on ' + new Date(inp.assessorCheckedAt).toLocaleString() : ''}` : 'Assessor Lock Unchecked'}
+                                      style={{
+                                        fontSize: 9.5, fontWeight: 700, padding: '2px 6px', borderRadius: 5,
+                                        background: inp.assessorChecked ? 'rgba(59,130,246,0.1)' : '#F3F4F6',
+                                        color: inp.assessorChecked ? '#1D4ED8' : '#7F8C8D',
+                                        border: `1px solid ${inp.assessorChecked ? '#93C5FD' : '#E5E7EB'}`
+                                      }}
+                                    >
+                                      Assessor: {inp.assessorChecked ? '🔒' : '✏️'}
+                                    </span>
+                                    {/* Reviewer check indicator */}
+                                    <span 
+                                      title={inp.reviewerChecked ? `Locked by ${inp.reviewerCheckedBy?.name || 'Reviewer'}${inp.reviewerCheckedAt ? ' on ' + new Date(inp.reviewerCheckedAt).toLocaleString() : ''}` : 'Reviewer Lock Unchecked'}
+                                      style={{
+                                        fontSize: 9.5, fontWeight: 700, padding: '2px 6px', borderRadius: 5,
+                                        background: inp.reviewerChecked ? 'rgba(124,58,237,0.1)' : '#F3F4F6',
+                                        color: inp.reviewerChecked ? '#6D28D9' : '#7F8C8D',
+                                        border: `1px solid ${inp.reviewerChecked ? '#C084FC' : '#E5E7EB'}`
+                                      }}
+                                    >
+                                      Reviewer: {inp.reviewerChecked ? '🔒' : '✏️'}
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() => toggleInputLock(inp._id, isInputLocked)}
+                                    disabled={isToggling}
+                                    style={{
+                                      fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 7,
+                                      border: `1px solid ${isInputLocked ? '#FDE68A' : 'var(--g200)'}`,
+                                      background: isInputLocked ? '#FEF9C3' : 'var(--g50)',
+                                      color: isInputLocked ? '#92400E' : 'var(--g700)',
+                                      cursor: isToggling ? 'wait' : 'pointer',
+                                      whiteSpace: 'nowrap', opacity: isToggling ? 0.6 : 1,
+                                      transition: 'all 0.2s',
+                                    }}
+                                  >
+                                    {isToggling ? '...' : isInputLocked ? '🔓 Unlock for Applicant' : '🔒 Lock for Applicant'}
+                                  </button>
+                                </div>
                               </div>
                             </div>
                             {/* Comment thread — admin can view + edit any comment */}

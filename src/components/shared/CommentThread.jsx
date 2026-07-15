@@ -24,7 +24,7 @@ function timeAgo(dateStr) {
 }
 
 // ── Single Comment Row ────────────────────────────────────────────
-function CommentItem({ comment, currentUserId, currentRole, onReply, onEdit, onDelete, onDownloadAttachment, depth = 0 }) {
+function CommentItem({ comment, currentUserId, currentRole, onReply, onEdit, onDelete, onDownloadAttachment, depth = 0, isLocked = false }) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(comment.text);
   const cfg = ROLE_CFG[comment.role] || ROLE_CFG.user;
@@ -131,19 +131,19 @@ function CommentItem({ comment, currentUserId, currentRole, onReply, onEdit, onD
         {/* Actions */}
         {!editing && (
           <div style={{ display: 'flex', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
-            {onReply && (
+            {onReply && !isLocked && (
               <button onClick={() => onReply(comment._id)} style={{
                 fontSize: 11, fontWeight: 700, color: 'var(--tx-muted)', background: 'none',
                 border: 'none', cursor: 'pointer', padding: '1px 0',
               }}>↩ Reply</button>
             )}
-            {(isOwn || isAdmin) && (
+            {(isOwn || isAdmin) && !isLocked && (
               <button onClick={() => setEditing(true)} style={{
                 fontSize: 11, fontWeight: 700, color: 'var(--tx-faint)', background: 'none',
                 border: 'none', cursor: 'pointer', padding: '1px 0',
               }}>✎ Edit</button>
             )}
-            {(isOwn || isAdmin) && (
+            {(isOwn || isAdmin) && !isLocked && (
               <button onClick={() => onDelete(comment._id)} style={{
                 fontSize: 11, fontWeight: 700, color: '#EF4444', background: 'none',
                 border: 'none', cursor: 'pointer', padding: '1px 0',
@@ -380,11 +380,12 @@ export default function CommentThread({
                 comment={cm}
                 currentUserId={currentUserId}
                 currentRole={currentRole}
-                onReply={canComment ? (pid) => { setReplyTo(pid); } : null}
+                onReply={canComment && !isLocked ? (pid) => { setReplyTo(pid); } : null}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onDownloadAttachment={downloadAttachment}
                 depth={0}
+                isLocked={isLocked}
               />
               {/* Replies */}
               {replies(cm._id).map(reply => (
@@ -398,6 +399,7 @@ export default function CommentThread({
                   onDelete={handleDelete}
                   onDownloadAttachment={downloadAttachment}
                   depth={1}
+                  isLocked={isLocked}
                 />
               ))}
               {/* Reply input for this comment */}
@@ -411,11 +413,13 @@ export default function CommentThread({
                         onKeyDown={handleKeyDown}
                         rows={2}
                         autoFocus
-                        placeholder={`Reply to ${cm.authorName}…`}
+                        disabled={isLocked}
+                        placeholder={isLocked ? '🔒 Locked' : `Reply to ${cm.authorName}…`}
                         style={{
                           width: '100%', padding: '7px 10px', borderRadius: 8,
                           border: '1.5px solid var(--g300)', outline: 'none', resize: 'vertical',
                           fontSize: 13, fontFamily: 'Nunito,sans-serif',
+                          background: isLocked ? '#F3F4F6' : '#fff',
                         }}
                       />
                       {showMentions && filteredMentionables.length > 0 && (
@@ -457,11 +461,12 @@ export default function CommentThread({
                       )}
                       
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginTop: 6 }}>
-                        <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--g700)', fontWeight: 700 }}>
+                        <label style={{ cursor: isLocked ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--g700)', fontWeight: 700 }}>
                           📎 Attach file
                           <input
                             type="file"
-                            onChange={e => setAttachmentFile(e.target.files[0])}
+                            onChange={e => !isLocked && setAttachmentFile(e.target.files[0])}
+                            disabled={isLocked}
                             style={{ display: 'none' }}
                           />
                         </label>
@@ -474,9 +479,9 @@ export default function CommentThread({
                       </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <button onClick={() => submitComment(cm._id)} disabled={sending} style={{
+                      <button onClick={() => submitComment(cm._id)} disabled={sending || isLocked} style={{
                         padding: '6px 12px', borderRadius: 7, border: 'none', fontSize: 12,
-                        background: 'var(--g600)', color: '#fff', fontWeight: 700, cursor: 'pointer',
+                        background: isLocked ? '#94A3B8' : 'var(--g600)', color: '#fff', fontWeight: 700, cursor: isLocked ? 'not-allowed' : 'pointer',
                         whiteSpace: 'nowrap',
                       }}>↩ Send</button>
                       <button onClick={() => { setReplyTo(null); setNewText(''); setAttachmentFile(null); }} style={{
@@ -499,11 +504,13 @@ export default function CommentThread({
                   onChange={e => handleTextareaChange(e.target.value)}
                   onKeyDown={handleKeyDown}
                   rows={2}
-                  placeholder={currentRole === 'reviewer' || currentRole === 'desh_reviewer' ? 'Add a review comment…' : 'Add a comment…'}
+                  disabled={isLocked}
+                  placeholder={isLocked ? '🔒 Locked' : (currentRole === 'reviewer' || currentRole === 'desh_reviewer' ? 'Add a review comment…' : 'Add a comment…')}
                   style={{
                     width: '100%', padding: '8px 11px', borderRadius: 9,
                     border: '1.5px solid var(--border-md)', outline: 'none', resize: 'vertical',
-                    fontSize: 13, fontFamily: 'Nunito,sans-serif', background: '#fff',
+                    fontSize: 13, fontFamily: 'Nunito,sans-serif', background: isLocked ? '#F3F4F6' : '#fff',
+                    cursor: isLocked ? 'not-allowed' : 'text',
                   }}
                 />
                 {showMentions && filteredMentionables.length > 0 && (
@@ -545,20 +552,22 @@ export default function CommentThread({
                 )}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginTop: 6 }}>
                   {isStaff && (
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--tx-muted)', cursor: 'pointer', fontWeight: 700 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--tx-muted)', cursor: isLocked ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
                       <input
                         type="checkbox"
                         checked={isPrivateStaff}
+                        disabled={isLocked}
                         onChange={e => setIsPrivateStaff(e.target.checked)}
-                        style={{ accentColor: 'var(--g600)', cursor: 'pointer' }}
+                        style={{ accentColor: 'var(--g600)', cursor: isLocked ? 'not-allowed' : 'pointer' }}
                       />
                       Private to Staff
                     </label>
                   )}
-                  <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--g700)', fontWeight: 700 }}>
+                  <label style={{ cursor: isLocked ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--g700)', fontWeight: 700 }}>
                     📎 Attach file
                     <input
                       type="file"
+                      disabled={isLocked}
                       onChange={e => setAttachmentFile(e.target.files[0])}
                       style={{ display: 'none' }}
                     />
@@ -571,11 +580,11 @@ export default function CommentThread({
                   )}
                 </div>
               </div>
-              <button onClick={() => submitComment(null)} disabled={sending || !newText.trim()} style={{
+              <button onClick={() => submitComment(null)} disabled={sending || !newText.trim() || isLocked} style={{
                 padding: '8px 14px', borderRadius: 9, border: 'none',
-                background: 'linear-gradient(135deg,var(--g700),var(--g500))',
-                color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-                whiteSpace: 'nowrap', opacity: !newText.trim() ? 0.5 : 1,
+                background: isLocked ? '#94A3B8' : 'linear-gradient(135deg,var(--g700),var(--g500))',
+                color: '#fff', fontWeight: 700, fontSize: 13, cursor: isLocked ? 'not-allowed' : 'pointer',
+                whiteSpace: 'nowrap', opacity: !newText.trim() || isLocked ? 0.5 : 1,
               }}>
                 {sending ? '…' : '✓ Post'}
               </button>

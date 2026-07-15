@@ -167,19 +167,56 @@ export default function ReviewerSubmissionDetail() {
       })
       .catch(() => toast.error('Failed to load submission'))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, axiosSecure]);
 
   const [togglingInput, setTogglingInput] = useState(null); // inputId currently being toggled
 
-  const toggleInputLock = async (inputId, currentlyLocked) => {
+
+
+  const toggleQuestionCheck = async (inputId, checked) => {
     setTogglingInput(String(inputId));
-    const endpoint = currentlyLocked ? 'unlock-input' : 'lock-input';
     try {
-      const res = await axiosSecure.post(`/submissions/${id}/${endpoint}`, { inputId });
-      setLockedInputsSet(new Set((res.data.lockedInputs || []).map(String)));
-      toast.success(currentlyLocked ? 'Question unlocked.' : 'Question locked.');
-    } catch (e) { toast.error(e.response?.data?.message || 'Failed to update lock'); }
-    finally { setTogglingInput(null); }
+      await axiosSecure.post(`/submissions/${id}/toggle-question-check`, { inputId, checked });
+      // Update the local tabs state with the newly toggled check values
+      setTabs(prevTabs => {
+        return prevTabs.map(tab => {
+          return {
+            ...tab,
+            modules: (tab.modules || []).map(mod => {
+              return {
+                ...mod,
+                inputs: (mod.inputs || []).map(inp => {
+                  if (String(inp._id) === String(inputId)) {
+                    const isReviewer = activeRole === 'desh_reviewer' || activeRole === 'reviewer';
+                    const isAssessor = activeRole === 'desh_assessor';
+                    const updateProps = {};
+                    if (isReviewer) {
+                      updateProps.reviewerChecked = checked;
+                      updateProps.reviewerCheckedBy = checked ? { _id: dbUser?._id, name: dbUser?.name, email: dbUser?.email } : null;
+                      updateProps.reviewerCheckedAt = checked ? new Date().toISOString() : null;
+                    } else if (isAssessor) {
+                      updateProps.assessorChecked = checked;
+                      updateProps.assessorCheckedBy = checked ? { _id: dbUser?._id, name: dbUser?.name, email: dbUser?.email } : null;
+                      updateProps.assessorCheckedAt = checked ? new Date().toISOString() : null;
+                    }
+                    return {
+                      ...inp,
+                      ...updateProps
+                    };
+                  }
+                  return inp;
+                })
+              };
+            })
+          };
+        });
+      });
+      toast.success(checked ? 'Question locked.' : 'Question unlocked.');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to update lock');
+    } finally {
+      setTogglingInput(null);
+    }
   };
 
   const [finalizingPillar, setFinalizingPillar] = useState(null);
@@ -213,9 +250,7 @@ export default function ReviewerSubmissionDetail() {
     }
   };
 
-  const lockSubmission = async () => {
-    await completeFullReview();
-  };
+
 
   const unlockSubmission = async () => {
     if (!window.confirm('Unlock this submission? The user will be able to edit it again.')) return;
@@ -1420,40 +1455,63 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                   </span>
                                 )}
 
-                                {activeRole !== 'desh_assessor' && (
-                                  <>
-                                    {/* Lock status badge */}
-                                    <span style={{
-                                      fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6,
-                                      background: isInputLocked ? '#FEF9C3' : '#D6F5E3',
-                                      color: isInputLocked ? '#92400E' : '#145C28',
-                                      border: `1px solid ${isInputLocked ? '#FDE68A' : '#A8EFC0'}`,
-                                      fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
-                                    }}>
-                                      {isInputLocked ? '🔒 Locked' : '✏️ Editable'}
-                                    </span>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 4 }}>
+                                  {/* Assessor Checkbox */}
+                                  <label 
+                                    title={
+                                      inp.assessorChecked 
+                                        ? `Locked by ${inp.assessorCheckedBy?.name || 'Assessor'}${inp.assessorCheckedAt ? ' on ' + new Date(inp.assessorCheckedAt).toLocaleString() : ''}` 
+                                        : 'Toggle Assessor Lock'
+                                    }
+                                    style={{
+                                      display: 'flex', alignItems: 'center', gap: 6,
+                                      padding: '4px 8px', borderRadius: 8, fontSize: 10.5, fontWeight: 700,
+                                      background: inp.assessorChecked ? 'rgba(59,130,246,0.1)' : '#F3F4F6',
+                                      color: inp.assessorChecked ? '#1D4ED8' : '#4B5563',
+                                      border: `1px solid ${inp.assessorChecked ? '#93C5FD' : '#E5E7EB'}`,
+                                      cursor: activeRole === 'desh_assessor' && !isToggling ? 'pointer' : 'default',
+                                      transition: 'all 0.15s ease',
+                                      opacity: (activeRole !== 'desh_assessor' && activeRole !== 'desh_manager' && activeRole !== 'admin') ? 0.6 : 1
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={!!inp.assessorChecked}
+                                      onChange={(e) => toggleQuestionCheck(inp._id, e.target.checked)}
+                                      disabled={activeRole !== 'desh_assessor' || isToggling}
+                                      style={{ width: 13, height: 13, cursor: activeRole === 'desh_assessor' && !isToggling ? 'pointer' : 'default', accentColor: '#1D4ED8' }}
+                                    />
+                                    <span>Assessor Lock {inp.assessorChecked ? '🔒' : '✏️'}</span>
+                                  </label>
 
-                                    {/* Lock / Unlock toggle button */}
-                                    <button
-                                      onClick={() => toggleInputLock(inp._id, isInputLocked)}
-                                      disabled={isToggling}
-                                      title={isInputLocked ? 'Unlock this question' : 'Lock this question'}
-                                      style={{
-                                        display: 'flex', alignItems: 'center', gap: 4,
-                                        padding: '4px 10px', borderRadius: 7, fontSize: 11, fontWeight: 700,
-                                        cursor: isToggling ? 'wait' : 'pointer',
-                                        border: `1px solid ${isInputLocked ? '#C4B5FD' : '#FDE68A'}`,
-                                        background: isInputLocked ? '#EDE9FE' : '#FFFBEB',
-                                        color: isInputLocked ? '#5B21B6' : '#92400E',
-                                        fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
-                                        opacity: isToggling ? 0.6 : 1,
-                                        transition: 'all 0.15s',
-                                      }}
-                                    >
-                                      {isToggling ? '…' : isInputLocked ? '🔓 Unlock' : '🔒 Lock'}
-                                    </button>
-                                  </>
-                                )}
+                                  {/* Reviewer Checkbox */}
+                                  <label 
+                                    title={
+                                      inp.reviewerChecked 
+                                        ? `Locked by ${inp.reviewerCheckedBy?.name || 'Reviewer'}${inp.reviewerCheckedAt ? ' on ' + new Date(inp.reviewerCheckedAt).toLocaleString() : ''}` 
+                                        : 'Toggle Reviewer Lock'
+                                    }
+                                    style={{
+                                      display: 'flex', alignItems: 'center', gap: 6,
+                                      padding: '4px 8px', borderRadius: 8, fontSize: 10.5, fontWeight: 700,
+                                      background: inp.reviewerChecked ? 'rgba(124,58,237,0.1)' : '#F3F4F6',
+                                      color: inp.reviewerChecked ? '#6D28D9' : '#4B5563',
+                                      border: `1px solid ${inp.reviewerChecked ? '#C084FC' : '#E5E7EB'}`,
+                                      cursor: (activeRole === 'desh_reviewer' || activeRole === 'reviewer') && !isToggling ? 'pointer' : 'default',
+                                      transition: 'all 0.15s ease',
+                                      opacity: (activeRole !== 'desh_reviewer' && activeRole !== 'reviewer' && activeRole !== 'desh_manager' && activeRole !== 'admin') ? 0.6 : 1
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={!!inp.reviewerChecked}
+                                      onChange={(e) => toggleQuestionCheck(inp._id, e.target.checked)}
+                                      disabled={((activeRole !== 'desh_reviewer' && activeRole !== 'reviewer') || isToggling)}
+                                      style={{ width: 13, height: 13, cursor: (activeRole === 'desh_reviewer' || activeRole === 'reviewer') && !isToggling ? 'pointer' : 'default', accentColor: '#6D28D9' }}
+                                    />
+                                    <span>Reviewer Lock {inp.reviewerChecked ? '🔒' : '✏️'}</span>
+                                  </label>
+                                </div>
                               </div>
                             </div>
 
@@ -1464,7 +1522,16 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                 inputId={inp._id}
                                 currentUserId={dbUser._id}
                                 currentRole={dbUser.role}
-                                isLocked={isLocked}
+                                isLocked={
+                                  isLocked || 
+                                  (
+                                    (activeRole === 'desh_reviewer' || activeRole === 'reviewer')
+                                      ? !!inp.reviewerChecked
+                                      : activeRole === 'desh_assessor'
+                                        ? !!inp.assessorChecked
+                                        : true
+                                  )
+                                }
                                 projectOwnerId={ownerId}
                                 initialCount={commentCounts[String(inp._id)] || 0}
                               />
