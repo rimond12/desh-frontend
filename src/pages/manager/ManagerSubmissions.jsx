@@ -159,6 +159,41 @@ export default function ManagerSubmissions() {
   const [previewProjData, setPreviewProjData] = useState(null);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
+  const [stageProj, setStageProj] = useState(null);
+  const [targetStage, setTargetStage] = useState('DESH Professional');
+
+  const getCalculatedStage = (project) => {
+    if (project.project_status === 'REVIEW_COMPLETE' || project.project_status === 'CERTIFICATE_ISSUED') {
+      return 'Completed';
+    }
+    if (project.assignedAssessors?.length > 0) {
+      return 'Assessor';
+    }
+    if (project.assignedReviewers?.length > 0) {
+      return 'Reviewer';
+    }
+    return 'DESH Professional';
+  };
+
+  const openStageModal = (proj) => {
+    setStageProj(proj);
+    setTargetStage(proj.stage || getCalculatedStage(proj));
+  };
+
+  const saveStageChange = async () => {
+    if (!stageProj) return;
+    try {
+      await axiosSecure.patch(`/submissions/${stageProj._id}/status`, {
+        stage: targetStage
+      });
+      toast.success('Project stage updated successfully');
+      setStageProj(null);
+      fetchSubmissions();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update project stage');
+    }
+  };
+
   const fetchSubmissions = async () => {
     try {
       const res = await axiosSecure.get(`/submissions?managerFilter=${managerFilter}`);
@@ -362,7 +397,19 @@ export default function ManagerSubmissions() {
               <tbody>
                 {filtered.map(p => (
                   <tr key={p._id}>
-                    <td className="font-bold text-sm" style={{ color: 'var(--tx-2)' }}>{p.title}</td>
+                    <td className="font-bold text-sm" style={{ color: 'var(--tx-2)' }}>
+                      <div>{p.title}</div>
+                      <div className="mt-1">
+                        <span className={`inline-block text-2xs px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider border ${
+                          (p.stage || getCalculatedStage(p)) === 'Completed' ? 'bg-green-50 text-green-700 border-green-200' :
+                          (p.stage || getCalculatedStage(p)) === 'Assessor' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                          (p.stage || getCalculatedStage(p)) === 'Reviewer' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          'bg-purple-50 text-purple-700 border-purple-200'
+                        }`}>
+                          {(p.stage || getCalculatedStage(p))}
+                        </span>
+                      </div>
+                    </td>
                     <td>
                       <div className="text-sm font-semibold">{p.userId?.name || 'Anonymous'}</div>
                       <div className="text-xs text-gray-500">{p.userId?.email}</div>
@@ -450,6 +497,15 @@ export default function ManagerSubmissions() {
                           onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-soft)'; }}
                         >
                           Assign Staff
+                        </button>
+                        <button 
+                          onClick={() => openStageModal(p)} 
+                          className="text-xs px-3 py-1.5 rounded-lg border font-bold transition-all cursor-pointer" 
+                          style={{ background: 'var(--bg-soft)', borderColor: 'var(--border-md)', color: 'var(--tx-2)' }} 
+                          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)'; }} 
+                          onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-soft)'; }}
+                        >
+                          Revert Stage
                         </button>
                         <button onClick={() => openProgressModal(p)} className="btn-primary-green text-xs px-3 py-1.5 rounded-lg font-bold" style={{ cursor: 'pointer' }}>
                           View Progress
@@ -617,6 +673,97 @@ export default function ManagerSubmissions() {
             fetchSubmissions();
           }}
         />
+      )}
+
+      {/* Revert Stage Modal */}
+      {stageProj && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
+          backdropFilter: 'blur(4px)', padding: 16,
+        }}>
+          <div className="glass-card w-full max-w-md p-6 fade-in-up" style={{ background: '#091E11', border: '1.5px solid var(--border-md)' }}>
+            <h2 style={{ fontFamily: 'Montserrat, sans-serif', color: '#FFF' }} className="text-xl font-bold mb-2">Revert / Change Project Stage</h2>
+            <p className="text-xs text-gray-400 mb-4">Project: <strong>{stageProj.title}</strong></p>
+
+            <div className="mb-4">
+              <label className="block text-xs font-semibold mb-2 uppercase tracking-widest text-gray-400">
+                Current Stage
+              </label>
+              <div className="w-full px-3 py-2 text-sm rounded-lg" style={{ background: 'rgba(255,255,255,0.05)', color: '#FFF', border: '1px solid rgba(255,255,255,0.1)' }}>
+                {stageProj.stage || getCalculatedStage(stageProj)}
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-xs font-semibold mb-2 uppercase tracking-widest text-gray-400">
+                Select Target Stage
+              </label>
+              <select
+                value={targetStage}
+                onChange={e => setTargetStage(e.target.value)}
+                className="w-full px-3 py-2 text-sm"
+                style={{
+                  background: '#0D3B1A',
+                  border: '1.5px solid rgba(52, 201, 97, 0.3)',
+                  color: '#FFF',
+                  borderRadius: '10px',
+                  outline: 'none',
+                }}
+              >
+                <option value="DESH Professional">DESH Professional</option>
+                <option value="Reviewer">Reviewer</option>
+                <option value="Assessor">Assessor</option>
+                <option value="Completed">Completed</option>
+              </select>
+            </div>
+
+            {/* Stage Change Info Warning */}
+            <div className="p-3 mb-6 rounded-lg text-xs border" style={{
+              background: 'rgba(239, 68, 68, 0.1)',
+              borderColor: 'rgba(239, 68, 68, 0.25)',
+              color: '#FCA5A5'
+            }}>
+              <p className="font-bold mb-1">⚠️ Rollback Implications:</p>
+              {targetStage === 'DESH Professional' && (
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Reviewer and Assessor assignments will be cleared.</li>
+                  <li>Reviewer and Assessor statuses will be cleared.</li>
+                  <li>All lock flags and verification checkmarks will be reset.</li>
+                  <li>Form questionnaire data will be preserved.</li>
+                </ul>
+              )}
+              {targetStage === 'Reviewer' && (
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Assessor assignments and statuses will be cleared.</li>
+                  <li>Assessor verification checkmarks will be reset.</li>
+                  <li>Reviewer assignments and statuses will be preserved.</li>
+                  <li>Form questionnaire data will be preserved.</li>
+                </ul>
+              )}
+              {targetStage === 'Assessor' && (
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Reviewer & Assessor assignments/statuses are preserved.</li>
+                  <li>If the project was completed, it will be unlocked.</li>
+                </ul>
+              )}
+              {targetStage === 'Completed' && (
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Project will be marked as REVIEW_COMPLETE and locked.</li>
+                </ul>
+              )}
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setStageProj(null)} className="text-sm px-4 py-2 rounded-xl border transition-all" style={{ background: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.15)', color: '#FFF', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}>
+                Cancel
+              </button>
+              <button onClick={saveStageChange} className="btn-primary-green text-sm px-4 py-2" style={{ cursor: 'pointer' }}>
+                Confirm Change
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </Layout>
   );
