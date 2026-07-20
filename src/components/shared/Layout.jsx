@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Sidebar from './Sidebar';
 import PartnerFooter from './PartnerFooter';
+import NotificationBell from '../tickets/NotificationBell';
 import { useAuth } from '../../context/AuthContext.jsx';
 
 // ── Layout — shell wrapper for all authenticated pages ────────────────────────
@@ -71,6 +72,9 @@ export default function Layout({ children, isAdmin = false, isReviewer = false, 
         </div>
 
         <div className="page-content">
+          <div className="flex items-center justify-end mb-4 px-2">
+            <NotificationBell />
+          </div>
           <div style={{ flex: 1 }}>{children}</div>
           <PartnerFooter />
         </div>

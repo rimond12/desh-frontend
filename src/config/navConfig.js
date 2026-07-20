@@ -75,6 +75,7 @@ export const NAV_CONFIG = [
                 items: [
                     { key: 'adminNav_users',       defaultLabel: 'DESH Professionals',       path: '/admin/users',       icon: '◉' },
                     { key: 'adminNav_submissions', defaultLabel: 'Submissions', path: '/admin/submissions', icon: '◫' },
+                    { key: 'adminNav_tickets',     defaultLabel: 'Tickets',     path: '/admin/tickets',     icon: '🎫' },
                     { key: 'adminNav_activity',    defaultLabel: 'Activity',    path: '/admin/activity',    icon: '⏱' },
                     { key: 'adminNav_chatbotRules', defaultLabel: 'DESH Ai Manager', path: '/admin/desh-ai-manager', icon: '🤖' },
                     { key: 'adminNav_supportChat',  defaultLabel: 'Support Chat',   path: '/admin/support-chat',   icon: '💬' },
@@ -148,6 +149,7 @@ export const NAV_CONFIG = [
                 sectionDefault: 'REVIEW',
                 items: [
                     { key: 'reviewerNav_submissions', defaultLabel: 'Submissions', path: '/reviewer/submissions', icon: '◫' },
+                    { key: 'reviewerNav_tickets',     defaultLabel: 'Clarification Tickets', path: '/reviewer/tickets', icon: '🎫' },
                 ],
             },
             {
@@ -173,6 +175,7 @@ export const NAV_CONFIG = [
                 sectionDefault: 'MANAGEMENT',
                 items: [
                     { key: 'managerNav_submissions', defaultLabel: 'Submissions', path: '/manager/submissions', icon: '◫' },
+                    { key: 'managerNav_tickets',     defaultLabel: 'Clarification Tickets', path: '/manager/tickets', icon: '🎫' },
                     { key: 'managerNav_users',       defaultLabel: 'Manage DESH Professionals', path: '/manager/users',       icon: '👥' },
                 ],
             },

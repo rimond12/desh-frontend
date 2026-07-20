@@ -674,16 +674,16 @@ function FormulaDisplaySection({ sec, summaries }) {
 
 function EditableCalcRefSection({
   sec, srcSec, allSections, refSectionConfigs,
-  sectionRows, setSectionRows, summaries, crossCalcRows, dropdowns, onRecalc, readOnly, projectId, axios
+  sectionRows, setSectionRows, setCrossCalcRows, summaries, crossCalcRows, dropdowns, onRecalc, readOnly, projectId, axios
 }) {
   const refCalcId = sec.config.ref_calc_id;
   const refSecOrder = sec.config.ref_section_order;
+  const srcType = srcSec.config?.type || "input_table";
 
-  // Virtual section: keeps this section's order_num but uses the source section's
-  // column/summary/group config, presented as an ordinary input_table.
+  // Virtual section: keeps this section's order_num but uses the source section's config.
   const virtualSec = {
     ...sec,
-    config: { ...srcSec.config, type: "input_table" },
+    config: { ...srcSec.config },
   };
 
   // Virtual sections array used by SectionRefCell / locked-col resolution so
@@ -694,7 +694,7 @@ function EditableCalcRefSection({
     if (s.config.type === "calc_ref") {
       const key = `${s.config.ref_calc_id}_${s.config.ref_section_order}`;
       const src = refSectionConfigs[key];
-      if (src) return { ...s, config: { ...src.config, type: "input_table" } };
+      if (src) return { ...s, config: { ...src.config } };
     }
     return s;
   });
@@ -707,6 +707,10 @@ function EditableCalcRefSection({
     setSectionRows(prev => {
       const next = typeof updater === "function" ? updater(prev) : updater;
       const refRows = next[sec.order_num] || [];
+      const key = `${refCalcId}_${refSecOrder}`;
+      if (setCrossCalcRows) {
+        setCrossCalcRows(cPrev => ({ ...cPrev, [key]: refRows }));
+      }
       if (projectId) {
         axios.get(`/projects/${projectId}/calculations/${refCalcId}`).then(res => {
           const existingRows = res.data.data?.sectionRows || {};
@@ -733,19 +737,29 @@ function EditableCalcRefSection({
         <span>
           Linked from <strong>{srcSec.name || `Section ${refSecOrder}`}</strong>
         </span>
-        <span className="ce-ref-sync-label">· Edits sync to source calculation</span>
+        {srcType === "input_table" && (
+          <span className="ce-ref-sync-label">· Edits sync to source calculation</span>
+        )}
       </div>
-      <InputTableSection
-        sec={virtualSec}
-        sections={virtualSections}
-        sectionRows={sectionRows}
-        setSectionRows={handleSyncedRows}
-        summaries={summaries}
-        crossCalcRows={crossCalcRows}
-        dropdowns={dropdowns}
-        onRecalc={onRecalc}
-        readOnly={readOnly}
-      />
+      {srcType === "formula_display" && (
+        <FormulaDisplaySection sec={virtualSec} summaries={summaries} />
+      )}
+      {srcType === "instruction_table" && (
+        <InstructionTableSection sec={virtualSec} />
+      )}
+      {srcType === "input_table" && (
+        <InputTableSection
+          sec={virtualSec}
+          sections={virtualSections}
+          sectionRows={sectionRows}
+          setSectionRows={handleSyncedRows}
+          summaries={summaries}
+          crossCalcRows={crossCalcRows}
+          dropdowns={dropdowns}
+          onRecalc={onRecalc}
+          readOnly={readOnly}
+        />
+      )}
     </div>
   );
 }
@@ -912,7 +926,7 @@ function buildVirtualSections(sections, refConfigs) {
     const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
     const srcSec = refConfigs?.[key];
     if (srcSec) {
-      return { ...sec, config: { ...srcSec.config, type: "input_table" } };
+      return { ...sec, config: { ...srcSec.config } };
     }
     return sec;
   });
@@ -1120,23 +1134,19 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
           initSums[sec.order_num] = {};
 
           if (sec.config.type === "calc_ref") {
-            // Prefer previously-saved edits; fall back to source calc data.
-            if (stored?.rows?.[sec.order_num]?.length) {
-              initRows[sec.order_num] = stored.rows[sec.order_num];
+            // Always initialize from source calc's live rows so edits in source calc sync automatically
+            const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
+            const srcRows = ccRows[key] || [];
+            const srcSecCfg = refSecConfigs[key]?.config;
+            if (srcRows.length > 0) {
+              initRows[sec.order_num] = JSON.parse(JSON.stringify(srcRows));
             } else {
-              const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
-              const srcRows = ccRows[key] || [];
-              const srcSecCfg = refSecConfigs[key]?.config;
-              if (srcRows.length > 0) {
-                initRows[sec.order_num] = JSON.parse(JSON.stringify(srcRows));
-              } else {
-                const row = {};
-                (srcSecCfg?.columns || []).forEach(c => { row[c.id] = null; });
-                initRows[sec.order_num] =
-                  srcSecCfg?.can_add_rows !== false && (srcSecCfg?.columns?.length ?? 0) > 0
-                    ? [row]
-                    : [];
-              }
+              const row = {};
+              (srcSecCfg?.columns || []).forEach(c => { row[c.id] = null; });
+              initRows[sec.order_num] =
+                srcSecCfg?.can_add_rows !== false && (srcSecCfg?.columns?.length ?? 0) > 0
+                  ? [row]
+                  : [];
             }
           } else {
             initRows[sec.order_num] = [];
@@ -1212,14 +1222,15 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
       csvContent += `================================================================================\n\n`;
 
       const isCalcRef = sec.config.type === "calc_ref";
+      const refKey = isCalcRef ? `${sec.config.ref_calc_id}_${sec.config.ref_section_order}` : null;
+      const srcSec = refKey ? refSectionConfigs[refKey] : null;
+      const effectiveType = isCalcRef ? (srcSec?.config?.type || "input_table") : sec.config.type;
 
-      if (sec.config.type === "input_table" || isCalcRef) {
+      if (effectiveType === "input_table") {
         // Resolve target config columns (virtual if calc_ref)
         let cols = sec.config.columns || [];
-        if (isCalcRef) {
-          const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
-          const srcSec = refSectionConfigs[key];
-          if (srcSec?.config?.columns) cols = srcSec.config.columns;
+        if (isCalcRef && srcSec?.config?.columns) {
+          cols = srcSec.config.columns;
         }
 
         const visibleCols = cols.filter(c => !isHidden(c));
@@ -1262,10 +1273,8 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
 
         // Summaries
         let sums = sec.config.summaries || [];
-        if (isCalcRef) {
-          const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
-          const srcSec = refSectionConfigs[key];
-          if (srcSec?.config?.summaries) sums = srcSec.config.summaries;
+        if (isCalcRef && srcSec?.config?.summaries) {
+          sums = srcSec.config.summaries;
         }
         const visibleSums = sums.filter(s => !isHidden(s));
 
@@ -1277,8 +1286,11 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
           });
         }
 
-      } else if (sec.config.type === "formula_display") {
-        const formulas = sec.config.formulas || [];
+      } else if (effectiveType === "formula_display") {
+        let formulas = sec.config.formulas || [];
+        if (isCalcRef && srcSec?.config?.formulas) {
+          formulas = srcSec.config.formulas;
+        }
         const visibleFormulas = formulas.filter(f => !isHidden(f));
 
         if (visibleFormulas.length > 0) {
@@ -1289,7 +1301,7 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
             csvContent += `"${f.label?.replace(/"/g, '""')}",${display},"${(f.description || "").replace(/"/g, '""')}"\n`;
           });
         }
-      } else if (sec.config.type === "instruction_table") {
+      } else if (effectiveType === "instruction_table") {
         csvContent += `[Instruction Table - Visual component only]\n`;
       }
 
@@ -1454,14 +1466,15 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
       y += 7; // Advance cursor past section header
 
       const isCalcRef = sec.config.type === "calc_ref";
+      const pdfRefKey = isCalcRef ? `${sec.config.ref_calc_id}_${sec.config.ref_section_order}` : null;
+      const pdfSrcSec = pdfRefKey ? refSectionConfigs[pdfRefKey] : null;
+      const pdfEffectiveType = isCalcRef ? (pdfSrcSec?.config?.type || "input_table") : sec.config.type;
 
-      if (sec.config.type === "input_table" || isCalcRef) {
+      if (pdfEffectiveType === "input_table") {
         // Resolve target config columns (virtual if calc_ref)
         let cols = sec.config.columns || [];
-        if (isCalcRef) {
-          const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
-          const srcSec = refSectionConfigs[key];
-          if (srcSec?.config?.columns) cols = srcSec.config.columns;
+        if (isCalcRef && pdfSrcSec?.config?.columns) {
+          cols = pdfSrcSec.config.columns;
         }
 
         const visibleCols = cols.filter(c => !isHidden(c));
@@ -1470,10 +1483,8 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
         if (visibleCols.length > 0) {
           // Resolve Column Groups (if present)
           let columnGroups = sec.config.column_groups || [];
-          if (isCalcRef) {
-            const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
-            const srcSec = refSectionConfigs[key];
-            if (srcSec?.config?.column_groups) columnGroups = srcSec.config.column_groups;
+          if (isCalcRef && pdfSrcSec?.config?.column_groups) {
+            columnGroups = pdfSrcSec.config.column_groups;
           }
 
           const colToGroup = {};
@@ -1541,10 +1552,8 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
 
         // Render Section Summaries Card (if visible summaries exist)
         let sums = sec.config.summaries || [];
-        if (isCalcRef) {
-          const key = `${sec.config.ref_calc_id}_${sec.config.ref_section_order}`;
-          const srcSec = refSectionConfigs[key];
-          if (srcSec?.config?.summaries) sums = srcSec.config.summaries;
+        if (isCalcRef && pdfSrcSec?.config?.summaries) {
+          sums = pdfSrcSec.config.summaries;
         }
         const visibleSums = sums.filter(s => !isHidden(s));
 
@@ -1587,8 +1596,11 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
           y += 4;
         }
 
-      } else if (sec.config.type === "formula_display") {
-        const formulas = sec.config.formulas || [];
+      } else if (pdfEffectiveType === "formula_display") {
+        let formulas = sec.config.formulas || [];
+        if (isCalcRef && pdfSrcSec?.config?.formulas) {
+          formulas = pdfSrcSec.config.formulas;
+        }
         const visibleFormulas = formulas.filter(f => !isHidden(f));
 
         if (visibleFormulas.length > 0) {
@@ -1620,12 +1632,13 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
           y += 2;
         }
 
-      } else if (sec.config.type === "instruction_table") {
-        let blocks = sec.config.blocks;
+      } else if (pdfEffectiveType === "instruction_table") {
+        let blocks = isCalcRef ? pdfSrcSec?.config?.blocks : sec.config.blocks;
+        const targetCfg = isCalcRef && pdfSrcSec ? pdfSrcSec.config : sec.config;
         if (!blocks) {
           blocks = [];
-          if (sec.config.columns?.length || sec.config.rows?.length) {
-            blocks = [{ blockType: "table", columns: sec.config.columns || [], rows: sec.config.rows || [], group_header: sec.config.group_header }];
+          if (targetCfg?.columns?.length || targetCfg?.rows?.length) {
+            blocks = [{ blockType: "table", columns: targetCfg.columns || [], rows: targetCfg.rows || [], group_header: targetCfg.group_header }];
           }
         }
 
@@ -1841,6 +1854,7 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
                 refSectionConfigs={refSectionConfigs}
                 sectionRows={sectionRows}
                 setSectionRows={setSectionRows}
+                setCrossCalcRows={setCrossCalcRows}
                 summaries={summaries}
                 crossCalcRows={crossCalcRows}
                 dropdowns={dropdowns}

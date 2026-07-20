@@ -43,6 +43,15 @@ import ChatbotRules     from './pages/admin/ChatbotRules.jsx';
 import SupportChat      from './pages/admin/SupportChat.jsx';
 import DeshAiChatBot    from './components/shared/DeshAiChatBot.jsx';
 
+import TicketDashboard     from './pages/admin/TicketDashboard.jsx';
+import AdminTicketDetail   from './pages/admin/AdminTicketDetail.jsx';
+import TicketFormBuilder   from './pages/admin/TicketFormBuilder.jsx';
+import TicketConfig        from './pages/admin/TicketConfig.jsx';
+import ManagerTicketDashboard from './pages/manager/ManagerTicketDashboard.jsx';
+import ManagerTicketDetail   from './pages/manager/ManagerTicketDetail.jsx';
+import ReviewerTickets     from './pages/reviewer/ReviewerTickets.jsx';
+import ReviewerTicketDetail from './pages/reviewer/ReviewerTicketDetail.jsx';
+
 // ── Route guards — role checked from dbUser.roles array (MongoDB) ─────────────
 
 // Returns true if user needs to complete profile setup
@@ -238,13 +247,21 @@ function AppRoutes() {
       {/* Reviewer routes */}
       <Route path="/reviewer/submissions"     element={<ReviewerRoute><ReviewerSubmissions/></ReviewerRoute>} />
       <Route path="/reviewer/submissions/:id" element={<ReviewerRoute><ReviewerSubmissionDetail/></ReviewerRoute>} />
+      <Route path="/reviewer/tickets"         element={<ReviewerRoute><ReviewerTickets/></ReviewerRoute>} />
+      <Route path="/reviewer/tickets/:id"     element={<ReviewerRoute><ReviewerTicketDetail/></ReviewerRoute>} />
 
       {/* Manager routes */}
       <Route path="/manager/submissions"      element={<ManagerRoute><ManagerSubmissions/></ManagerRoute>} />
       <Route path="/manager/users"            element={<ManagerRoute><ManagerUsers/></ManagerRoute>} />
+      <Route path="/manager/tickets"          element={<ManagerRoute><ManagerTicketDashboard/></ManagerRoute>} />
+      <Route path="/manager/tickets/:id"      element={<ManagerRoute><ManagerTicketDetail/></ManagerRoute>} />
 
       {/* Admin routes */}
       <Route path="/admin"                  element={<AdminRoute><AdminDashboard/></AdminRoute>} />
+      <Route path="/admin/tickets"          element={<AdminRoute><TicketDashboard/></AdminRoute>} />
+      <Route path="/admin/tickets/:id"      element={<AdminRoute><AdminTicketDetail/></AdminRoute>} />
+      <Route path="/admin/ticket-form-builder" element={<AdminRoute><TicketFormBuilder/></AdminRoute>} />
+      <Route path="/admin/ticket-config"    element={<AdminRoute><TicketConfig/></AdminRoute>} />
       <Route path="/admin/submissions"      element={<AdminRoute><Submissions/></AdminRoute>} />
       <Route path="/admin/submissions/:id"  element={<AdminRoute><SubmissionDetail/></AdminRoute>} />
       <Route path="/admin/modules"          element={<AdminRoute><Modules/></AdminRoute>} />
