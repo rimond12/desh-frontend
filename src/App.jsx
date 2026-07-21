@@ -18,6 +18,8 @@ import CreateProfile            from './pages/user/CreateProfile.jsx';
 import CalculationsArchivePage  from './pages/user/CalculationsArchivePage.jsx';
 import CalculationViewPage      from './pages/user/CalculationViewPage.jsx';
 
+import NotificationsPage from './pages/NotificationsPage.jsx';
+
 import ReviewerSubmissions     from './pages/reviewer/Submissions.jsx';
 import ReviewerSubmissionDetail from './pages/reviewer/SubmissionDetail.jsx';
 
@@ -241,6 +243,7 @@ function AppRoutes() {
       <Route path="/notes"              element={<PrivateRoute><Notes/></PrivateRoute>} />
       <Route path="/manual"             element={<PrivateRoute><Manual/></PrivateRoute>} />
       <Route path="/account"            element={<PrivateRoute><Account/></PrivateRoute>} />
+      <Route path="/notifications"      element={<PrivateRoute><NotificationsPage/></PrivateRoute>} />
       <Route path="/calculations"       element={<UserRoute><CalculationsArchivePage/></UserRoute>} />
       <Route path="/calculations/:id"   element={<PrivateRoute><CalculationViewPage/></PrivateRoute>} />
 

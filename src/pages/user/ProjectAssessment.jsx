@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useRef, useLayoutEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
 import { LeafBadge, ColoredLeaf } from '../../components/shared/LeafLogo.jsx';
 import CommentThread from '../../components/shared/CommentThread.jsx';
+import CreateTicketModal from '../../components/tickets/CreateTicketModal.jsx';
 import CollaboratorsOwnersModal from '../../components/CollaboratorsOwnersModal.jsx';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -215,6 +216,7 @@ function PointsBox({ earned, max }) {
 // ── Main ──────────────────────────────────────────────────────────
 export default function ProjectAssessment() {
   const { id } = useParams();
+  const location = useLocation();
   const ax = useAxiosSecure();
   const { dbUser } = useAuth();
 
@@ -228,6 +230,44 @@ export default function ProjectAssessment() {
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [displayLeaf, setDisplayLeaf] = useState(null);
+
+  // Ticket Modal & Question Highlight state
+  const [ticketModalOpen, setTicketModalOpen] = useState(false);
+  const [ticketQuestionContext, setTicketQuestionContext] = useState(null);
+  const [highlightedInputId, setHighlightedInputId] = useState(null);
+
+  // Check role permission for Create Ticket button — professionals do not create tickets
+  const canCreateTicket = false;
+
+  // URL Query Parameters listener for "Go to Linked Question" navigation
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const targetTabId = queryParams.get('tabId');
+    const targetModuleId = queryParams.get('moduleId');
+    const targetInputId = queryParams.get('inputId');
+
+    if (tabs.length > 0 && targetTabId) {
+      const tabIdx = tabs.findIndex(t => String(t._id) === String(targetTabId));
+      if (tabIdx !== -1) {
+        setActiveTab(tabIdx);
+      }
+    }
+
+    if (targetModuleId) {
+      setOpenMod(targetModuleId);
+    }
+
+    if (targetInputId) {
+      setHighlightedInputId(targetInputId);
+      setTimeout(() => {
+        const el = document.getElementById(`input-${targetInputId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 700);
+      setTimeout(() => setHighlightedInputId(null), 4500);
+    }
+  }, [location.search, tabs]);
 
   // Inline title editing
   const [editingTitle, setEditingTitle] = useState(false);
@@ -1886,15 +1926,23 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 
                                     {/* Left: input fields */}
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                      {group.inputs.map(inp => {
+                                      {group.inputs.map((inp, inpIdx) => {
                                         const inputLocked = lockedInputIds.has(String(inp._id));
+                                        const isHighlighted = String(highlightedInputId) === String(inp._id);
+
                                         return (
-                                          <div key={inp._id} style={{
-                                            background: inputLocked ? '#FAFAFA' : '#fff',
-                                            border: `1px solid ${inputLocked ? '#E5E7EB' : 'var(--border)'}`,
-                                            borderRadius: 12, padding: '14px',
-                                            opacity: inputLocked ? 0.85 : 1,
-                                          }}>
+                                          <div
+                                            key={inp._id}
+                                            id={`input-${inp._id}`}
+                                            className={isHighlighted ? 'highlight-question' : ''}
+                                            style={{
+                                              background: inputLocked ? '#FAFAFA' : '#fff',
+                                              border: `1px solid ${inputLocked ? '#E5E7EB' : 'var(--border)'}`,
+                                              borderRadius: 12, padding: '14px',
+                                              opacity: inputLocked ? 0.85 : 1,
+                                              transition: 'all 0.3s ease',
+                                            }}
+                                          >
                                             {/* Question label */}
                                             <div style={{
                                               display: 'flex', alignItems: 'flex-start',
@@ -1909,7 +1957,48 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                                   <span style={{ color: '#EF4444', marginLeft: 4 }}>*</span>
                                                 )}
                                               </p>
-                                              <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0, flexWrap: 'wrap' }}>
+                                                {/* Create Ticket Button (for authorized roles) */}
+                                                {canCreateTicket && (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      setTicketQuestionContext({
+                                                        projectId: project._id,
+                                                        projectTitle: project.title,
+                                                        tabId: tabs[activeTab]?._id,
+                                                        tabTitle: tabs[activeTab]?.title,
+                                                        moduleId: mod._id,
+                                                        moduleTitle: mod.title,
+                                                        sectionId: group.id,
+                                                        sectionTitle: group.title,
+                                                        inputId: inp._id,
+                                                        questionSnapshot: {
+                                                          number: `${activeTab + 1}.${modIdx + 1}.${inpIdx + 1}`,
+                                                          label: inp.label,
+                                                          inputType: inp.inputType,
+                                                          details: inp.details || '',
+                                                          tabTitle: tabs[activeTab]?.title,
+                                                          moduleTitle: mod.title,
+                                                          sectionTitle: group.title,
+                                                          projectTitle: project.title,
+                                                        }
+                                                      });
+                                                      setTicketModalOpen(true);
+                                                    }}
+                                                    style={{
+                                                      fontSize: 10, fontWeight: 800, padding: '2px 8px',
+                                                      borderRadius: 6, background: 'rgba(34,168,75,0.12)',
+                                                      color: '#145C28', border: '1px solid rgba(34,168,75,0.3)',
+                                                      fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap',
+                                                      cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3
+                                                    }}
+                                                    title="Create Clarification Ticket for this question"
+                                                  >
+                                                    <span>🎫</span> Create Ticket
+                                                  </button>
+                                                )}
+
                                                 {showLockBadges && (
                                                   lockedInputIds.has(String(inp._id)) ? (
                                                     <span style={{
@@ -2338,6 +2427,59 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                               </div>
                                             )}
 
+                                            {/* Question Action Bar: Create Ticket Button */}
+                                            {canCreateTicket && (
+                                              <div style={{ marginTop: 10, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setTicketQuestionContext({
+                                                      projectId: project._id,
+                                                      projectTitle: project.title,
+                                                      tabId: tabs[activeTab]?._id,
+                                                      tabTitle: tabs[activeTab]?.title,
+                                                      moduleId: mod._id,
+                                                      moduleTitle: mod.title,
+                                                      sectionId: group.id,
+                                                      sectionTitle: group.title,
+                                                      inputId: inp._id,
+                                                      questionSnapshot: {
+                                                        number: `${activeTab + 1}.${modIdx + 1}.${inpIdx + 1}`,
+                                                        label: inp.label,
+                                                        inputType: inp.inputType,
+                                                        details: inp.details || '',
+                                                        tabTitle: tabs[activeTab]?.title,
+                                                        moduleTitle: mod.title,
+                                                        sectionTitle: group.title,
+                                                        projectTitle: project.title,
+                                                      }
+                                                    });
+                                                    setTicketModalOpen(true);
+                                                  }}
+                                                  style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 6,
+                                                    padding: '5px 12px',
+                                                    borderRadius: 8,
+                                                    background: 'linear-gradient(135deg, #10B981, #059669)',
+                                                    color: '#fff',
+                                                    border: 'none',
+                                                    fontSize: 12,
+                                                    fontWeight: 800,
+                                                    fontFamily: 'Montserrat, sans-serif',
+                                                    cursor: 'pointer',
+                                                    boxShadow: '0 2px 8px rgba(5,150,105,0.25)',
+                                                    transition: 'all 0.2s ease',
+                                                  }}
+                                                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(5,150,105,0.35)'; }}
+                                                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(5,150,105,0.25)'; }}
+                                                >
+                                                  <span>🎫</span> Create Clarification Ticket
+                                                </button>
+                                              </div>
+                                            )}
+
                                             {/* Comment thread — visible to user; replies after full lock */}
                                             {dbUser && (
                                               <CommentThread
@@ -2434,6 +2576,14 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
           </div>
         </>
       )}
+
+      {/* Shared Create Ticket Modal with preselected question context */}
+      <CreateTicketModal
+        isOpen={ticketModalOpen}
+        onClose={() => setTicketModalOpen(false)}
+        preselectedQuestion={ticketQuestionContext}
+      />
+
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
 

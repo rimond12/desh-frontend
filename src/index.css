@@ -847,3 +847,17 @@ select.input-field, select.input-dark{
 .ticket-card.prio-medium { border-left-color: #EAB308; }
 .ticket-card.prio-low { border-left-color: #22C55E; }
 
+/* ═══════════════════ QUESTION HIGHLIGHT ANIMATION ═══════════════════ */
+@keyframes questionPulse {
+  0% { box-shadow: 0 0 0 0 rgba(34, 168, 75, 0.7); border-color: #22A84B; }
+  50% { box-shadow: 0 0 0 10px rgba(34, 168, 75, 0.2); border-color: #22A84B; }
+  100% { box-shadow: 0 0 0 0 rgba(34, 168, 75, 0); }
+}
+
+.highlight-question {
+  animation: questionPulse 1.5s 2;
+  border: 2px solid #22A84B !important;
+  background-color: rgba(34, 168, 75, 0.08) !important;
+}
+
+

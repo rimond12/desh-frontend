@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
@@ -7,6 +7,7 @@ import { NAV_CONFIG } from '../../config/navConfig.js';
 import { userHasRole, getActiveRole } from '../../context/AuthContext.jsx';
 import ChangeRoleModal from './ChangeRoleModal.jsx';
 import useHiddenRoutes from '../../hooks/useHiddenRoutes.js';
+import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 
 export default function Sidebar({
   isAdmin = false,
@@ -20,8 +21,23 @@ export default function Sidebar({
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, dbUser } = useAuth();
+  const axiosSecure = useAxiosSecure();
   const L = useNavLabels();
   const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchUnread = async () => {
+      try {
+        const res = await axiosSecure.get('/notifications/unread-count');
+        setUnreadCount(res.data.count || 0);
+      } catch (_) {}
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 15000);
+    return () => clearInterval(interval);
+  }, [user, location.pathname]);
 
   const role = isAdmin ? 'admin' : isManager ? 'manager' : isReviewer ? 'reviewer' : 'user';
   const roleConfig = NAV_CONFIG.find(r => r.role === role);
@@ -123,6 +139,7 @@ export default function Sidebar({
               <div className="sidebar-section-label">{group.section}</div>
               {group.items.map(item => {
                 const active = location.pathname === item.path;
+                const isNotif = item.path === '/notifications';
                 return (
                   <Link
                     key={item.path}
@@ -133,7 +150,23 @@ export default function Sidebar({
                   >
                     <div className="sidebar-icon">{item.icon}</div>
                     <span className="sb-label">{item.label}</span>
-                    {active && (
+                    {isNotif && unreadCount > 0 && (
+                      <span className="sb-badge" style={{
+                        marginLeft: 'auto',
+                        background: '#EF4444',
+                        color: '#FFFFFF',
+                        fontSize: 10,
+                        fontWeight: 800,
+                        padding: '2px 7px',
+                        borderRadius: 99,
+                        lineHeight: 1.2,
+                        boxShadow: '0 0 8px rgba(239, 68, 68, 0.5)',
+                        flexShrink: 0
+                      }}>
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                    {active && (!isNotif || unreadCount === 0) && (
                       <div className="sb-active-dot" style={{
                         marginLeft: 'auto', width: 7, height: 7,
                         borderRadius: '50%', background: '#34C961',

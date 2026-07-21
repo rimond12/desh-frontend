@@ -10,6 +10,7 @@ export default function CreateTicketModal({
   onSuccess,
   preselectedProject = null,
   preselectedInput = null,
+  preselectedQuestion = null,
 }) {
   const axiosSecure = useAxiosSecure();
   const [step, setStep] = useState(1);
@@ -17,10 +18,16 @@ export default function CreateTicketModal({
 
   // Form State
   const [projects, setProjects] = useState([]);
-  const [selectedProject, setSelectedProject] = useState(preselectedProject || '');
+  const [selectedProject, setSelectedProject] = useState(
+    preselectedQuestion?.projectId || preselectedProject || ''
+  );
   const [formSchema, setFormSchema] = useState(null);
 
-  const [subject, setSubject] = useState('');
+  const [subject, setSubject] = useState(
+    preselectedQuestion?.questionSnapshot?.label
+      ? `Clarification: ${preselectedQuestion.questionSnapshot.label.slice(0, 60)}`
+      : ''
+  );
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('clarification');
   const [type, setType] = useState('question');
@@ -30,6 +37,13 @@ export default function CreateTicketModal({
 
   useEffect(() => {
     if (isOpen) {
+      if (preselectedQuestion) {
+        setSelectedProject(preselectedQuestion.projectId || '');
+        if (preselectedQuestion.questionSnapshot?.label) {
+          setSubject(`Clarification: ${preselectedQuestion.questionSnapshot.label.slice(0, 60)}`);
+        }
+      }
+
       // Load projects
       axiosSecure.get('/projects').then((res) => {
         setProjects(res.data.projects || res.data || []);
@@ -40,7 +54,7 @@ export default function CreateTicketModal({
         setFormSchema(res.data.schema);
       }).catch(() => {});
     }
-  }, [isOpen, axiosSecure]);
+  }, [isOpen, preselectedQuestion, axiosSecure]);
 
   if (!isOpen) return null;
 
@@ -63,17 +77,22 @@ export default function CreateTicketModal({
     setLoading(true);
     try {
       // 1. Create Ticket
-      const res = await axiosSecure.post('/tickets', {
+      const payload = {
         projectId: selectedProject,
-        inputId: preselectedInput,
+        tabId: preselectedQuestion?.tabId || null,
+        moduleId: preselectedQuestion?.moduleId || null,
+        sectionId: preselectedQuestion?.sectionId || null,
+        inputId: preselectedQuestion?.inputId || preselectedInput || null,
+        questionSnapshot: preselectedQuestion?.questionSnapshot || null,
         subject,
         description,
         category,
         type,
         priority,
         formData: dynamicFormData,
-      });
+      };
 
+      const res = await axiosSecure.post('/tickets', payload);
       const newTicket = res.data.ticket;
 
       // 2. Upload Attachments if any
@@ -119,6 +138,21 @@ export default function CreateTicketModal({
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 flex-1">
           {step === 1 && (
             <div className="space-y-4 fade-in-up">
+              {preselectedQuestion?.questionSnapshot && (
+                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-300 mb-1">
+                    <span>🎯</span> Linked Question Auto-Attached
+                  </div>
+                  <p className="text-gray-700 dark:text-gray-200">
+                    <strong>Project:</strong> {preselectedQuestion.questionSnapshot.projectTitle || 'Current Project'} &bull; 
+                    <strong> Location:</strong> {preselectedQuestion.questionSnapshot.tabTitle} &rarr; {preselectedQuestion.questionSnapshot.moduleTitle}
+                  </p>
+                  <p className="font-semibold text-emerald-900 dark:text-emerald-200 mt-1">
+                    "{preselectedQuestion.questionSnapshot.label}"
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--tx-2)' }}>
                   Target Project <span className="text-red-500">*</span>

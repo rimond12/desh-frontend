@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../../components/shared/Layout.jsx';
 import { ColoredLeaf, LeafBadge } from '../../components/shared/LeafLogo.jsx';
 import ProjectSummaryReportModal from '../../components/ProjectSummaryReportModal.jsx';
 import CommentThread from '../../components/shared/CommentThread.jsx';
+import CreateTicketModal from '../../components/tickets/CreateTicketModal.jsx';
 import GpsMap, { parseGps } from '../../components/GpsMap.jsx';
 import useAxiosSecure from '../../hooks/useAxiosSecure.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -287,6 +288,27 @@ export default function SubmissionDetail() {
   const [projectComments, setProjectComments] = useState([]);
   // per-question locked inputs
   const [lockedInputsSet, setLockedInputsSet] = useState(new Set());
+
+  const location = useLocation();
+  // Ticket Modal state for question-based ticket creation
+  const [ticketModalOpen, setTicketModalOpen] = useState(false);
+  const [ticketQuestionContext, setTicketQuestionContext] = useState(null);
+  const [highlightedInputId, setHighlightedInputId] = useState(null);
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const targetInputId = queryParams.get('inputId');
+    if (targetInputId) {
+      setHighlightedInputId(targetInputId);
+      setTimeout(() => {
+        const el = document.getElementById(`input-${targetInputId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 700);
+      setTimeout(() => setHighlightedInputId(null), 4500);
+    }
+  }, [location.search]);
   const [togglingInput, setTogglingInput] = useState(null);
   // score card collapse
   const [scoreOpen, setScoreOpen] = useState(true);
@@ -1589,7 +1611,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 
                     {/* Input rows */}
                     <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {mod.visibleInputs.flatMap((inp, idx) => {
+                      {mod.visibleInputs.flatMap((inp, qi) => {
                         const isInputLocked = lockedInputsSet.has(String(inp._id));
                         const isToggling = togglingInput === String(inp._id);
                         const isEmpty = inp.inputType === 'file' ? !inp.uploaded
@@ -1601,15 +1623,15 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                           ? docs.filter(d => String(d.inputId) === String(inp._id))
                           : [];
 
-                        const prevInp = mod.visibleInputs[idx - 1];
+                        const prevInp = mod.visibleInputs[qi - 1];
                         const isNewSection = !prevInp || String(prevInp.sectionId) !== String(inp.sectionId);
                         const stageSec = isNewSection ? globalSections.find(s => String(s._id) === String(inp.sectionId)) : null;
                         const result = [];
                         if (stageSec?.title) {
                           result.push(
-                            <div key={`stage-${idx}`} style={{
+                            <div key={`stage-${qi}`} style={{
                               display: 'flex', alignItems: 'center', gap: 8,
-                              margin: idx === 0 ? '0 0 2px' : '10px 0 2px',
+                              margin: qi === 0 ? '0 0 2px' : '10px 0 2px',
                               padding: '6px 10px',
                               background: 'linear-gradient(90deg,#EFF9F4,transparent)',
                               borderLeft: '3px solid var(--g400)',
@@ -1623,14 +1645,20 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                             </div>
                           );
                         }
+                        const isHighlighted = String(highlightedInputId) === String(inp._id);
                         result.push(
-                          <div key={inp._id} style={{
-                            padding: '10px 12px', borderRadius: 10,
-                            background: isInputLocked ? '#FFFBEB' : isEmpty ? 'var(--bg-subtle)' : '#FAFFFE',
-                            border: `1px solid ${isInputLocked ? '#FDE68A' : isEmpty ? 'var(--border)' : 'var(--g100)'}`,
-                            opacity: isEmpty && !isInputLocked ? 0.55 : 1,
-                            transition: 'border-color 0.2s, background 0.2s',
-                          }}>
+                          <div
+                            key={inp._id}
+                            id={`input-${inp._id}`}
+                            className={isHighlighted ? 'highlight-question' : ''}
+                            style={{
+                              padding: '10px 12px', borderRadius: 10,
+                              background: isInputLocked ? '#FFFBEB' : isEmpty ? 'var(--bg-subtle)' : '#FAFFFE',
+                              border: `1px solid ${isInputLocked ? '#FDE68A' : isEmpty ? 'var(--border)' : 'var(--g100)'}`,
+                              opacity: isEmpty && !isInputLocked ? 0.55 : 1,
+                              transition: 'border-color 0.2s, background 0.2s',
+                            }}
+                          >
                             {/* Top row: label + value + points badge + lock button */}
                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                               <div style={{ flex: 1, minWidth: 0 }}>
@@ -1792,6 +1820,46 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                   >
                                     {isToggling ? '...' : isInputLocked ? '🔓 Unlock for Applicant' : '🔒 Lock for Applicant'}
                                   </button>
+
+                                  {/* Create Ticket Action Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setTicketQuestionContext({
+                                        projectId: project._id,
+                                        projectTitle: project.title,
+                                        tabId: tab._id,
+                                        tabTitle: tab.title,
+                                        moduleId: mod._id,
+                                        moduleTitle: mod.title,
+                                        sectionId: inp.sectionId,
+                                        sectionTitle: stageSec?.title || '',
+                                        inputId: inp._id,
+                                        questionSnapshot: {
+                                          number: `Q${qi + 1}`,
+                                          label: inp.label,
+                                          inputType: inp.inputType,
+                                          details: inp.details || '',
+                                          tabTitle: tab.title,
+                                          moduleTitle: mod.title,
+                                          sectionTitle: stageSec?.title || '',
+                                          projectTitle: project.title,
+                                        }
+                                      });
+                                      setTicketModalOpen(true);
+                                    }}
+                                    style={{
+                                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                                      padding: '4px 9px', borderRadius: 7, fontSize: 10.5, fontWeight: 800,
+                                      background: 'linear-gradient(135deg, #10B981, #059669)',
+                                      color: '#fff', border: 'none', cursor: 'pointer',
+                                      boxShadow: '0 2px 6px rgba(5,150,105,0.25)',
+                                      fontFamily: 'Montserrat,sans-serif', whiteSpace: 'nowrap'
+                                    }}
+                                    title="Create Clarification Ticket for this question"
+                                  >
+                                    <span>🎫</span> Create Ticket
+                                  </button>
                                 </div>
                               </div>
                             </div>
@@ -1846,6 +1914,13 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
           }}
         />
       )}
+
+      {/* Shared Create Ticket Modal */}
+      <CreateTicketModal
+        isOpen={ticketModalOpen}
+        onClose={() => setTicketModalOpen(false)}
+        preselectedQuestion={ticketQuestionContext}
+      />
 
       <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style>
     </Layout>

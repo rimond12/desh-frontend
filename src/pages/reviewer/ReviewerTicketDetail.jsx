@@ -5,6 +5,7 @@ import useAxiosSecure from '../../hooks/useAxiosSecure';
 import { TicketStatusBadge, TicketPriorityBadge } from '../../components/tickets/TicketStatusBadge';
 import TicketTimeline from '../../components/tickets/TicketTimeline';
 import TicketResponseForm from '../../components/tickets/TicketResponseForm';
+import LinkedQuestionCard from '../../components/tickets/LinkedQuestionCard';
 import { ArrowLeft, CheckCircle, RotateCcw, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
@@ -95,6 +96,8 @@ function ReviewerTicketDetailContent() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          <LinkedQuestionCard ticket={ticket} />
+
           <div className="glass-card p-6 rounded-2xl space-y-4">
             <div className="flex items-start justify-between gap-4">
               <div>
