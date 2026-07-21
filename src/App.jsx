@@ -244,7 +244,7 @@ function AppRoutes() {
       <Route path="/manual"             element={<PrivateRoute><Manual/></PrivateRoute>} />
       <Route path="/account"            element={<PrivateRoute><Account/></PrivateRoute>} />
       <Route path="/notifications"      element={<PrivateRoute><NotificationsPage/></PrivateRoute>} />
-      <Route path="/calculations"       element={<UserRoute><CalculationsArchivePage/></UserRoute>} />
+      <Route path="/calculations"       element={<PrivateRoute><CalculationsArchivePage/></PrivateRoute>} />
       <Route path="/calculations/:id"   element={<PrivateRoute><CalculationViewPage/></PrivateRoute>} />
 
       {/* Reviewer routes */}

@@ -1519,6 +1519,50 @@ export default function ReviewerSubmissionDetail() {
                                       ) : (inp.value || <span style={{ color: 'var(--tx-faint)', fontSize: 12 }}>—</span>)}
                                     </div>
 
+                                    {/* Calculate Button (Shown when URL or Calculation is configured) */}
+                                    {(inp.calcBtn?.url || inp.calcBtn?.calcId) && (
+                                      <div style={{ marginTop: 10, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <a
+                                          href={inp.calcBtn.calcId 
+                                            ? `/calculations/${inp.calcBtn.calcId}?projectId=${project._id}&inputId=${inp._id}&readOnly=true`
+                                            : inp.calcBtn.url
+                                          }
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          style={{ textDecoration: 'none' }}
+                                        >
+                                          <button
+                                            type="button"
+                                            style={{
+                                              padding: '6px 14px',
+                                              borderRadius: 8,
+                                              border: 'none',
+                                              cursor: 'pointer',
+                                              background: inp.calcBtn.color || '#22A84B',
+                                              color: '#fff',
+                                              fontWeight: 700,
+                                              fontSize: 11.5,
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: 5,
+                                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                              transition: 'opacity 0.18s, transform 0.18s',
+                                            }}
+                                            onMouseEnter={e => {
+                                              e.currentTarget.style.opacity = '0.9';
+                                              e.currentTarget.style.transform = 'translateY(-1px)';
+                                            }}
+                                            onMouseLeave={e => {
+                                              e.currentTarget.style.opacity = '1';
+                                              e.currentTarget.style.transform = 'translateY(0)';
+                                            }}
+                                          >
+                                            🧮 {inp.calcBtn.name || 'Calculate'}
+                                          </button>
+                                        </a>
+                                      </div>
+                                    )}
+
                                     {/* Action Row: Ticket, Lock Controls, Comments */}
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', borderTop: '1px solid var(--border-subtle)', paddingTop: 8 }}>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
