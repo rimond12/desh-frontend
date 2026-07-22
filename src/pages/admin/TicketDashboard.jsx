@@ -4,24 +4,30 @@ import useAxiosSecure from '../../hooks/useAxiosSecure';
 import TicketCard from '../../components/tickets/TicketCard';
 import TicketFilters from '../../components/tickets/TicketFilters';
 import CreateTicketModal from '../../components/tickets/CreateTicketModal';
-import { Plus, Download, FileText, Activity } from 'lucide-react';
+import {
+  Plus, Download, Ticket, Activity,
+  CheckCircle2, Clock, AlertTriangle, TrendingUp, Settings as SettingsIcon
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+
+const KPI_CONFIG = [
+  { key: 'total',     label: 'Total Tickets',  icon: Ticket,       color: '#22A84B', bg: 'rgba(34,168,75,0.09)',   border: 'rgba(34,168,75,0.2)'   },
+  { key: 'open',      label: 'Open / Pending', icon: Clock,        color: '#3B82F6', bg: 'rgba(59,130,246,0.09)',  border: 'rgba(59,130,246,0.2)'  },
+  { key: 'inProgress',label: 'In Progress',    icon: Activity,     color: '#0D9488', bg: 'rgba(13,148,136,0.09)', border: 'rgba(13,148,136,0.2)'  },
+  { key: 'resolved',  label: 'Resolved',       icon: CheckCircle2, color: '#7C3AED', bg: 'rgba(124,58,237,0.09)', border: 'rgba(124,58,237,0.2)'  },
+  { key: 'overdue',   label: 'Overdue SLA',    icon: AlertTriangle,color: '#DC2626', bg: 'rgba(220,38,38,0.09)',  border: 'rgba(220,38,38,0.2)'   },
+];
 
 export default function TicketDashboard() {
   const axiosSecure = useAxiosSecure();
-  const navigate = useNavigate();
-  const [tickets, setTickets] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const navigate    = useNavigate();
+  const [tickets,      setTickets]      = useState([]);
+  const [stats,        setStats]        = useState(null);
+  const [projects,     setProjects]     = useState([]);
+  const [loading,      setLoading]      = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  const [filters, setFilters] = useState({
-    search: '',
-    status: '',
-    priority: '',
-    projectId: '',
-  });
+  const [filters, setFilters] = useState({ search: '', status: '', priority: '', projectId: '' });
 
   const fetchTickets = () => {
     setLoading(true);
@@ -32,101 +38,124 @@ export default function TicketDashboard() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => {
-    fetchTickets();
-  }, [filters]);
-
+  useEffect(() => { fetchTickets(); }, [filters]);
   useEffect(() => {
     axiosSecure.get('/tickets/stats').then((res) => setStats(res.data.stats)).catch(() => {});
     axiosSecure.get('/projects').then((res) => setProjects(res.data.projects || res.data || [])).catch(() => {});
   }, [axiosSecure]);
 
-  const handleFilterChange = (key, val) => {
-    setFilters({ ...filters, [key]: val });
-  };
-
-  const handleResetFilters = () => {
-    setFilters({ search: '', status: '', priority: '', projectId: '' });
-  };
+  const handleFilterChange = (key, val) => setFilters({ ...filters, [key]: val });
+  const handleResetFilters = () => setFilters({ search: '', status: '', priority: '', projectId: '' });
 
   return (
     <Layout isAdmin>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+      {/* Page Header */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 28 }}>
         <div>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>
-            Ticket Management Dashboard
-          </h1>
-          <p className="text-xs mt-1" style={{ color: 'var(--tx-muted)' }}>
-            System-wide overview, active clarification tickets, KPI analytics & audit trail.
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: 'linear-gradient(135deg,rgba(34,168,75,0.15),rgba(52,201,97,0.08))',
+              border: '1px solid rgba(34,168,75,0.22)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Ticket size={18} color="var(--g600)" />
+            </div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Montserrat',sans-serif", color: 'var(--tx)', margin: 0, letterSpacing: '-0.02em' }}>
+              Ticket Management
+            </h1>
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--tx-muted)', fontFamily: "'Nunito',sans-serif", margin: 0 }}>
+            System-wide overview of all clarification tickets and requests.
           </p>
         </div>
-
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            onClick={() => navigate('/admin/ticket-config')}
+            className="btn-secondary"
+            style={{ fontSize: 12.5, padding: '8px 16px' }}
+            title="Configure Routing Mode and Ticket Settings"
+          >
+            <SettingsIcon size={14} /> Routing Settings
+          </button>
           <a
             href="http://localhost:5000/api/tickets/export"
             download
-            className="btn-secondary text-xs px-3 py-2 inline-flex items-center gap-1.5"
+            className="btn-secondary"
+            style={{ fontSize: 12.5, padding: '8px 16px', textDecoration: 'none' }}
           >
             <Download size={14} /> Export CSV
           </a>
-
           <button
             onClick={() => setIsCreateOpen(true)}
-            className="btn-primary-green text-xs px-4 py-2 inline-flex items-center gap-1.5"
+            className="btn-primary-green"
+            style={{ fontSize: 12.5, padding: '8px 18px' }}
           >
-            <Plus size={14} /> Create Ticket
+            <Plus size={14} /> New Ticket
           </button>
         </div>
       </div>
 
-      {/* KPI Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <div className="stat-card p-4">
-          <span className="text-xs font-semibold text-gray-500">Total Tickets</span>
-          <p className="text-xl font-bold mt-1 text-emerald-600">{stats?.total || 0}</p>
-        </div>
-        <div className="stat-card p-4">
-          <span className="text-xs font-semibold text-gray-500">Open / Pending</span>
-          <p className="text-xl font-bold mt-1 text-blue-600">{stats?.open || 0}</p>
-        </div>
-        <div className="stat-card p-4">
-          <span className="text-xs font-semibold text-gray-500">In Progress</span>
-          <p className="text-xl font-bold mt-1 text-teal-600">{stats?.inProgress || 0}</p>
-        </div>
-        <div className="stat-card p-4">
-          <span className="text-xs font-semibold text-gray-500">Resolved</span>
-          <p className="text-xl font-bold mt-1 text-purple-600">{stats?.resolved || 0}</p>
-        </div>
-        <div className="stat-card p-4">
-          <span className="text-xs font-semibold text-gray-500">Overdue SLA</span>
-          <p className="text-xl font-bold mt-1 text-red-600">{stats?.overdue || 0}</p>
-        </div>
+      {/* KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 24 }}>
+        {KPI_CONFIG.map(({ key, label, icon: Icon, color, bg, border }) => (
+          <div key={key} style={{
+            background: '#fff', border: `1px solid ${border}`,
+            borderRadius: 14, padding: '16px 18px',
+            boxShadow: 'var(--sh-xs)',
+            transition: 'transform 0.18s, box-shadow 0.18s',
+            cursor: 'default',
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = 'var(--sh-sm)'; }}
+          onMouseOut={(e)  => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'var(--sh-xs)'; }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: bg, border: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon size={16} color={color} />
+              </div>
+              <TrendingUp size={13} color="var(--tx-faint)" />
+            </div>
+            <p style={{ fontSize: 26, fontWeight: 800, fontFamily: "'Montserrat',sans-serif", color, margin: '0 0 3px', letterSpacing: '-0.03em' }}>
+              {stats?.[key] ?? 0}
+            </p>
+            <p style={{ fontSize: 11.5, color: 'var(--tx-faint)', fontFamily: "'Nunito',sans-serif", fontWeight: 600, margin: 0 }}>
+              {label}
+            </p>
+          </div>
+        ))}
       </div>
 
-      {/* Filter Bar */}
+      {/* Filters */}
       <TicketFilters filters={filters} onChange={handleFilterChange} onReset={handleResetFilters} projects={projects} />
 
-      {/* Ticket Grid */}
+      {/* Tickets Grid */}
       {loading ? (
-        <div className="text-center py-12 text-xs text-gray-500">Loading tickets...</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {[1,2,3].map(i => (
+            <div key={i} style={{ height: 120, background: '#fff', borderRadius: 14, border: '1px solid var(--border)', opacity: 0.6 }} />
+          ))}
+        </div>
       ) : tickets.length === 0 ? (
-        <div className="glass-card p-12 text-center text-xs text-gray-500 rounded-xl">
-          No tickets found matching current filters.
+        <div style={{
+          background: '#fff', border: '1px solid var(--border)',
+          borderRadius: 16, padding: '52px 20px',
+          textAlign: 'center', boxShadow: 'var(--sh-xs)',
+        }}>
+          <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-subtle)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+            <Ticket size={22} color="var(--tx-faint)" />
+          </div>
+          <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--tx)', fontFamily: "'Montserrat',sans-serif", margin: '0 0 4px' }}>No tickets found</p>
+          <p style={{ fontSize: 12.5, color: 'var(--tx-faint)', fontFamily: "'Nunito',sans-serif", margin: 0 }}>Try adjusting your filters or create a new ticket.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 14 }}>
           {tickets.map((t) => (
             <TicketCard key={t._id} ticket={t} onClick={(t) => navigate(`/admin/tickets/${t._id}`)} />
           ))}
         </div>
       )}
 
-      {/* Create Ticket Shared Modal */}
-      <CreateTicketModal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onSuccess={() => fetchTickets()}
-      />
+      <CreateTicketModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSuccess={() => fetchTickets()} />
     </Layout>
   );
 }

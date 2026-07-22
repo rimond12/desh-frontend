@@ -21,6 +21,10 @@ const useAxiosSecure = () => {
                 const token = await user.getIdToken();
                 config.headers.Authorization = `Bearer ${token}`;
             }
+            const savedRole = localStorage.getItem("desh_active_role");
+            if (savedRole) {
+                config.headers["x-active-role"] = savedRole;
+            }
             // FormData হলে Content-Type সরিয়ে দাও — browser নিজে boundary সহ সেট করবে
             if (config.data instanceof FormData) {
                 delete config.headers['Content-Type'];

@@ -1,89 +1,152 @@
 import React from 'react';
-import { Search, Filter, RefreshCw } from 'lucide-react';
+import { Search, X, ChevronDown } from 'lucide-react';
 
 export default function TicketFilters({ filters, onChange, onReset, projects = [] }) {
+  const hasActive = filters.status || filters.priority || filters.projectId || filters.search;
+
   return (
-    <div className="glass-card p-4 rounded-xl mb-6 space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+    <div style={{
+      background: '#fff',
+      border: '1px solid var(--border)',
+      borderRadius: 14,
+      padding: '14px 16px',
+      marginBottom: 20,
+      boxShadow: 'var(--sh-xs)',
+    }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: 10, alignItems: 'center' }}>
+
         {/* Search */}
-        <div className="relative col-span-1 md:col-span-2">
-          <Search size={15} className="absolute left-3 top-2.5 text-gray-400" />
+        <div style={{ position: 'relative' }}>
+          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--tx-faint)', pointerEvents: 'none' }} />
           <input
             type="text"
-            placeholder="Search by ticket #, subject, description..."
+            placeholder="Search tickets, subjects, IDs…"
             value={filters.search || ''}
             onChange={(e) => onChange('search', e.target.value)}
-            className="input-field w-full text-xs pl-9"
+            style={{
+              width: '100%', height: 36,
+              paddingLeft: 34, paddingRight: 12,
+              border: '1.5px solid var(--border-md)',
+              borderRadius: 9, fontSize: 12.5,
+              fontFamily: "'Nunito',sans-serif",
+              fontWeight: 500, color: 'var(--tx)',
+              background: 'var(--bg-soft)',
+              outline: 'none', transition: 'all 0.18s',
+            }}
+            onFocus={(e) => { e.target.style.borderColor = 'var(--g500)'; e.target.style.background = '#fff'; e.target.style.boxShadow = 'var(--glow)'; }}
+            onBlur={(e)  => { e.target.style.borderColor = 'var(--border-md)'; e.target.style.background = 'var(--bg-soft)'; e.target.style.boxShadow = 'none'; }}
           />
         </div>
 
         {/* Status */}
-        <div>
-          <select
-            value={filters.status || ''}
-            onChange={(e) => onChange('status', e.target.value)}
-            className="input-field w-full text-xs"
-          >
-            <option value="">All Statuses</option>
-            <option value="open">Open</option>
-            <option value="submitted">Submitted</option>
-            <option value="manager_review">Manager Review</option>
-            <option value="assigned">Assigned</option>
-            <option value="in_progress">In Progress</option>
-            <option value="response_submitted">Response Submitted</option>
-            <option value="resolved">Resolved</option>
-            <option value="closed">Closed</option>
-            <option value="returned">Returned</option>
-            <option value="reopened">Reopened</option>
-            <option value="on_hold">On Hold</option>
-            <option value="rejected">Rejected</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
+        <FilterSelect label="Status" value={filters.status || ''} onChange={(v) => onChange('status', v)}>
+          <option value="">All Statuses</option>
+          <option value="open">Open</option>
+          <option value="submitted">Submitted</option>
+          <option value="manager_review">Manager Review</option>
+          <option value="assigned">Assigned</option>
+          <option value="in_progress">In Progress</option>
+          <option value="response_submitted">Response Submitted</option>
+          <option value="resolved">Resolved</option>
+          <option value="closed">Closed</option>
+          <option value="returned">Returned</option>
+          <option value="reopened">Reopened</option>
+          <option value="on_hold">On Hold</option>
+          <option value="rejected">Rejected</option>
+          <option value="cancelled">Cancelled</option>
+        </FilterSelect>
 
         {/* Priority */}
-        <div>
-          <select
-            value={filters.priority || ''}
-            onChange={(e) => onChange('priority', e.target.value)}
-            className="input-field w-full text-xs"
-          >
-            <option value="">All Priorities</option>
-            <option value="critical">Critical</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-        </div>
+        <FilterSelect label="Priority" value={filters.priority || ''} onChange={(v) => onChange('priority', v)}>
+          <option value="">All Priorities</option>
+          <option value="critical">🔴 Critical</option>
+          <option value="high">🟠 High</option>
+          <option value="medium">🟡 Medium</option>
+          <option value="low">🟢 Low</option>
+        </FilterSelect>
 
         {/* Project */}
-        <div>
-          <select
-            value={filters.projectId || ''}
-            onChange={(e) => onChange('projectId', e.target.value)}
-            className="input-field w-full text-xs"
+        <FilterSelect label="Project" value={filters.projectId || ''} onChange={(v) => onChange('projectId', v)}>
+          <option value="">All Projects</option>
+          {projects.map((p) => (
+            <option key={p._id} value={p._id}>{p.title}</option>
+          ))}
+        </FilterSelect>
+
+        {/* Reset button */}
+        {hasActive && (
+          <button
+            onClick={onReset}
+            title="Clear all filters"
+            style={{
+              height: 36, width: 36, borderRadius: 9,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(220,38,38,0.07)',
+              border: '1px solid rgba(220,38,38,0.2)',
+              color: '#DC2626', cursor: 'pointer',
+              transition: 'all 0.18s', flexShrink: 0,
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(220,38,38,0.14)'; }}
+            onMouseOut={(e)  => { e.currentTarget.style.background = 'rgba(220,38,38,0.07)'; }}
           >
-            <option value="">All Projects</option>
-            {projects.map((p) => (
-              <option key={p._id} value={p._id}>
-                {p.title}
-              </option>
-            ))}
-          </select>
-        </div>
+            <X size={14} />
+          </button>
+        )}
       </div>
 
-      <div className="flex items-center justify-between text-xs pt-2 border-t flex-wrap gap-2" style={{ borderColor: 'var(--border)' }}>
-        <div className="flex items-center gap-2" style={{ color: 'var(--tx-muted)' }}>
-          <Filter size={13} /> Active Filters
+      {/* Active filter chips */}
+      {hasActive && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+          <span style={{ fontSize: 11, color: 'var(--tx-faint)', fontFamily: "'Nunito',sans-serif", alignSelf: 'center', marginRight: 2 }}>Active:</span>
+          {filters.search    && <Chip label={`"${filters.search}"`}  onRemove={() => onChange('search', '')} />}
+          {filters.status    && <Chip label={filters.status.replace(/_/g, ' ')} onRemove={() => onChange('status', '')} />}
+          {filters.priority  && <Chip label={filters.priority}        onRemove={() => onChange('priority', '')} />}
+          {filters.projectId && <Chip label="Project filter"          onRemove={() => onChange('projectId', '')} />}
         </div>
-        <button
-          onClick={onReset}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700"
-        >
-          <RefreshCw size={12} /> Reset Filters
-        </button>
-      </div>
+      )}
     </div>
+  );
+}
+
+function FilterSelect({ value, onChange, children }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          height: 36, paddingLeft: 10, paddingRight: 28,
+          border: `1.5px solid ${value ? 'var(--g400)' : 'var(--border-md)'}`,
+          borderRadius: 9, fontSize: 12,
+          fontFamily: "'Nunito',sans-serif", fontWeight: 600,
+          color: value ? 'var(--g700)' : 'var(--tx-muted)',
+          background: value ? 'var(--g50)' : 'var(--bg-soft)',
+          outline: 'none', cursor: 'pointer',
+          appearance: 'none', WebkitAppearance: 'none',
+          transition: 'all 0.18s', whiteSpace: 'nowrap',
+        }}
+      >
+        {children}
+      </select>
+      <ChevronDown size={12} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--tx-faint)', pointerEvents: 'none' }} />
+    </div>
+  );
+}
+
+function Chip({ label, onRemove }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '3px 8px 3px 10px', borderRadius: 99,
+      fontSize: 11, fontWeight: 700,
+      fontFamily: "'Montserrat',sans-serif",
+      background: 'var(--g50)', color: 'var(--g700)',
+      border: '1px solid var(--g200)',
+    }}>
+      {label}
+      <button onClick={onRemove} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--g600)', padding: 0, display: 'flex', lineHeight: 1 }}>
+        <X size={10} />
+      </button>
+    </span>
   );
 }

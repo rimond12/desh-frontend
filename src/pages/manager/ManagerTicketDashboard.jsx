@@ -4,24 +4,19 @@ import useAxiosSecure from '../../hooks/useAxiosSecure';
 import TicketCard from '../../components/tickets/TicketCard';
 import TicketFilters from '../../components/tickets/TicketFilters';
 import CreateTicketModal from '../../components/tickets/CreateTicketModal';
-import { Plus, CheckCircle, ArrowRight, ShieldAlert } from 'lucide-react';
+import { Plus, Ticket, ShieldAlert, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function ManagerTicketDashboard() {
   const axiosSecure = useAxiosSecure();
-  const navigate = useNavigate();
-  const [tickets, setTickets] = useState([]);
-  const [reviewQueue, setReviewQueue] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const navigate    = useNavigate();
+  const [tickets,      setTickets]      = useState([]);
+  const [reviewQueue,  setReviewQueue]  = useState([]);
+  const [projects,     setProjects]     = useState([]);
+  const [loading,      setLoading]      = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  const [filters, setFilters] = useState({
-    search: '',
-    status: '',
-    priority: '',
-    projectId: '',
-  });
+  const [filters, setFilters] = useState({ search: '', status: '', priority: '', projectId: '' });
 
   const fetchTickets = () => {
     setLoading(true);
@@ -41,41 +36,80 @@ export default function ManagerTicketDashboard() {
     axiosSecure.get('/projects').then((res) => setProjects(res.data.projects || res.data || [])).catch(() => {});
   }, [filters]);
 
-  const handleFilterChange = (key, val) => {
-    setFilters({ ...filters, [key]: val });
-  };
-
-  const handleResetFilters = () => {
-    setFilters({ search: '', status: '', priority: '', projectId: '' });
-  };
+  const handleFilterChange = (key, val) => setFilters({ ...filters, [key]: val });
+  const handleResetFilters = () => setFilters({ search: '', status: '', priority: '', projectId: '' });
 
   return (
     <Layout isManager>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+      {/* Page Header */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 28 }}>
         <div>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: 'Montserrat, sans-serif' }}>
-            Manager Ticket Control & Review Center
-          </h1>
-          <p className="text-xs mt-1" style={{ color: 'var(--tx-muted)' }}>
-            Approve, edit, forward, and manage clarification tickets across all projects.
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: 'linear-gradient(135deg,rgba(34,168,75,0.15),rgba(52,201,97,0.08))',
+              border: '1px solid rgba(34,168,75,0.22)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Ticket size={18} color="var(--g600)" />
+            </div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Montserrat',sans-serif", color: 'var(--tx)', margin: 0, letterSpacing: '-0.02em' }}>
+              Ticket Control Center
+            </h1>
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--tx-muted)', fontFamily: "'Nunito',sans-serif", margin: 0 }}>
+            Approve, forward, and manage clarification tickets across all projects.
           </p>
         </div>
-
         <button
           onClick={() => setIsCreateOpen(true)}
-          className="btn-primary-green text-xs px-4 py-2 inline-flex items-center gap-1.5"
+          className="btn-primary-green"
+          style={{ fontSize: 12.5, padding: '8px 18px' }}
         >
-          <Plus size={14} /> Create Ticket
+          <Plus size={14} /> New Ticket
         </button>
       </div>
 
-      {/* Review Queue (Restricted Mode) */}
+      {/* Review Queue Banner */}
       {reviewQueue.length > 0 && (
-        <div className="glass-card p-5 rounded-2xl mb-6 border-l-4 border-l-amber-500 bg-amber-500/5">
-          <h3 className="text-sm font-bold flex items-center gap-2 text-amber-700 mb-3">
-            <ShieldAlert size={18} /> Manager Review Queue ({reviewQueue.length} Tickets Pending Approval)
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(245,158,11,0.07), rgba(234,88,12,0.04))',
+          border: '1.5px solid rgba(245,158,11,0.3)',
+          borderRadius: 14,
+          padding: '16px 20px',
+          marginBottom: 20,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 9,
+              background: 'rgba(245,158,11,0.15)',
+              border: '1px solid rgba(245,158,11,0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <ShieldAlert size={16} color="#D97706" />
+            </div>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#92400E', margin: 0, fontFamily: "'Montserrat',sans-serif" }}>
+                Manager Review Queue
+              </p>
+              <p style={{ fontSize: 11.5, color: '#B45309', margin: 0, fontFamily: "'Nunito',sans-serif" }}>
+                {reviewQueue.length} ticket{reviewQueue.length > 1 ? 's' : ''} awaiting your approval
+              </p>
+            </div>
+            <span style={{
+              marginLeft: 'auto',
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '4px 12px', borderRadius: 99,
+              fontSize: 11, fontWeight: 800,
+              fontFamily: "'Montserrat',sans-serif",
+              background: 'rgba(245,158,11,0.15)',
+              color: '#92400E',
+              border: '1px solid rgba(245,158,11,0.3)',
+            }}>
+              <Clock size={11} /> Pending Review
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 12 }}>
             {reviewQueue.map((t) => (
               <TicketCard key={t._id} ticket={t} onClick={(t) => navigate(`/manager/tickets/${t._id}`)} />
             ))}
@@ -83,30 +117,37 @@ export default function ManagerTicketDashboard() {
         </div>
       )}
 
-      {/* Filter Bar */}
+      {/* Filters */}
       <TicketFilters filters={filters} onChange={handleFilterChange} onReset={handleResetFilters} projects={projects} />
 
-      {/* Ticket Grid */}
+      {/* All Tickets */}
       {loading ? (
-        <div className="text-center py-12 text-xs text-gray-500">Loading tickets...</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {[1,2,3].map(i => (
+            <div key={i} style={{ height: 120, background: '#fff', borderRadius: 14, border: '1px solid var(--border)', opacity: 0.6 }} />
+          ))}
+        </div>
       ) : tickets.length === 0 ? (
-        <div className="glass-card p-12 text-center text-xs text-gray-500 rounded-xl">
-          No tickets found matching current filters.
+        <div style={{
+          background: '#fff', border: '1px solid var(--border)',
+          borderRadius: 16, padding: '52px 20px',
+          textAlign: 'center', boxShadow: 'var(--sh-xs)',
+        }}>
+          <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-subtle)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+            <Ticket size={22} color="var(--tx-faint)" />
+          </div>
+          <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--tx)', fontFamily: "'Montserrat',sans-serif", margin: '0 0 4px' }}>No tickets found</p>
+          <p style={{ fontSize: 12.5, color: 'var(--tx-faint)', fontFamily: "'Nunito',sans-serif", margin: 0 }}>No tickets match your current filters.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 14 }}>
           {tickets.map((t) => (
             <TicketCard key={t._id} ticket={t} onClick={(t) => navigate(`/manager/tickets/${t._id}`)} />
           ))}
         </div>
       )}
 
-      {/* Shared Create Modal */}
-      <CreateTicketModal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onSuccess={() => fetchTickets()}
-      />
+      <CreateTicketModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSuccess={() => fetchTickets()} />
     </Layout>
   );
 }

@@ -226,8 +226,11 @@ export default function ProjectAssessment() {
   const [openMod, setOpenMod] = useState(null);
   const [openSections, setOpenSections] = useState({}); // track which section panels are open
   const [answers, setAnswers] = useState({});
-  const [saving, setSaving] = useState(null);
+  const [saveStatus, setSaveStatus] = useState('saved'); // 'saved' | 'saving' | 'unsaved' | 'error'
   const [submitting, setSubmitting] = useState(false);
+  const saveTimerRef = useRef(null);
+  const pendingChangesRef = useRef({}); // { inputId: value } — only what changed
+  const pendingSaveRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [displayLeaf, setDisplayLeaf] = useState(null);
 
@@ -241,31 +244,62 @@ export default function ProjectAssessment() {
 
   // URL Query Parameters listener for "Go to Linked Question" navigation
   useEffect(() => {
+    if (!tabs || tabs.length === 0) return;
+
     const queryParams = new URLSearchParams(location.search);
     const targetTabId = queryParams.get('tabId');
     const targetModuleId = queryParams.get('moduleId');
     const targetInputId = queryParams.get('inputId');
 
-    if (tabs.length > 0 && targetTabId) {
-      const tabIdx = tabs.findIndex(t => String(t._id) === String(targetTabId));
-      if (tabIdx !== -1) {
-        setActiveTab(tabIdx);
-      }
+    if (!targetInputId && !targetTabId && !targetModuleId) return;
+
+    let targetTabIdx = -1;
+    let targetModId = targetModuleId || null;
+    let targetSecId = null;
+
+    if (targetInputId) {
+      tabs.forEach((tab, tIdx) => {
+        (tab.modules || []).forEach((mod) => {
+          const modInputs = getModuleInputs(mod);
+          const foundInp = modInputs.find(inp => String(inp._id) === String(targetInputId));
+          if (foundInp) {
+            targetTabIdx = tIdx;
+            targetModId = mod._id;
+            targetSecId = foundInp.sectionId || null;
+          }
+        });
+      });
     }
 
-    if (targetModuleId) {
-      setOpenMod(targetModuleId);
+    if (targetTabIdx === -1 && targetTabId) {
+      const idx = tabs.findIndex(t => String(t._id) === String(targetTabId));
+      if (idx !== -1) targetTabIdx = idx;
+    }
+
+    if (targetTabIdx !== -1) {
+      setActiveTab(targetTabIdx);
+    }
+    if (targetModId) {
+      setOpenMod(targetModId);
+    }
+    if (targetSecId) {
+      setOpenSections(prev => ({ ...prev, [targetSecId]: true }));
     }
 
     if (targetInputId) {
       setHighlightedInputId(targetInputId);
-      setTimeout(() => {
+      let attempts = 0;
+      const tryScroll = () => {
+        attempts++;
         const el = document.getElementById(`input-${targetInputId}`);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (attempts < 10) {
+          setTimeout(tryScroll, 200);
         }
-      }, 700);
-      setTimeout(() => setHighlightedInputId(null), 4500);
+      };
+      setTimeout(tryScroll, 200);
+      setTimeout(() => setHighlightedInputId(null), 5000);
     }
   }, [location.search, tabs]);
 
@@ -371,25 +405,33 @@ export default function ProjectAssessment() {
     }
   };
 
-  const handleChange = (inputId, value, inputType) => {
-    if (inputType === 'checkbox') {
-      const cur = answers[inputId] || [];
-      const upd = cur.includes(value) ? cur.filter(v => v !== value) : [...cur, value];
-      setAnswers(p => ({ ...p, [inputId]: upd }));
-    } else {
-      setAnswers(p => ({ ...p, [inputId]: value }));
-    }
-  };
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
 
-  const saveModule = async (mod) => {
-    setSaving(mod._id);
+  const performSave = useCallback(async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+
+    // Snapshot and clear pending changes atomically
+    const changedEntries = Object.entries(pendingChangesRef.current);
+    if (changedEntries.length === 0) {
+      setSaveStatus('saved');
+      pendingSaveRef.current = false;
+      return;
+    }
+
+    setSaveStatus('saving');
+    const toSave = changedEntries.map(([inputId, value]) => ({ inputId, value }));
+    // Clear pending right away so concurrent edits accumulate fresh
+    pendingChangesRef.current = {};
+
     try {
-      const toSave = [];
-      getModuleInputs(mod).forEach(inp => {
-        if (inp.inputType !== 'file' && answers[inp._id] !== undefined) {
-          toSave.push({ inputId: inp._id, value: answers[inp._id] });
-        }
-      });
       const r = await ax.patch(`/projects/${id}/answers`, { answers: toSave });
       setProject(p => ({
         ...p,
@@ -399,9 +441,45 @@ export default function ProjectAssessment() {
         leafLevel: r.data.leafLevel,
       }));
       setDisplayLeaf(r.data.leafLevel);
-      toast.success('Saved!');
-    } catch { toast.error('Failed to save'); }
-    finally { setSaving(null); }
+      pendingSaveRef.current = false;
+      setSaveStatus('saved');
+    } catch (err) {
+      console.error('Autosave error:', err);
+      // Restore the failed changes so they can be retried
+      changedEntries.forEach(([inputId, value]) => {
+        if (pendingChangesRef.current[inputId] === undefined) {
+          pendingChangesRef.current[inputId] = value;
+        }
+      });
+      setSaveStatus('error');
+    }
+  }, [ax, id]);
+
+  const triggerAutosave = useCallback(() => {
+    pendingSaveRef.current = true;
+    setSaveStatus('unsaved');
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      performSave();
+    }, 800);
+  }, [performSave]);
+
+  const handleChange = (inputId, value, inputType) => {
+    let updVal = value;
+    if (inputType === 'checkbox') {
+      const cur = answers[inputId] || [];
+      updVal = cur.includes(value) ? cur.filter(v => v !== value) : [...cur, value];
+    }
+    setAnswers(p => ({ ...p, [inputId]: updVal }));
+    // Track only the changed input
+    pendingChangesRef.current[inputId] = updVal;
+    triggerAutosave();
+  };
+
+  const handleBlur = () => {
+    if (pendingSaveRef.current) {
+      performSave();
+    }
   };
 
   // Surgical update: update one input's documents inside tabs without full reload
@@ -421,6 +499,7 @@ export default function ProjectAssessment() {
 
   const handleFile = async (inputId, files) => {
     if (!files || files.length === 0) return;
+    setSaveStatus('saving');
     const fd = new FormData();
     for (const file of files) fd.append('files', file);
     fd.append('inputId', inputId);
@@ -432,17 +511,26 @@ export default function ProjectAssessment() {
       const newFiles = res.data.files || [];
       patchInputDocs(inputId, existing => [...existing, ...newFiles]);
       toast.success(files.length > 1 ? `${files.length} files uploaded!` : 'File uploaded!');
-    } catch { toast.error('Upload failed'); }
+      setSaveStatus('saved');
+    } catch {
+      toast.error('Upload failed');
+      setSaveStatus('error');
+    }
   };
 
   const handleDeleteFile = async (inputId, filename) => {
     if (!window.confirm('Remove this file?')) return;
+    setSaveStatus('saving');
     try {
       await ax.delete(`/projects/${id}/documents/${encodeURIComponent(filename)}`);
       // Surgically remove the doc — no scroll jump
       patchInputDocs(inputId, existing => existing.filter(d => d.filename !== filename));
       toast.success('File removed.');
-    } catch (e) { toast.error(e.response?.data?.message || 'Failed to remove file'); }
+      setSaveStatus('saved');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to remove file');
+      setSaveStatus('error');
+    }
   };
 
   const triggerDownload = (filename, originalName) => {
@@ -466,6 +554,9 @@ export default function ProjectAssessment() {
     if (!window.confirm('Submit for review? You cannot edit after this.')) return;
     setSubmitting(true);
     try {
+      if (pendingSaveRef.current) {
+        await performSave();
+      }
       await ax.patch(`/projects/${id}/submit`);
       toast.success('Project submitted!');
       loadProject();
@@ -769,7 +860,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 .comment-author{font-size:11px;font-weight:700;color:#374151}
 .comment-time{font-size:10px;color:#9CA3AF;margin-left:auto}
 .comment-text{font-size:11.5px;color:#1f2937;line-height:1.5;white-space:pre-wrap}
-@media print{.print-bar{display:none!important}.body-offset{padding-top:0!important}.tab-sec+.tab-sec{page-break-before:always}.mod{page-break-inside:avoid}.tab-hdr{page-break-after:avoid}.stage-hdr{background:#F0FDF4!important}.comment-box{page-break-inside:avoid}}`;
+@media print{.print-bar{display:none!important}.body-offset{padding-top:0!important}.tab-sec+.tab-sec{page-break-before:always;break-before:page}.tab-hdr{page-break-after:avoid;break-after:avoid}.mod+.mod{page-break-before:always;break-before:page}.mod{break-inside:avoid-page}.mod-hdr{page-break-after:avoid;break-after:avoid}.stage-hdr{background:#F0FDF4!important;page-break-after:avoid;break-after:avoid;page-break-inside:avoid;break-inside:avoid}.inp{page-break-inside:avoid;break-inside:avoid}.comment-box{page-break-inside:avoid;break-inside:avoid}.inp-comments{page-break-inside:avoid;break-inside:avoid}}`;
 
     const getProjectReportFilename = (title) => {
       if (!title) return 'report.pdf';
@@ -787,14 +878,29 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 
     try {
       // ── Find all the sub-elements (chunks) we want to render ──
+      // Each .mod sub-item becomes its own chunk so it can start on a fresh page.
       const chunks = [];
       const coverEl = container.querySelector('.rpt-cover');
-      if (coverEl) chunks.push({ el: coverEl, type: 'cover' });
+      if (coverEl) chunks.push({ el: coverEl, type: 'cover', forceNewPage: false });
       const scoreEl = container.querySelector('.score-strip');
-      if (scoreEl) chunks.push({ el: scoreEl, type: 'score' });
+      if (scoreEl) chunks.push({ el: scoreEl, type: 'score', forceNewPage: false });
       const tabEls = container.querySelectorAll('.tab-sec');
-      tabEls.forEach((el, idx) => {
-        chunks.push({ el, type: 'tab', index: idx });
+      tabEls.forEach((tabEl, ti) => {
+        const hdrEl = tabEl.querySelector('.tab-hdr');
+        const modEls = Array.from(tabEl.querySelectorAll('.mod'));
+        if (modEls.length === 0) {
+          // No sub-items: push the whole section (new page for every section after the first)
+          chunks.push({ el: tabEl, type: 'tab', forceNewPage: ti > 0 });
+        } else {
+          // Section header: always force a new page for sections after the first
+          if (hdrEl) chunks.push({ el: hdrEl, type: 'tab-hdr', forceNewPage: ti > 0 });
+          // Each sub-item (.mod) as its own chunk:
+          //   first mod (mi === 0) flows naturally after the section header — no blank page
+          //   every subsequent mod always starts on a fresh page
+          modEls.forEach((modEl, mi) => {
+            chunks.push({ el: modEl, type: 'mod', forceNewPage: mi > 0 });
+          });
+        }
       });
 
       const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
@@ -810,6 +916,13 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
       // Process each chunk sequentially
       for (const chunk of chunks) {
         const chunkEl = chunk.el;
+
+        // Force a fresh page before sub-items that must always start at the top
+        if (chunk.forceNewPage) {
+          doc.addPage();
+          currentY = margin;
+        }
+
         const chunkCanvas = await html2canvas(chunkEl, {
           scale: H2C_SCALE,
           useCORS: true,
@@ -1172,6 +1285,67 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 
           {/* Buttons */}
           <div className="pa-scorecard-buttons" style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+            {/* Save Status Indicator */}
+            {!isLocked && (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '7px 13px',
+                  borderRadius: 10,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  fontFamily: 'Montserrat, sans-serif',
+                  transition: 'all 0.2s ease',
+                  cursor: saveStatus === 'error' ? 'pointer' : 'default',
+                  ...(saveStatus === 'saved' ? {
+                    background: 'rgba(34, 197, 94, 0.1)',
+                    color: '#15803D',
+                    border: '1.5px solid rgba(34, 197, 94, 0.25)',
+                  } : saveStatus === 'saving' ? {
+                    background: 'rgba(59, 130, 246, 0.1)',
+                    color: '#1D4ED8',
+                    border: '1.5px solid rgba(59, 130, 246, 0.25)',
+                  } : saveStatus === 'unsaved' ? {
+                    background: 'rgba(234, 179, 8, 0.1)',
+                    color: '#A16207',
+                    border: '1.5px solid rgba(234, 179, 8, 0.25)',
+                  } : {
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    color: '#B91C1C',
+                    border: '1.5px solid rgba(239, 68, 68, 0.25)',
+                  }),
+                }}
+                onClick={saveStatus === 'error' ? () => performSave() : undefined}
+                title={saveStatus === 'error' ? 'Click to retry autosave' : undefined}
+              >
+                {saveStatus === 'saved' && (
+                  <>
+                    <span style={{ fontSize: 13, color: '#16A34A' }}>✓</span> All changes saved
+                  </>
+                )}
+                {saveStatus === 'saving' && (
+                  <>
+                    <span style={{
+                      display: 'inline-block', width: 12, height: 12,
+                      border: '2px solid rgba(29, 78, 216, 0.3)', borderTopColor: '#1D4ED8',
+                      borderRadius: '50%', animation: 'spin 0.8s linear infinite'
+                    }} /> Saving...
+                  </>
+                )}
+                {saveStatus === 'unsaved' && (
+                  <>
+                    <span style={{ fontSize: 10, color: '#EAB308' }}>●</span> Unsaved changes
+                  </>
+                )}
+                {saveStatus === 'error' && (
+                  <>
+                    <span style={{ fontSize: 13 }}>⚠️</span> Save failed (Retry)
+                  </>
+                )}
+              </div>
+            )}
             <Link to="/notes" style={{ textDecoration: 'none' }} className="btn-secondary">
               📝 Notes
             </Link>
@@ -2098,6 +2272,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                                     <input type="number" className="input-field"
                                                       value={rawVal ?? ''}
                                                       onChange={e => handleChange(inp._id, e.target.value, 'number')}
+                                                      onBlur={handleBlur}
                                                       placeholder="Enter value"
                                                       disabled={!editable}
                                                       style={{ maxWidth: 200 }} />
@@ -2127,6 +2302,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                                         min={sMin} max={sMax} step={sStep}
                                                         value={numVal}
                                                         onChange={e => handleChange(inp._id, e.target.value, 'number')}
+                                                        onBlur={handleBlur}
                                                         disabled={!editable}
                                                         style={{
                                                           width: '100%',
@@ -2175,6 +2351,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                                               <textarea className="input-field" rows={2}
                                                 value={answers[inp._id] || ''}
                                                 onChange={e => handleChange(inp._id, e.target.value, 'text')}
+                                                onBlur={handleBlur}
                                                 placeholder="Enter your answer"
                                                 disabled={!isInputEditable(inp)}
                                                 style={{ resize: 'vertical' }} />
@@ -2509,22 +2686,6 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                         })
                       )}
 
-                      {/* Save button — show if any individually-unlocked input exists in this module and current user is allowed to edit */}
-                      {isEditable && allInputs.some(inp => !lockedInputIds.has(String(inp._id))) && (
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-                          <button className="btn-primary-green"
-                            onClick={() => saveModule(mod)}
-                            disabled={saving === mod._id}>
-                            {saving === mod._id
-                              ? <><span style={{
-                                display: 'inline-block', width: 14, height: 14,
-                                border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff',
-                                borderRadius: '50%', animation: 'spin 0.8s linear infinite'
-                              }} /> Saving…</>
-                              : '💾 Save Module'}
-                          </button>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>

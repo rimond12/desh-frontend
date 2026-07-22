@@ -24,7 +24,7 @@ export default function AssessorTickets() {
 
   const fetchTickets = () => {
     setLoading(true);
-    const params = new URLSearchParams(filters).toString();
+    const params = new URLSearchParams({ ...filters, role: 'desh_assessor' }).toString();
     axiosSecure.get(`/tickets?${params}`)
       .then((res) => setTickets(res.data.tickets || []))
       .catch(console.error)

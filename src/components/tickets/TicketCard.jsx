@@ -1,62 +1,133 @@
 import React from 'react';
-import { TicketStatusBadge, TicketPriorityBadge } from './TicketStatusBadge';
-import { Calendar, User, Folder, MessageSquare } from 'lucide-react';
+import { TicketStatusBadge, TicketPriorityBadge, PRIORITY_ACCENT } from './TicketStatusBadge';
+import { Calendar, User, Folder, MessageSquare, AlertTriangle, Hash } from 'lucide-react';
 
 export default function TicketCard({ ticket, onClick }) {
-  const isOverdue = ticket.slaDeadline && new Date(ticket.slaDeadline) < new Date() && ticket.status !== 'closed';
+  const isOverdue = ticket.slaDeadline && new Date(ticket.slaDeadline) < new Date() && ticket.status !== 'closed' && ticket.status !== 'resolved';
+  const accentColor = PRIORITY_ACCENT[ticket.priority] || PRIORITY_ACCENT.medium;
 
   return (
     <div
       onClick={() => onClick && onClick(ticket)}
-      className={`glass-card p-5 cursor-pointer ticket-card prio-${ticket.priority || 'medium'}`}
+      style={{
+        background: '#fff',
+        border: '1px solid var(--border)',
+        borderRadius: 14,
+        overflow: 'hidden',
+        cursor: 'pointer',
+        boxShadow: 'var(--sh-xs)',
+        transition: 'transform 0.18s, box-shadow 0.18s, border-color 0.18s',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+      onMouseOver={(e) => {
+        e.currentTarget.style.transform = 'translateY(-3px)';
+        e.currentTarget.style.boxShadow = 'var(--sh-md)';
+        e.currentTarget.style.borderColor = 'var(--border-md)';
+      }}
+      onMouseOut={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = 'var(--sh-xs)';
+        e.currentTarget.style.borderColor = 'var(--border)';
+      }}
     >
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <div>
-          <span className="font-mono text-xs font-bold text-emerald-600 tracking-wider">
-            {ticket.ticketNumber}
-          </span>
-          <h3 className="text-base font-bold line-clamp-1 mt-0.5" style={{ color: 'var(--tx)' }}>
-            {ticket.subject}
-          </h3>
+      {/* Priority accent bar */}
+      <div style={{ height: 3, background: accentColor, flexShrink: 0 }} />
+
+      <div style={{ padding: '14px 16px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+        {/* Top row: ticket number + badges */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <Hash size={11} color={accentColor} />
+              <span style={{
+                fontSize: 11, fontWeight: 800,
+                fontFamily: "'Montserrat',sans-serif",
+                color: accentColor, letterSpacing: '0.04em',
+              }}>
+                {ticket.ticketNumber}
+              </span>
+              {isOverdue && (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 3,
+                  padding: '1px 7px', borderRadius: 99,
+                  fontSize: 10, fontWeight: 800,
+                  fontFamily: "'Montserrat',sans-serif",
+                  background: 'rgba(220,38,38,0.1)',
+                  color: '#DC2626',
+                  border: '1px solid rgba(220,38,38,0.25)',
+                  animation: 'pulseRing 2s infinite',
+                }}>
+                  <AlertTriangle size={9} /> SLA
+                </span>
+              )}
+            </div>
+            <h3 style={{
+              fontSize: 13.5, fontWeight: 700,
+              fontFamily: "'Montserrat',sans-serif",
+              color: 'var(--tx)',
+              overflow: 'hidden', textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap', lineHeight: 1.35,
+            }}>
+              {ticket.subject}
+            </h3>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+            <TicketStatusBadge status={ticket.status} />
+            <TicketPriorityBadge priority={ticket.priority} />
+          </div>
         </div>
-        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-          <TicketStatusBadge status={ticket.status} />
-          <TicketPriorityBadge priority={ticket.priority} />
-        </div>
-      </div>
 
-      <p className="text-xs line-clamp-2 mb-4" style={{ color: 'var(--tx-muted)' }}>
-        {ticket.description}
-      </p>
+        {/* Description preview */}
+        {ticket.description && (
+          <p style={{
+            fontSize: 12, color: 'var(--tx-muted)',
+            fontFamily: "'Nunito',sans-serif",
+            lineHeight: 1.55,
+            overflow: 'hidden', display: '-webkit-box',
+            WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+            flex: 1,
+          }}>
+            {ticket.description}
+          </p>
+        )}
 
-      <div className="flex items-center justify-between text-xs pt-3 border-t flex-wrap gap-2" style={{ borderColor: 'var(--border)' }}>
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1 font-medium" style={{ color: 'var(--tx-muted)' }}>
-            <Folder size={13} /> {ticket.projectId?.title || 'Project'}
-          </span>
-          <span className="flex items-center gap-1 font-medium" style={{ color: 'var(--tx-muted)' }}>
-            <User size={13} /> {ticket.createdBy?.name || 'User'}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {ticket.responses?.length > 0 && (
-            <span className="flex items-center gap-1 text-purple-600 font-semibold">
-              <MessageSquare size={13} /> {ticket.responses.length}
-            </span>
-          )}
-
-          <span className="flex items-center gap-1 text-gray-500">
-            <Calendar size={13} /> {new Date(ticket.createdAt).toLocaleDateString()}
-          </span>
-
-          {isOverdue && (
-            <span className="px-2 py-0.5 rounded bg-red-500/10 text-red-600 font-bold text-[10px] uppercase border border-red-500/20">
-              Overdue SLA
-            </span>
-          )}
+        {/* Meta footer */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          paddingTop: 10, borderTop: '1px solid var(--border)',
+          flexWrap: 'wrap', gap: 6,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <MetaItem icon={<Folder size={11} />}>{ticket.projectId?.title || 'Project'}</MetaItem>
+            <MetaItem icon={<User size={11} />}>{ticket.createdBy?.name || 'User'}</MetaItem>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {ticket.responses?.length > 0 && (
+              <MetaItem icon={<MessageSquare size={11} />} color="var(--g600)">
+                {ticket.responses.length}
+              </MetaItem>
+            )}
+            <MetaItem icon={<Calendar size={11} />}>
+              {new Date(ticket.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+            </MetaItem>
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function MetaItem({ icon, children, color }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      fontSize: 11.5, fontFamily: "'Nunito',sans-serif",
+      fontWeight: 600, color: color || 'var(--tx-faint)',
+      maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+    }}>
+      {icon}{children}
+    </span>
   );
 }

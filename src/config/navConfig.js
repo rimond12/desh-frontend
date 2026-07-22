@@ -95,6 +95,7 @@ export const NAV_CONFIG = [
                 sectionDefault: 'SYSTEM',
                 items: [
                     { key: 'adminNav_settings',     defaultLabel: 'Settings',      path: '/admin/settings',      icon: '⚙' },
+                    { key: 'adminNav_ticketConfig', defaultLabel: 'Ticket Settings', path: '/admin/ticket-config', icon: '🎫' },
                     { key: 'adminNav_importExport', defaultLabel: 'Import/Export', path: '/admin/import-export', icon: '⇅' },
                 ],
             },

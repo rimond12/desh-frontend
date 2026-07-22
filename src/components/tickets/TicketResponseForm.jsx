@@ -1,72 +1,146 @@
 import React, { useState } from 'react';
-import { Send, Paperclip, X } from 'lucide-react';
+import { Send, Paperclip, X, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function TicketResponseForm({ onSubmit, loading = false }) {
-  const [text, setText] = useState('');
+  const [text,  setText]  = useState('');
   const [files, setFiles] = useState([]);
 
   const handleFileChange = (e) => {
-    if (e.target.files) {
-      setFiles([...files, ...Array.from(e.target.files)]);
-    }
+    if (e.target.files) setFiles([...files, ...Array.from(e.target.files)]);
   };
-
-  const removeFile = (idx) => {
-    setFiles(files.filter((_, i) => i !== idx));
-  };
+  const removeFile = (idx) => setFiles(files.filter((_, i) => i !== idx));
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!text.trim()) {
-      return toast.error('Response content cannot be empty');
-    }
+    if (!text.trim()) return toast.error('Response cannot be empty');
     onSubmit({ text, files });
     setText('');
     setFiles([]);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="glass-card p-4 rounded-xl space-y-3">
-      <h4 className="text-xs font-bold uppercase tracking-wider text-purple-700">Submit Official Response / Evidence</h4>
-
-      <textarea
-        rows={4}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Provide technical clarification, findings, or detailed response to this ticket..."
-        className="input-field w-full text-xs"
-        required
-      />
-
-      {/* File List */}
-      {files.length > 0 && (
-        <div className="flex flex-wrap gap-2 text-xs">
-          {files.map((f, i) => (
-            <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-purple-50 text-purple-700 font-medium">
-              <Paperclip size={12} /> {f.name}
-              <button type="button" onClick={() => removeFile(i)} className="hover:text-red-600">
-                <X size={12} />
-              </button>
-            </span>
-          ))}
+    <div style={{
+      background: '#fff',
+      border: '1px solid var(--border)',
+      borderRadius: 16,
+      overflow: 'hidden',
+      boxShadow: 'var(--sh-xs)',
+    }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '12px 16px',
+        background: 'linear-gradient(135deg, rgba(139,92,246,0.06), rgba(109,40,217,0.03))',
+        borderBottom: '1px solid rgba(139,92,246,0.15)',
+      }}>
+        <div style={{
+          width: 28, height: 28, borderRadius: 8,
+          background: 'rgba(139,92,246,0.12)',
+          border: '1px solid rgba(139,92,246,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <MessageSquare size={14} color="#7C3AED" />
         </div>
-      )}
-
-      <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-        <label className="cursor-pointer inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-800">
-          <Paperclip size={14} /> Attach Evidence / File
-          <input type="file" multiple onChange={handleFileChange} className="hidden" />
-        </label>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="btn-primary-green inline-flex items-center gap-1.5 text-xs px-4 py-2"
-        >
-          <Send size={13} /> {loading ? 'Submitting...' : 'Submit Response'}
-        </button>
+        <div>
+          <p style={{ fontSize: 12.5, fontWeight: 700, color: '#7C3AED', margin: 0, fontFamily: "'Montserrat',sans-serif" }}>
+            Submit Official Response
+          </p>
+          <p style={{ fontSize: 11, color: 'var(--tx-faint)', margin: 0, fontFamily: "'Nunito',sans-serif" }}>
+            Provide technical clarification or evidence
+          </p>
+        </div>
       </div>
-    </form>
+
+      {/* Body */}
+      <form onSubmit={handleSubmit} style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <textarea
+          rows={4}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Write your detailed response, findings, or clarification here…"
+          style={{
+            width: '100%', resize: 'vertical', minHeight: 100,
+            padding: '10px 12px',
+            border: '1.5px solid var(--border-md)',
+            borderRadius: 10, fontSize: 13,
+            fontFamily: "'Nunito',sans-serif", fontWeight: 500,
+            color: 'var(--tx)', background: 'var(--bg-soft)',
+            outline: 'none', transition: 'all 0.18s', lineHeight: 1.65,
+          }}
+          onFocus={(e) => { e.target.style.borderColor = '#8B5CF6'; e.target.style.background = '#fff'; e.target.style.boxShadow = '0 0 0 3px rgba(139,92,246,0.12)'; }}
+          onBlur={(e)  => { e.target.style.borderColor = 'var(--border-md)'; e.target.style.background = 'var(--bg-soft)'; e.target.style.boxShadow = 'none'; }}
+          required
+        />
+
+        {/* File chips */}
+        {files.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {files.map((f, i) => (
+              <span key={i} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '4px 9px', borderRadius: 7,
+                fontSize: 11.5, fontWeight: 600,
+                fontFamily: "'Nunito',sans-serif",
+                background: 'rgba(139,92,246,0.08)',
+                color: '#7C3AED',
+                border: '1px solid rgba(139,92,246,0.2)',
+              }}>
+                <Paperclip size={10} />
+                <span style={{ maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                <button type="button" onClick={() => removeFile(i)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#A78BFA', padding: 0, display: 'flex' }}
+                  onMouseOver={(e) => e.currentTarget.style.color = '#DC2626'}
+                  onMouseOut={(e)  => e.currentTarget.style.color = '#A78BFA'}
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Toolbar */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          paddingTop: 10, borderTop: '1px solid var(--border)',
+        }}>
+          <label style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 12, fontWeight: 600,
+            fontFamily: "'Montserrat',sans-serif",
+            color: 'var(--tx-muted)', cursor: 'pointer',
+            padding: '6px 10px', borderRadius: 8,
+            border: '1px solid var(--border)',
+            background: 'var(--bg-soft)',
+            transition: 'all 0.18s',
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--border-md)'; e.currentTarget.style.background = '#fff'; }}
+          onMouseOut={(e)  => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-soft)'; }}
+          >
+            <Paperclip size={13} /> Attach Files
+            <input type="file" multiple onChange={handleFileChange} style={{ display: 'none' }} />
+          </label>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              padding: '8px 20px', borderRadius: 10,
+              background: loading ? '#C4B5FD' : 'linear-gradient(135deg,#7C3AED,#8B5CF6)',
+              color: '#fff', border: 'none',
+              fontSize: 12.5, fontWeight: 700,
+              fontFamily: "'Montserrat',sans-serif",
+              cursor: loading ? 'not-allowed' : 'pointer',
+              boxShadow: loading ? 'none' : '0 4px 14px rgba(124,58,237,0.35)',
+              transition: 'all 0.2s',
+            }}
+          >
+            <Send size={13} /> {loading ? 'Submitting…' : 'Submit Response'}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }

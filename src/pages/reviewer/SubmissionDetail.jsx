@@ -236,19 +236,54 @@ export default function ReviewerSubmissionDetail() {
   const [highlightedInputId, setHighlightedInputId] = useState(null);
 
   useEffect(() => {
+    if (!tabs || tabs.length === 0) return;
+
     const queryParams = new URLSearchParams(location.search);
+    const targetTabId = queryParams.get('tabId');
+    const targetModuleId = queryParams.get('moduleId');
     const targetInputId = queryParams.get('inputId');
+
+    if (!targetInputId && !targetTabId && !targetModuleId) return;
+
+    // Reset selectedSection filter so all questions are visible
+    setSelectedSection('');
+
+    let targetTabIdx = -1;
+    if (targetInputId) {
+      tabs.forEach((tab, tIdx) => {
+        (tab.modules || []).forEach((mod) => {
+          const modInputs = mod.inputs?.length ? mod.inputs : (mod.sections || []).flatMap(s => s.inputs || []);
+          const foundInp = modInputs.find(inp => String(inp._id) === String(targetInputId));
+          if (foundInp) targetTabIdx = tIdx;
+        });
+      });
+    }
+
+    if (targetTabIdx === -1 && targetTabId) {
+      const idx = tabs.findIndex(t => String(t._id) === String(targetTabId));
+      if (idx !== -1) targetTabIdx = idx;
+    }
+
+    if (targetTabIdx !== -1) {
+      setActiveTab(targetTabIdx);
+    }
+
     if (targetInputId) {
       setHighlightedInputId(targetInputId);
-      setTimeout(() => {
+      let attempts = 0;
+      const tryScroll = () => {
+        attempts++;
         const el = document.getElementById(`input-${targetInputId}`);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (attempts < 10) {
+          setTimeout(tryScroll, 200);
         }
-      }, 700);
-      setTimeout(() => setHighlightedInputId(null), 4500);
+      };
+      setTimeout(tryScroll, 200);
+      setTimeout(() => setHighlightedInputId(null), 5000);
     }
-  }, [location.search]);
+  }, [location.search, tabs]);
 
   useEffect(() => {
     Promise.all([
@@ -433,7 +468,7 @@ export default function ReviewerSubmissionDetail() {
       .print-bar-title { font-weight: 800; font-size: 14px; }
       .print-bar-sub { font-size: 11px; opacity: 0.8; }
       .print-btn { background: #34C961; color: #0D3B1A; font-weight: 800; padding: 8px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 12px; }
-      @media print { .print-bar { display: none !important; } body { padding-top: 0 !important; } }
+      @media print { .print-bar { display: none !important; } body { padding-top: 0 !important; } .tab-section + .tab-section { page-break-before: always; break-before: page; } .tab-header { page-break-after: avoid; break-after: avoid; } .mod-block + .mod-block { page-break-before: always; break-before: page; } .mod-title { page-break-after: avoid; break-after: avoid; } .q-table { page-break-inside: avoid; break-inside: avoid; } }
       .body-offset { padding-top: 60px; }
     `;
 
@@ -562,10 +597,41 @@ export default function ReviewerSubmissionDetail() {
       });
 
       let currentY = margin;
-      const topLevelNodes = Array.from(pdfContainer.children);
 
-      for (let i = 0; i < topLevelNodes.length; i++) {
-        const chunkEl = topLevelNodes[i];
+      // ── Build chunks: split each .tab-section into header + individual .mod-block sub-items ──
+      const chunks = [];
+      let tabSectionCount = 0;
+      Array.from(pdfContainer.children).forEach((node) => {
+        if (node.classList.contains('tab-section')) {
+          const hdrEl = node.querySelector('.tab-header');
+          const modEls = Array.from(node.querySelectorAll('.mod-block'));
+          if (modEls.length === 0) {
+            chunks.push({ el: node, forceNewPage: tabSectionCount > 0 });
+          } else {
+            // Section header: force new page for every section after the first
+            if (hdrEl) chunks.push({ el: hdrEl, forceNewPage: tabSectionCount > 0 });
+            // Each sub-item as its own chunk:
+            //   first mod (mi === 0) flows after the section header — no blank page
+            //   subsequent mods always start on a fresh page
+            modEls.forEach((modEl, mi) => {
+              chunks.push({ el: modEl, forceNewPage: mi > 0 });
+            });
+          }
+          tabSectionCount++;
+        } else {
+          chunks.push({ el: node, forceNewPage: false });
+        }
+      });
+
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        const chunkEl = chunk.el;
+
+        // Force a fresh page before sub-items that must always start at the top
+        if (chunk.forceNewPage) {
+          doc.addPage();
+          currentY = margin;
+        }
 
         const chunkCanvas = await html2canvas(chunkEl, {
           scale: H2C_SCALE,
@@ -1566,43 +1632,65 @@ export default function ReviewerSubmissionDetail() {
                                     {/* Action Row: Ticket, Lock Controls, Comments */}
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', borderTop: '1px solid var(--border-subtle)', paddingTop: 8 }}>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                        {/* Clarification Ticket Button */}
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setTicketQuestionContext({
-                                              projectId: project._id,
-                                              projectTitle: project.title,
-                                              tabId: tab._id,
-                                              tabTitle: tab.title,
-                                              moduleId: mod._id,
-                                              moduleTitle: mod.title,
-                                              sectionId: group.id,
-                                              sectionTitle: group.title,
-                                              inputId: inp._id,
-                                              questionSnapshot: {
-                                                number: `Q${qi + 1}`,
-                                                label: inp.label,
-                                                inputType: inp.inputType,
-                                                details: inp.details || '',
-                                                tabTitle: tab.title,
-                                                moduleTitle: mod.title,
-                                                sectionTitle: group.title,
-                                                projectTitle: project.title,
-                                              }
-                                            });
-                                            setTicketModalOpen(true);
-                                          }}
-                                          style={{
-                                            display: 'inline-flex', alignItems: 'center', gap: 4,
-                                            padding: '4px 9px', borderRadius: 7, fontSize: 11, fontWeight: 800,
-                                            background: 'linear-gradient(135deg, #10B981, #059669)',
-                                            color: '#fff', border: 'none', cursor: 'pointer',
-                                            fontFamily: 'Montserrat,sans-serif'
-                                          }}
-                                        >
-                                          <span>🎫</span> Create Ticket
-                                        </button>
+                                        {/* Clarification Ticket */}
+                                        {(() => {
+                                           const isAssignedStaff = (() => {
+                                             if (!dbUser) return false;
+                                             const activeRole = dbUser.activeRole || dbUser.role;
+                                             if (['admin', 'desh_manager'].includes(activeRole)) return true;
+                                             const uid = String(dbUser._id);
+                                             const isOwner = String(project?.userId?._id || project?.userId) === uid;
+                                             const isAssignedRev = project?.assignedReviewers?.some(r => String(r._id || r) === uid);
+                                             const isAssignedAss = project?.assignedAssessors?.some(a => String(a._id || a) === uid);
+                                             return isOwner || isAssignedRev || isAssignedAss;
+                                           })();
+
+                                           if (!isAssignedStaff) {
+                                             return (
+                                               <span title="Manager project staff assignment required to create tickets" style={{ fontSize: 10.5, color: 'var(--tx-faint)', fontStyle: 'italic', padding: '3px 6px' }}>
+                                                 🔒 Staff assignment required
+                                               </span>
+                                             );
+                                           }
+
+                                           return (
+                                             <button
+                                               onClick={() => {
+                                                 setTicketQuestionContext({
+                                                   projectId: project._id,
+                                                   projectTitle: project.title,
+                                                   tabId: tab._id,
+                                                   tabTitle: tab.title,
+                                                   moduleId: mod._id,
+                                                   moduleTitle: mod.title,
+                                                   sectionId: group.id,
+                                                   sectionTitle: group.title,
+                                                   inputId: inp._id,
+                                                   questionSnapshot: {
+                                                     number: `Q${qi + 1}`,
+                                                     label: inp.label,
+                                                     inputType: inp.inputType,
+                                                     details: inp.details || '',
+                                                     tabTitle: tab.title,
+                                                     moduleTitle: mod.title,
+                                                     sectionTitle: group.title,
+                                                     projectTitle: project.title,
+                                                   }
+                                                 });
+                                                 setTicketModalOpen(true);
+                                               }}
+                                               style={{
+                                                 display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                 padding: '4px 9px', borderRadius: 7, fontSize: 11, fontWeight: 800,
+                                                 background: 'linear-gradient(135deg, #10B981, #059669)',
+                                                 color: '#fff', border: 'none', cursor: 'pointer',
+                                                 fontFamily: 'Montserrat,sans-serif'
+                                               }}
+                                             >
+                                               <span>🎫</span> Create Ticket
+                                             </button>
+                                           );
+                                         })()}
                                       </div>
 
                                       {/* Right: Lock Checkboxes */}

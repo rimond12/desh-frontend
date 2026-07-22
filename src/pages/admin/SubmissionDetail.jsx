@@ -296,19 +296,33 @@ export default function SubmissionDetail() {
   const [highlightedInputId, setHighlightedInputId] = useState(null);
 
   useEffect(() => {
+    if (!tabs || tabs.length === 0) return;
+
     const queryParams = new URLSearchParams(location.search);
     const targetInputId = queryParams.get('inputId');
+    const targetTabId = queryParams.get('tabId');
+
+    if (!targetInputId && !targetTabId) return;
+
+    // Clear section filter so all sections & inputs are visible
+    setSelectedSection('');
+
     if (targetInputId) {
       setHighlightedInputId(targetInputId);
-      setTimeout(() => {
+      let attempts = 0;
+      const tryScroll = () => {
+        attempts++;
         const el = document.getElementById(`input-${targetInputId}`);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (attempts < 10) {
+          setTimeout(tryScroll, 200);
         }
-      }, 700);
-      setTimeout(() => setHighlightedInputId(null), 4500);
+      };
+      setTimeout(tryScroll, 200);
+      setTimeout(() => setHighlightedInputId(null), 5000);
     }
-  }, [location.search]);
+  }, [location.search, tabs]);
   const [togglingInput, setTogglingInput] = useState(null);
   // score card collapse
   const [scoreOpen, setScoreOpen] = useState(true);
@@ -640,7 +654,7 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 .comment-author{font-size:11px;font-weight:700;color:#374151}
 .comment-time{font-size:10px;color:#9CA3AF;margin-left:auto}
 .comment-text{font-size:11.5px;color:#1f2937;line-height:1.5;white-space:pre-wrap}
-@media print{.print-bar{display:none!important}.body-offset{padding-top:0!important}.tab-sec+.tab-sec{page-break-before:always}.mod{page-break-inside:avoid}.tab-hdr{page-break-after:avoid}.stage-hdr{background:#F0FDF4!important}.comment-box{page-break-inside:avoid}}`;
+@media print{.print-bar{display:none!important}.body-offset{padding-top:0!important}.tab-sec+.tab-sec{page-break-before:always;break-before:page}.tab-hdr{page-break-after:avoid;break-after:avoid}.mod+.mod{page-break-before:always;break-before:page}.mod{break-inside:avoid-page}.mod-hdr{page-break-after:avoid;break-after:avoid}.stage-hdr{background:#F0FDF4!important;page-break-after:avoid;break-after:avoid;page-break-inside:avoid;break-inside:avoid}.inp{page-break-inside:avoid;break-inside:avoid}.comment-box{page-break-inside:avoid;break-inside:avoid}.inp-comments{page-break-inside:avoid;break-inside:avoid}}`;
 
     const getProjectReportFilename = (title) => {
       if (!title) return 'report.pdf';
@@ -658,14 +672,29 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
 
     try {
       // ── Find all the sub-elements (chunks) we want to render ──
+      // Each .mod sub-item becomes its own chunk so it can start on a fresh page.
       const chunks = [];
       const coverEl = container.querySelector('.rpt-cover');
-      if (coverEl) chunks.push({ el: coverEl, type: 'cover' });
+      if (coverEl) chunks.push({ el: coverEl, type: 'cover', forceNewPage: false });
       const scoreEl = container.querySelector('.score-strip');
-      if (scoreEl) chunks.push({ el: scoreEl, type: 'score' });
+      if (scoreEl) chunks.push({ el: scoreEl, type: 'score', forceNewPage: false });
       const tabEls = container.querySelectorAll('.tab-sec');
-      tabEls.forEach((el, idx) => {
-        chunks.push({ el, type: 'tab', index: idx });
+      tabEls.forEach((tabEl, ti) => {
+        const hdrEl = tabEl.querySelector('.tab-hdr');
+        const modEls = Array.from(tabEl.querySelectorAll('.mod'));
+        if (modEls.length === 0) {
+          // No sub-items: push the whole section (new page for every section after the first)
+          chunks.push({ el: tabEl, type: 'tab', forceNewPage: ti > 0 });
+        } else {
+          // Section header: always force a new page for sections after the first
+          if (hdrEl) chunks.push({ el: hdrEl, type: 'tab-hdr', forceNewPage: ti > 0 });
+          // Each sub-item (.mod) as its own chunk:
+          //   first mod (mi === 0) flows naturally after the section header — no blank page
+          //   every subsequent mod always starts on a fresh page
+          modEls.forEach((modEl, mi) => {
+            chunks.push({ el: modEl, type: 'mod', forceNewPage: mi > 0 });
+          });
+        }
       });
 
       const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
@@ -681,6 +710,13 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
       // Process each chunk sequentially
       for (const chunk of chunks) {
         const chunkEl = chunk.el;
+
+        // Force a fresh page before sub-items that must always start at the top
+        if (chunk.forceNewPage) {
+          doc.addPage();
+          currentY = margin;
+        }
+
         const chunkCanvas = await html2canvas(chunkEl, {
           scale: H2C_SCALE,
           useCORS: true,
