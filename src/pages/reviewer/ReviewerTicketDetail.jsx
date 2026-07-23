@@ -6,7 +6,7 @@ import { TicketStatusBadge, TicketPriorityBadge } from '../../components/tickets
 import TicketTimeline from '../../components/tickets/TicketTimeline';
 import TicketResponseForm from '../../components/tickets/TicketResponseForm';
 import LinkedQuestionCard from '../../components/tickets/LinkedQuestionCard';
-import { ArrowLeft, CheckCircle, RotateCcw, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, RotateCcw, XCircle, Paperclip } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import AssessorTicketDetail from './AssessorTicketDetail';
@@ -117,6 +117,38 @@ function ReviewerTicketDetailContent() {
             <p className="text-xs whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--tx-muted)' }}>
               {ticket.description}
             </p>
+
+            {/* Uploaded Ticket Attachments */}
+            {ticket.attachments && ticket.attachments.length > 0 && (
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <Paperclip size={13} color="var(--g700)" />
+                  <span style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--tx-2)', fontFamily: "'Montserrat',sans-serif", textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Ticket Attachments & Evidence ({ticket.attachments.length})
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {ticket.attachments.map((att, i) => (
+                    <a
+                      key={att._id || i}
+                      href={`http://localhost:5000/api/uploads/download/tickets/${att.filename}?originalName=${encodeURIComponent(att.originalName)}`}
+                      target="_blank" rel="noreferrer"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '6px 14px', borderRadius: 8,
+                        fontSize: 12, fontWeight: 700,
+                        fontFamily: "'Nunito',sans-serif",
+                        background: 'var(--g50)', color: 'var(--g700)',
+                        border: '1.5px solid var(--g200)', textDecoration: 'none',
+                        boxShadow: 'var(--sh-xs)', transition: 'all 0.15s'
+                      }}
+                    >
+                      <Paperclip size={13} /> {att.originalName}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="glass-card p-6 rounded-2xl">

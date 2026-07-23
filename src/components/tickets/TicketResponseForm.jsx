@@ -1,23 +1,33 @@
 import React, { useState } from 'react';
-import { Send, Paperclip, X, MessageSquare } from 'lucide-react';
+import { Send, Paperclip, X, MessageSquare, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function TicketResponseForm({ onSubmit, loading = false }) {
   const [text,  setText]  = useState('');
   const [files, setFiles] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFileChange = (e) => {
     if (e.target.files) setFiles([...files, ...Array.from(e.target.files)]);
   };
   const removeFile = (idx) => setFiles(files.filter((_, i) => i !== idx));
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!text.trim()) return toast.error('Response cannot be empty');
-    onSubmit({ text, files });
-    setText('');
-    setFiles([]);
+    setIsSubmitting(true);
+    try {
+      await onSubmit({ text, files });
+      setText('');
+      setFiles([]);
+    } catch {
+      // error handled by parent onSubmit
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const busy = isSubmitting || loading;
 
   return (
     <div style={{
@@ -57,6 +67,7 @@ export default function TicketResponseForm({ onSubmit, loading = false }) {
         <textarea
           rows={4}
           value={text}
+          disabled={busy}
           onChange={(e) => setText(e.target.value)}
           placeholder="Write your detailed response, findings, or clarification here…"
           style={{
@@ -65,10 +76,11 @@ export default function TicketResponseForm({ onSubmit, loading = false }) {
             border: '1.5px solid var(--border-md)',
             borderRadius: 10, fontSize: 13,
             fontFamily: "'Nunito',sans-serif", fontWeight: 500,
-            color: 'var(--tx)', background: 'var(--bg-soft)',
+            color: 'var(--tx)', background: busy ? 'var(--bg-subtle)' : 'var(--bg-soft)',
             outline: 'none', transition: 'all 0.18s', lineHeight: 1.65,
+            opacity: busy ? 0.7 : 1,
           }}
-          onFocus={(e) => { e.target.style.borderColor = '#8B5CF6'; e.target.style.background = '#fff'; e.target.style.boxShadow = '0 0 0 3px rgba(139,92,246,0.12)'; }}
+          onFocus={(e) => { if (!busy) { e.target.style.borderColor = '#8B5CF6'; e.target.style.background = '#fff'; e.target.style.boxShadow = '0 0 0 3px rgba(139,92,246,0.12)'; } }}
           onBlur={(e)  => { e.target.style.borderColor = 'var(--border-md)'; e.target.style.background = 'var(--bg-soft)'; e.target.style.boxShadow = 'none'; }}
           required
         />
@@ -88,13 +100,15 @@ export default function TicketResponseForm({ onSubmit, loading = false }) {
               }}>
                 <Paperclip size={10} />
                 <span style={{ maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                <button type="button" onClick={() => removeFile(i)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#A78BFA', padding: 0, display: 'flex' }}
-                  onMouseOver={(e) => e.currentTarget.style.color = '#DC2626'}
-                  onMouseOut={(e)  => e.currentTarget.style.color = '#A78BFA'}
-                >
-                  <X size={11} />
-                </button>
+                {!busy && (
+                  <button type="button" onClick={() => removeFile(i)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#A78BFA', padding: 0, display: 'flex' }}
+                    onMouseOver={(e) => e.currentTarget.style.color = '#DC2626'}
+                    onMouseOut={(e)  => e.currentTarget.style.color = '#A78BFA'}
+                  >
+                    <X size={11} />
+                  </button>
+                )}
               </span>
             ))}
           </div>
@@ -109,38 +123,49 @@ export default function TicketResponseForm({ onSubmit, loading = false }) {
             display: 'inline-flex', alignItems: 'center', gap: 6,
             fontSize: 12, fontWeight: 600,
             fontFamily: "'Montserrat',sans-serif",
-            color: 'var(--tx-muted)', cursor: 'pointer',
+            color: busy ? 'var(--tx-faint)' : 'var(--tx-muted)',
+            cursor: busy ? 'not-allowed' : 'pointer',
             padding: '6px 10px', borderRadius: 8,
             border: '1px solid var(--border)',
             background: 'var(--bg-soft)',
+            opacity: busy ? 0.6 : 1,
             transition: 'all 0.18s',
           }}
-          onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--border-md)'; e.currentTarget.style.background = '#fff'; }}
+          onMouseOver={(e) => { if (!busy) { e.currentTarget.style.borderColor = 'var(--border-md)'; e.currentTarget.style.background = '#fff'; } }}
           onMouseOut={(e)  => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-soft)'; }}
           >
             <Paperclip size={13} /> Attach Files
-            <input type="file" multiple onChange={handleFileChange} style={{ display: 'none' }} />
+            <input type="file" multiple disabled={busy} onChange={handleFileChange} style={{ display: 'none' }} />
           </label>
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={busy}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 7,
               padding: '8px 20px', borderRadius: 10,
-              background: loading ? '#C4B5FD' : 'linear-gradient(135deg,#7C3AED,#8B5CF6)',
+              background: busy ? '#A78BFA' : 'linear-gradient(135deg,#7C3AED,#8B5CF6)',
               color: '#fff', border: 'none',
               fontSize: 12.5, fontWeight: 700,
               fontFamily: "'Montserrat',sans-serif",
-              cursor: loading ? 'not-allowed' : 'pointer',
-              boxShadow: loading ? 'none' : '0 4px 14px rgba(124,58,237,0.35)',
+              cursor: busy ? 'not-allowed' : 'pointer',
+              boxShadow: busy ? 'none' : '0 4px 14px rgba(124,58,237,0.35)',
               transition: 'all 0.2s',
             }}
           >
-            <Send size={13} /> {loading ? 'Submitting…' : 'Submit Response'}
+            {busy ? (
+              <>
+                <Loader2 size={14} style={{ animation: 'spin 0.65s linear infinite' }} /> Submitting Response…
+              </>
+            ) : (
+              <>
+                <Send size={13} /> Submit Response
+              </>
+            )}
           </button>
         </div>
       </form>
+      <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style>
     </div>
   );
 }

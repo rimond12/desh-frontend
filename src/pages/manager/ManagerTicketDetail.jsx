@@ -16,6 +16,7 @@ export default function ManagerTicketDetail() {
   const [assessors,        setAssessors]        = useState([]);
   const [selectedAssessor, setSelectedAssessor] = useState('');
   const [loading,          setLoading]          = useState(true);
+  const [forwarding,       setForwarding]       = useState(false);
 
   const fetchTicket = () => {
     setLoading(true);
@@ -58,6 +59,7 @@ export default function ManagerTicketDetail() {
 
   const handleForwardToAssessor = async () => {
     if (!selectedAssessor) return toast.error('Please select an Assessor');
+    setForwarding(true);
     try {
       await axiosSecure.patch(`/tickets/${id}/assign`, { assignedAssessor: selectedAssessor });
       if (ticket.status === 'submitted') {
@@ -66,10 +68,29 @@ export default function ManagerTicketDetail() {
         } catch (_) {}
       }
       await axiosSecure.patch(`/tickets/${id}/status`, { status: 'assigned', reason: 'Forwarded by Manager' });
-      toast.success('Ticket forwarded to Assessor!');
+      toast.success('Ticket forwarded to Assessor successfully!');
       fetchTicket();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to forward ticket');
+    } finally {
+      setForwarding(false);
+    }
+  };
+
+  const handleForwardToReviewer = async () => {
+    setForwarding(true);
+    try {
+      const reviewerId = ticket?.assignedReviewer?._id || ticket?.assignedReviewer || ticket?.createdBy?._id || ticket?.createdBy;
+      if (reviewerId) {
+        await axiosSecure.patch(`/tickets/${id}/assign`, { assignedReviewer: reviewerId });
+      }
+      await axiosSecure.patch(`/tickets/${id}/status`, { status: 'resolved', reason: 'Assessor response approved & forwarded to Reviewer by Manager' });
+      toast.success('Assessor response forwarded to Reviewer & Ticket Resolved!');
+      fetchTicket();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to forward ticket to Reviewer');
+    } finally {
+      setForwarding(false);
     }
   };
 
@@ -113,14 +134,16 @@ export default function ManagerTicketDetail() {
                   <select
                     value={selectedAssessor}
                     onChange={(e) => setSelectedAssessor(e.target.value)}
+                    disabled={forwarding}
                     style={{
                       height: 34, paddingLeft: 10, paddingRight: 28,
                       border: '1.5px solid var(--border-md)',
                       borderRadius: 8, fontSize: 12,
                       fontFamily: "'Nunito',sans-serif", fontWeight: 600,
                       color: 'var(--tx)', background: '#fff',
-                      outline: 'none', cursor: 'pointer',
+                      outline: 'none', cursor: forwarding ? 'not-allowed' : 'pointer',
                       appearance: 'none', WebkitAppearance: 'none',
+                      opacity: forwarding ? 0.6 : 1,
                     }}
                   >
                     <option value="">Select Assessor…</option>
@@ -164,8 +187,37 @@ export default function ManagerTicketDetail() {
                   </select>
                   <ChevronDown size={12} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--tx-faint)', pointerEvents: 'none' }} />
                 </div>
-                <button onClick={handleForwardToAssessor} className="btn-primary-green" style={{ fontSize: 12, padding: '6px 14px' }}>
-                  <Send size={13} /> Forward
+                <button
+                  onClick={handleForwardToAssessor}
+                  disabled={forwarding}
+                  className="btn-primary-green"
+                  style={{
+                    fontSize: 12, padding: '6px 14px',
+                    opacity: forwarding ? 0.85 : 1,
+                    cursor: forwarding ? 'not-allowed' : 'pointer',
+                    minWidth: 100,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    transition: 'opacity 0.15s',
+                  }}
+                >
+                  {forwarding ? (
+                    <>
+                      <span style={{
+                        width: 12, height: 12, borderRadius: '50%',
+                        border: '2px solid rgba(255,255,255,0.35)',
+                        borderTopColor: '#ffffff',
+                        display: 'inline-block',
+                        animation: 'spin 0.7s linear infinite',
+                        flexShrink: 0,
+                      }} />
+                      Forwarding…
+                    </>
+                  ) : (
+                    <>
+                      <Send size={13} />
+                      Forward
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -205,7 +257,10 @@ export default function ManagerTicketDetail() {
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <button onClick={() => handleStatusTransition('resolved', 'Response approved & ticket resolved by Manager')} className="btn-primary-green" style={{ fontSize: 12, padding: '7px 14px' }}>
+              <button onClick={handleForwardToReviewer} disabled={forwarding} className="btn-primary-green" style={{ fontSize: 12, padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Send size={13} /> Forward to Reviewer & Resolve
+              </button>
+              <button onClick={() => handleStatusTransition('resolved', 'Response approved & ticket resolved by Manager')} className="btn-secondary" style={{ fontSize: 12, padding: '7px 14px', color: '#166534', borderColor: 'rgba(22,101,52,0.3)' }}>
                 ✓ Approve & Resolve
               </button>
               <button onClick={() => handleStatusTransition('returned', 'Returned to Assessor for further revision')} className="btn-secondary" style={{ fontSize: 12, padding: '7px 14px', color: '#EA580C', borderColor: 'rgba(234,88,12,0.3)' }}>
@@ -263,6 +318,38 @@ export default function ManagerTicketDetail() {
               <p style={{ fontSize: 13.5, color: 'var(--tx-muted)', lineHeight: 1.7, whiteSpace: 'pre-wrap', fontFamily: "'Nunito',sans-serif", padding: '14px 16px', background: 'var(--bg-soft)', borderRadius: 10, border: '1px solid var(--border)', margin: 0 }}>
                 {ticket.description}
               </p>
+
+              {/* Uploaded Ticket Attachments */}
+              {ticket.attachments && ticket.attachments.length > 0 && (
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <Paperclip size={13} color="var(--g700)" />
+                    <span style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--tx-2)', fontFamily: "'Montserrat',sans-serif", textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Ticket Attachments & Evidence ({ticket.attachments.length})
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {ticket.attachments.map((att, i) => (
+                      <a
+                        key={att._id || i}
+                        href={`http://localhost:5000/api/uploads/download/tickets/${att.filename}?originalName=${encodeURIComponent(att.originalName)}`}
+                        target="_blank" rel="noreferrer"
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                          padding: '6px 14px', borderRadius: 8,
+                          fontSize: 12, fontWeight: 700,
+                          fontFamily: "'Nunito',sans-serif",
+                          background: 'var(--g50)', color: 'var(--g700)',
+                          border: '1.5px solid var(--g200)', textDecoration: 'none',
+                          boxShadow: 'var(--sh-xs)', transition: 'all 0.15s'
+                        }}
+                      >
+                        <Paperclip size={13} /> {att.originalName}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

@@ -1,16 +1,13 @@
 import { useState } from 'react';
 import Sidebar from './Sidebar';
 import PartnerFooter from './PartnerFooter';
+import NotificationBell from '../tickets/NotificationBell';
 import { useAuth } from '../../context/AuthContext.jsx';
 
-// ── Layout — shell wrapper for all authenticated pages ────────────────────────
-// Pages pass isAdmin/isReviewer/isManager as hints, but Layout also reads
-// dbUser.activeRole as the authoritative source. This prevents any mismatch
-// between what a page declares and what the user has actually switched to.
 export default function Layout({ children, isAdmin = false, isReviewer = false, isManager = false }) {
   const { dbUser } = useAuth();
-  const [mobileOpen,  setMobileOpen]  = useState(false);
-  const [collapsed,   setCollapsed]   = useState(
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem('sidebarCollapsed') === 'true'
   );
 
@@ -21,12 +18,9 @@ export default function Layout({ children, isAdmin = false, isReviewer = false, 
     });
   };
 
-  // ── Derive sidebar type from activeRole (authoritative) ──────────────────────
-  // The page-level props (isAdmin, isReviewer, isManager) are used as fallbacks
-  // only when activeRole is not available (e.g., during initial load).
-  const activeRole    = dbUser?.activeRole || dbUser?.role;
-  const effectiveAdmin    = activeRole ? activeRole === 'admin'                                               : isAdmin;
-  const effectiveManager  = activeRole ? activeRole === 'desh_manager'                                        : isManager;
+  const activeRole = dbUser?.activeRole || dbUser?.role;
+  const effectiveAdmin = activeRole ? activeRole === 'admin' : isAdmin;
+  const effectiveManager = activeRole ? activeRole === 'desh_manager' : isManager;
   const effectiveReviewer = activeRole ? ['reviewer', 'desh_reviewer', 'desh_assessor'].includes(activeRole) : isReviewer;
 
   return (
@@ -42,9 +36,43 @@ export default function Layout({ children, isAdmin = false, isReviewer = false, 
       />
 
       <div className={`main-content${collapsed ? ' sidebar-collapsed' : ''}`}>
+        {/* Desktop Topbar */}
+        <div 
+          className="hidden sm:flex items-center justify-between px-6 py-2.5 shadow-xs"
+          style={{
+            background: '#FFFFFF',
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
+          <div 
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full"
+            style={{
+              background: 'var(--g50)',
+              border: '1px solid var(--g200)'
+            }}
+          >
+            <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: 'var(--g500)' }} />
+            <span 
+              className="text-xs font-extrabold uppercase tracking-wider"
+              style={{ color: 'var(--g800)', fontFamily: 'Montserrat, sans-serif' }}
+            >
+              {effectiveAdmin
+                ? 'Admin Control System'
+                : effectiveManager
+                ? 'DESH Manager Portal'
+                : effectiveReviewer
+                ? 'Reviewer & Assessor Portal'
+                : 'DESH Professional Workspace'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+          </div>
+        </div>
+
         {/* Mobile topbar */}
         <div className="mobile-topbar">
-          {/* Animated hamburger → X button */}
           <button
             onClick={() => setMobileOpen(o => !o)}
             className="btn-icon"
@@ -62,12 +90,9 @@ export default function Layout({ children, isAdmin = false, isReviewer = false, 
           <span style={{ fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 15, color: 'var(--g800)' }}>
             DESH
           </span>
-          <span style={{
-            marginLeft: 'auto', fontSize: 11, fontWeight: 700,
-            padding: '3px 10px', background: 'var(--g100)', color: 'var(--g700)', borderRadius: 99,
-          }}>
-            {effectiveAdmin ? 'Admin' : effectiveManager ? 'Manager' : effectiveReviewer ? 'Reviewer' : 'Portal'}
-          </span>
+          <div style={{ marginLeft: 'auto' }} className="flex items-center gap-2">
+            <NotificationBell />
+          </div>
         </div>
 
         <div className="page-content">

@@ -105,15 +105,18 @@ function buildCertificateHTML(data, settings, evalRules) {
     const grade = getDeshGrade(r.minPercent, r.maxPercent, r.name);
 
     return `
-      <div class="tier-item${isActive ? ' is-achieved' : ''}" data-tier="${escHtml(r.name)}">
-        ${isCustom ? `
-          <img crossorigin="anonymous" src="${src}" alt="${escHtml(r.name)}" style="width:42px; height:56px; object-fit:contain; border:none;" onerror="this.style.opacity='0.5'" />
-        ` : `
-          <svg viewBox="0 0 80 100" width="32" height="42">
-            <path d="M40 8 C12 22 7 58 40 96 C73 58 68 22 40 8Z" fill="${r.colorCode || '#999'}"/>
-            <text x="40" y="58" fill="#ffffff" font-size="28" font-weight="900" text-anchor="middle" font-family="'Segoe UI', Montserrat, Arial, sans-serif">${grade}</text>
-          </svg>
-        `}
+      <div class="tier-item${isActive ? ' is-achieved' : ''}" data-tier="${escHtml(r.name)}" style="position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+        ${isActive ? `<div class="achieved-tag" style="position:absolute; top:-20px; left:50%; transform:translateX(-50%); font-size:10.5px; font-weight:900; color:var(--ink); white-space:nowrap; letter-spacing:0.3px;">ACHIEVED &#8599;</div>` : ''}
+        <div class="tier-icon-box" style="width:60px; height:75px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          ${isCustom ? `
+            <img crossorigin="anonymous" src="${src}" alt="${escHtml(r.name)}" style="max-width:60px; max-height:75px; width:auto; height:auto; display:block; border:none; margin:0 auto;" onerror="this.style.opacity='0.5'" />
+          ` : `
+            <svg viewBox="0 0 80 100" width="56" height="70" style="width:56px; height:70px; display:block; margin:0 auto;">
+              <path d="M40 8 C12 22 7 58 40 96 C73 58 68 22 40 8Z" fill="${r.colorCode || '#999'}"/>
+              <text x="40" y="60" fill="#ffffff" font-size="34" font-weight="900" text-anchor="middle" font-family="'Segoe UI', Montserrat, Arial, sans-serif">${grade}</text>
+            </svg>
+          `}
+        </div>
       </div>`;
   }).join('');
 
@@ -127,29 +130,34 @@ function buildCertificateHTML(data, settings, evalRules) {
   // Main scorecard leaf image: either matching rule's custom image, or SVG fallback
   let leafHTML = '';
   if (tierInfo.imageUrl) {
-    leafHTML = `<img crossorigin="anonymous" class="leaf-img" src="${tierInfo.imageUrl}" alt="${escHtml(tierInfo.label)}" />`;
+    leafHTML = `
+      <div class="leaf-img-box" style="width:84px; height:105px; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin:0 auto;">
+        <img crossorigin="anonymous" class="leaf-img" src="${tierInfo.imageUrl}" alt="${escHtml(tierInfo.label)}" style="max-width:84px; max-height:105px; width:auto; height:auto; display:block; margin:0 auto;" />
+      </div>`;
   } else {
     leafHTML = `
-      <svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg" width="76" height="102">
-        <defs>
-          <linearGradient id="leafGrad-main" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="${activeColor}" />
-            <stop offset="100%" stop-color="${darkColor}" />
-          </linearGradient>
-        </defs>
-        <path d="M40 8 C12 22 7 58 40 96 C73 58 68 22 40 8Z" fill="url(#leafGrad-main)"/>
-        <path d="M40 8 C30 18 22 35 25 55 C30 40 36 25 40 8Z" fill="rgba(255,255,255,0.22)" />
-        <path d="M40 16 C40 42 40 66 40 90" stroke="rgba(255,255,255,0.32)" stroke-width="1.5" fill="none" stroke-linecap="round" />
-      </svg>`;
+      <div class="leaf-img-box" style="width:84px; height:105px; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin:0 auto;">
+        <svg class="leaf-img" viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg" width="80" height="100" style="width:80px; height:100px; flex-shrink:0; display:block; margin:0 auto;">
+          <defs>
+            <linearGradient id="leafGrad-main" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="${activeColor}" />
+              <stop offset="100%" stop-color="${darkColor}" />
+            </linearGradient>
+          </defs>
+          <path d="M40 8 C12 22 7 58 40 96 C73 58 68 22 40 8Z" fill="url(#leafGrad-main)"/>
+          <path d="M40 8 C30 18 22 35 25 55 C30 40 36 25 40 8Z" fill="rgba(255,255,255,0.22)" />
+          <path d="M40 16 C40 42 40 66 40 90" stroke="rgba(255,255,255,0.32)" stroke-width="1.5" fill="none" stroke-linecap="round" />
+        </svg>
+      </div>`;
   }
 
   // Mini-tier image or SVG
   let miniLeafHTML = '';
   if (tierInfo.imageUrl) {
-    miniLeafHTML = `<img crossorigin="anonymous" src="${tierInfo.imageUrl}" alt="${escHtml(tierInfo.label)}" style="height:24px; width:auto; max-width:24px; vertical-align:middle;" />`;
+    miniLeafHTML = `<img crossorigin="anonymous" src="${tierInfo.imageUrl}" alt="${escHtml(tierInfo.label)}" style="max-height:24px; width:auto; vertical-align:middle; flex-shrink:0;" />`;
   } else {
     miniLeafHTML = `
-      <svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg" width="18" height="24">
+      <svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg" width="18" height="24" style="width:18px; height:24px; flex-shrink:0;">
         <path d="M40 8 C12 22 7 58 40 96 C73 58 68 22 40 8Z" fill="${activeColor}"/>
       </svg>`;
   }
@@ -158,20 +166,6 @@ function buildCertificateHTML(data, settings, evalRules) {
     assessed: (data.categories || []).map(c => c.total),
     achieved: (data.categories || []).map(c => c.achieved),
   });
-
-  // Header Logo URL from settings or default fallback
-  let logoHTML = `
-    <svg class="leaf-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="52" height="52">
-      <path d="M50 8 C70 15 82 35 78 55 C74 75 55 88 40 82 C25 76 18 58 24 42 C30 26 40 12 50 8 Z" fill="var(--tier-h)"/>
-      <path d="M45 20 C60 24 68 40 63 55 C58 70 42 78 32 72 C22 66 18 50 25 38 C31 27 38 22 45 20 Z" fill="#c9531e" opacity="0.85"/>
-      <path d="M40 34 C50 36 55 46 51 55 C47 64 36 68 30 63 C24 58 23 48 28 41 C32 36 36 34 40 34 Z" fill="#d9a41e" opacity="0.9"/>
-    </svg>`;
-  if (settings?.authHeaderLogo) {
-    const src = settings.authHeaderLogo.startsWith('data:') 
-      ? settings.authHeaderLogo 
-      : (settings.authHeaderLogo.startsWith('/uploads/') ? `${SERVER_BASE}${settings.authHeaderLogo}` : settings.authHeaderLogo);
-    logoHTML = `<img crossorigin="anonymous" class="logo-img" src="${src}" alt="DESH Logo" onerror="this.style.opacity='0.5'" />`;
-  }
 
   // Footer partner logos from settings or default fallback
   const partnerLogos = (settings?.footerPartnerLogos && settings.footerPartnerLogos.length > 0)
@@ -226,35 +220,47 @@ function buildCertificateHTML(data, settings, evalRules) {
     margin: 24px auto;
     background: var(--paper);
     position: relative;
-    padding: 18px 56px 36px;
+    padding: 20px 56px 28px;
     overflow: hidden;
     box-shadow: 0 6px 30px rgba(0,0,0,0.18);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    box-sizing: border-box;
   }
   .cert-page::before,.cert-page::after{
     content:""; position:absolute; width:14px; top:0; bottom:0;
   }
   .cert-page::before{ left:0; background:linear-gradient(180deg,var(--tier-h) 0%,var(--tier-h) 55%,var(--tier-d) 55%,var(--tier-d) 100%); }
   .cert-page::after{ right:0; background:linear-gradient(180deg,var(--tier-d) 0%,var(--tier-d) 45%,var(--tier-h) 45%,var(--tier-h) 100%); }
-  .cert-body{ display: flex; flex-direction: column; position: relative; z-index: 1; }
+  .cert-body{ display: flex; flex-direction: column; position: relative; z-index: 1; flex: 1; justify-content: space-around; }
 
   /* HEADER */
-  .cert-header{ text-align:center; margin-bottom:4px; }
-  .cert-header .leaf-mark, .cert-header .logo-img{ width:auto; height:52px; max-width:260px; object-fit:contain; margin:0 auto 2px; display:block; }
+  .cert-header{ text-align:center; margin-bottom:8px; }
   .cert-header .desh-wordmark-img{ height:58px; width:auto; object-fit:contain; margin:0 auto; display:block; }
 
   /* RECIPIENT */
-  .recipient-block{ text-align:center; margin:12px 0 10px; line-height:1.6; }
+  .recipient-block{ text-align:center; margin:10px 0 12px; line-height:1.55; }
   .recipient-block .field{ font-weight:800; font-size:14.5px; text-transform:uppercase; letter-spacing:0.2px; }
   .recipient-block .connector{ font-weight:400; font-size:12.5px; color:var(--ink-soft); }
 
   /* SCORE CARD */
-  .score-card{ display:flex; align-items:stretch; gap:24px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:10px; padding:12px 20px; margin-bottom:18px; }
-  .score-card .leaf-col{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:140px; border-right:1px solid var(--card-border); padding-right:20px; }
-  .score-card .leaf-col svg{ width:76px; height:102px; }
-  .score-card .leaf-col img{ height:102px; width:auto; max-width:120px; object-fit:contain; }
+  .score-card{ display:flex; align-items:stretch; gap:24px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:10px; padding:14px 20px; margin-bottom:14px; }
+  .score-card .leaf-col{ display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:140px; border-right:1px solid var(--card-border); padding-right:20px; flex-shrink: 0; }
+  .score-card .leaf-col svg,
+  .score-card .leaf-col img,
+  .leaf-img {
+    width: 76px !important;
+    height: 102px !important;
+    min-width: 76px !important;
+    min-height: 102px !important;
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    object-fit: contain !important;
+    aspect-ratio: 76/102 !important;
+    flex-shrink: 0 !important;
+  }
   .score-card .leaf-col .tier-name{ font-weight:800; font-size:13px; margin-top:5px; color:var(--tier-active-color); }
   .score-card .leaf-col .tier-range{ font-size:11px; color:var(--ink-soft); margin-top:2px; }
   .score-card .score-col{ flex:1; display:flex; flex-direction:column; justify-content:center; }
@@ -263,13 +269,13 @@ function buildCertificateHTML(data, settings, evalRules) {
   .score-col .score-points{ font-size:12.5px; color:var(--ink-soft); margin-bottom:6px; }
   .score-col .score-divider{ height:1px; background:var(--hairline); margin:6px 0; }
   .score-col .mini-tier{ display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700; margin-bottom:6px; }
-  .score-col .mini-tier svg{ width:18px; height:24px; }
-  .score-col .mini-tier img{ height:24px; width:auto; max-width:24px; object-fit:contain; }
+  .score-col .mini-tier svg{ width:18px; height:24px; flex-shrink: 0; }
+  .score-col .mini-tier img{ height:24px; width:auto; max-width:24px; object-fit:contain; flex-shrink: 0; }
   .score-col .status-line{ font-size:12.5px; font-weight:700; }
   .score-col .status-line .status-grade{ color:var(--tier-active-color); }
 
   /* TABLE + CHART */
-  .assessment-row{ display:flex; gap:20px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:10px; padding:12px 18px; margin-bottom:18px; }
+  .assessment-row{ display:flex; gap:20px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:10px; padding:12px 18px; margin-bottom:14px; }
   .assessment-row .table-col{ flex:1.1; }
   .assessment-row .chart-col{ flex:1; display:flex; flex-direction:column; }
   .table-col h3{ font-size:12px; letter-spacing:0.3px; margin:0 0 6px; text-transform:uppercase; font-weight:800; }
@@ -284,30 +290,91 @@ function buildCertificateHTML(data, settings, evalRules) {
   .chart-col canvas{ max-width:100%; }
 
   /* RATING SCALE */
-  .rating-scale{ display:flex; justify-content:center; align-items:flex-end; gap:28px; margin:16px 0 10px; position:relative; }
-  .rating-scale .tier-item{ display:flex; flex-direction:column; align-items:center; opacity:0.35; filter:grayscale(55%); transition:all .2s ease; }
-  .rating-scale .tier-item.is-achieved{ opacity:1; filter:none; transform:scale(1.18); }
-  .rating-scale .tier-item svg{ width:32px; height:42px; }
-  .rating-scale .tier-item img{ height:42px; width:auto; max-width:50px; object-fit:contain; }
-  .rating-scale .achieved-tag{ position:absolute; top:-16px; right:20%; font-size:11px; font-weight:800; letter-spacing:0.5px; color:var(--ink); }
+  .rating-scale{ display:flex; justify-content:center; align-items:center; gap:36px; margin:16px 0 12px; position:relative; padding:10px 0; }
+  .rating-scale .tier-item{ display:flex; flex-direction:column; align-items:center; justify-content:center; opacity:0.45; filter:grayscale(50%); transition:all .2s ease; flex-shrink:0; }
+  .rating-scale .tier-item.is-achieved{ opacity:1; filter:none; transform:none; }
+  .rating-scale .tier-item svg,
+  .rating-scale .tier-item img{ width:52px; height:65px; aspect-ratio:4/5; object-fit:contain; flex-shrink:0; display:block; }
+  .rating-scale .achieved-tag{ position:absolute; top:-12px; right:15%; font-size:11px; font-weight:800; letter-spacing:0.5px; color:var(--ink); }
 
   /* HISTORY */
-  .history-block{ text-align:center; margin:12px 0 12px; font-size:12px; color:var(--ink); line-height:1.6; }
+  .history-block{ text-align:center; margin:10px 0 14px; font-size:12px; color:var(--ink); line-height:1.6; }
   .history-block .hist-line b{ font-weight:700; }
 
   /* FOOTER */
-  .cert-footer{ text-align:center; position: relative; z-index: 2; width: 100%; }
-  .qr-wrap{ text-align:center; margin-bottom:10px; }
-  .qr-wrap img{ width:72px; height:72px; }
-  .meta-line{ text-align:center; font-size:11px; color:var(--ink-soft); margin-bottom:10px; letter-spacing:0.2px; }
+  .cert-footer{ text-align:center; position: relative; z-index: 2; width: 100%; margin-top: auto; padding-top: 6px; }
+  .qr-wrap{ text-align:center; margin-bottom:8px; }
+  .qr-wrap img{ width:72px; height:72px; object-fit:contain; }
+  .meta-line{ text-align:center; font-size:11px; color:var(--ink-soft); margin-bottom:8px; letter-spacing:0.2px; }
   .meta-line span{ margin:0 8px; }
-  .partners-row{ display:flex; align-items:center; justify-content:center; gap:16px; flex-wrap:wrap; padding-top:10px; border-top:1px solid var(--hairline); }
+  .partners-row{ display:flex; align-items:center; justify-content:center; gap:16px; flex-wrap:wrap; padding-top:8px; border-top:1px solid var(--hairline); }
   .partners-row img{ height:24px; width:auto; object-fit:contain; filter:grayscale(35%); opacity:0.9; }
 
   @media print{
-    html,body{ background:none; margin:0; padding:0; }
-    .cert-page{ margin:0; box-shadow:none; width:210mm; height:297mm; }
-    @page{ size:A4 portrait; margin:0; }
+    html, body{
+      background: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 210mm !important;
+      height: 297mm !important;
+      overflow: hidden !important;
+    }
+    .cert-page{
+      margin: 0 !important;
+      box-shadow: none !important;
+      width: 210mm !important;
+      height: 297mm !important;
+      max-height: 297mm !important;
+      padding: 12mm 16mm 10mm !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+      page-break-after: avoid !important;
+      page-break-before: avoid !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    @page{
+      size: A4 portrait;
+      margin: 0;
+    }
+    .cert-body{
+      height: 100% !important;
+      justify-content: space-around !important;
+    }
+    .score-card .leaf-col svg,
+    .score-card .leaf-col img,
+    .leaf-img {
+      width: 76px !important;
+      height: 102px !important;
+      min-width: 76px !important;
+      min-height: 102px !important;
+      display: block !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      object-fit: contain !important;
+      aspect-ratio: 76/102 !important;
+    }
+    .rating-scale {
+      display: flex !important;
+      flex-direction: row !important;
+      justify-content: center !important;
+      align-items: center !important;
+      gap: 32px !important;
+      margin: 14px 0 !important;
+    }
+    .rating-scale .tier-item {
+      flex-shrink: 0 !important;
+      transform: none !important;
+    }
+    .rating-scale .tier-item svg,
+    .rating-scale .tier-item img {
+      width: 52px !important;
+      height: 65px !important;
+      aspect-ratio: 4/5 !important;
+      object-fit: contain !important;
+      flex-shrink: 0 !important;
+      display: block !important;
+    }
   }
 </style>
 </head>
@@ -316,7 +383,6 @@ function buildCertificateHTML(data, settings, evalRules) {
 <div class="cert-body">
 
   <header class="cert-header">
-    ${logoHTML}
     <img class="desh-wordmark-img" src="/images/logo (1).png" alt="DESH Logo" />
   </header>
 
@@ -365,7 +431,6 @@ function buildCertificateHTML(data, settings, evalRules) {
   </section>
 
   <section class="rating-scale" id="ratingScale">
-    <span class="achieved-tag">ACHIEVED &#8599;</span>
     ${tierItems}
   </section>
 
@@ -1046,7 +1111,7 @@ async function captureCertAsPdf(certHTML) {
       yOffset = (pageH - drawH) / 2;
     }
 
-    doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', xOffset, yOffset, drawW, drawH);
+    doc.addImage(canvas.toDataURL('image/png'), 'PNG', xOffset, yOffset, drawW, drawH);
 
     return doc.output('datauristring');
   } finally {

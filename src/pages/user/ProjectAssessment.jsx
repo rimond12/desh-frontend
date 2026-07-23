@@ -557,11 +557,20 @@ export default function ProjectAssessment() {
       if (pendingSaveRef.current) {
         await performSave();
       }
-      await ax.patch(`/projects/${id}/submit`);
+      const res = await ax.patch(`/projects/${id}/submit`);
+      if (res.data?.project) {
+        setProject(res.data.project);
+      } else {
+        setProject(p => p ? { ...p, status: 'submitted', project_status: 'submitted' } : p);
+      }
       toast.success('Project submitted!');
-      loadProject();
-    } catch { toast.error('Failed'); }
-    finally { setSubmitting(false); }
+      await loadProject();
+    } catch (err) {
+      console.error('Submit project error:', err);
+      toast.error(err.response?.data?.message || 'Failed to submit project');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const toggleSection = (key) => {
@@ -1284,7 +1293,9 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
           )}
 
           {/* Buttons */}
-          <div className="pa-scorecard-buttons" style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+          <div className="pa-scorecard-buttons" style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* ── ICON + TEXT BUTTONS (LEFT SIDE) ── */}
+
             {/* Save Status Indicator */}
             {!isLocked && (
               <div
@@ -1346,9 +1357,8 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                 )}
               </div>
             )}
-            <Link to="/notes" style={{ textDecoration: 'none' }} className="btn-secondary">
-              📝 Notes
-            </Link>
+
+            {/* Download Report */}
             <button onClick={exportPdf} style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '7px 14px', borderRadius: 10, cursor: 'pointer',
@@ -1358,15 +1368,30 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
             }}>
               ⬇ Download Report
             </button>
+
+            {/* Submit */}
             {isCreator && (
               <button
                 className="btn-primary-green"
                 onClick={submitProject}
                 disabled={submitting || project?.status === 'submitted'}
               >
-                {submitting ? 'Submitting…' : project?.status === 'submitted' ? '✓ Submitted' : '✓ Submit'}
+                {submitting ? (
+                  <>
+                    <span style={{
+                      display: 'inline-block',
+                      width: 13,
+                      height: 13,
+                      border: '2px solid rgba(255, 255, 255, 0.4)',
+                      borderTopColor: '#ffffff',
+                      borderRadius: '50%',
+                      animation: 'spin 0.8s linear infinite'
+                    }} /> Submitting…
+                  </>
+                ) : project?.status === 'submitted' ? '✓ Submitted' : '✓ Submit'}
               </button>
             )}
+
             {isLocked && (
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -1375,47 +1400,88 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                 fontFamily: 'Montserrat,sans-serif',
               }}>🔒 Locked</span>
             )}
- 
-            {/* ── Edit Project Info button ── */}
+
+            {/* ── ICON ONLY BUTTONS (RIGHT SIDE) ── */}
+
+            {/* Notes (Icon only) */}
+            <Link
+              to="/notes"
+              title="Notes"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 36,
+                height: 36,
+                padding: 0,
+                borderRadius: 10,
+                fontSize: 16,
+                textDecoration: 'none'
+              }}
+              className="btn-secondary"
+            >
+              📝
+            </Link>
+
+            {/* Edit Project Info (Icon only) */}
             {(isCreator || dbUser?.role === 'admin' || dbUser?.role === 'reviewer' || dbUser?.role === 'desh_reviewer' || dbUser?.role === 'desh_assessor') && (
               <Link
                 to={`/projects/${id}/info`}
+                title="Edit Project Info"
                 style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  padding: '7px 13px', borderRadius: 10, cursor: 'pointer',
-                  background: 'rgba(249,115,22,0.08)', border: '1.5px solid rgba(249,115,22,0.45)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 36,
+                  height: 36,
+                  padding: 0,
+                  borderRadius: 10,
+                  cursor: 'pointer',
+                  background: 'rgba(249,115,22,0.08)',
+                  border: '1.5px solid rgba(249,115,22,0.45)',
                   color: '#C2410C',
-                  fontWeight: 700, fontSize: 12, fontFamily: 'Montserrat,sans-serif',
-                  whiteSpace: 'nowrap', transition: 'all 0.18s', textDecoration: 'none',
+                  fontWeight: 700,
+                  fontSize: 15,
+                  fontFamily: 'Montserrat,sans-serif',
+                  transition: 'all 0.18s',
+                  textDecoration: 'none',
                 }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(249,115,22,0.18)'; e.currentTarget.style.borderColor = 'rgba(249,115,22,0.8)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'rgba(249,115,22,0.08)'; e.currentTarget.style.borderColor = 'rgba(249,115,22,0.45)'; }}
               >
-                ✎ Edit Project Info
+                ✎
               </Link>
             )}
 
-
-            {/* ── Score card toggle button ── */}
+            {/* Score card / Hide toggle (Icon only) */}
             <button
               onClick={() => setScoreOpen(o => !o)}
-              title={scoreOpen ? 'Collapse score card' : 'Expand score card'}
+              title={scoreOpen ? 'Hide' : 'Expand score card'}
               style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '7px 13px', borderRadius: 10, cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 36,
+                height: 36,
+                padding: 0,
+                borderRadius: 10,
+                cursor: 'pointer',
                 background: scoreOpen ? 'rgba(34,168,75,0.12)' : 'linear-gradient(135deg,var(--g700),var(--g500))',
                 border: `1.5px solid ${scoreOpen ? 'rgba(34,168,75,0.3)' : 'transparent'}`,
                 color: scoreOpen ? 'var(--g700)' : '#fff',
-                fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 12,
-                transition: 'all 0.2s ease', whiteSpace: 'nowrap',
-              }}>
+                fontFamily: 'Montserrat,sans-serif',
+                fontWeight: 800,
+                fontSize: 12,
+                transition: 'all 0.2s ease',
+              }}
+            >
               <span style={{
                 display: 'inline-block',
                 transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
                 transform: scoreOpen ? 'rotate(0deg)' : 'rotate(180deg)',
-                fontSize: 14, lineHeight: 1,
+                fontSize: 14,
+                lineHeight: 1,
               }}>▲</span>
-              <span className="pa-toggle-label">{scoreOpen ? 'Hide' : 'Score'}</span>
             </button>
           </div>
         </div>

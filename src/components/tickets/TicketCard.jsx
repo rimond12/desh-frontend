@@ -1,6 +1,6 @@
 import React from 'react';
 import { TicketStatusBadge, TicketPriorityBadge, PRIORITY_ACCENT } from './TicketStatusBadge';
-import { Calendar, User, Folder, MessageSquare, AlertTriangle, Hash } from 'lucide-react';
+import { Calendar, User, Folder, MessageSquare, AlertTriangle, Hash, Paperclip } from 'lucide-react';
 
 export default function TicketCard({ ticket, onClick }) {
   const isOverdue = ticket.slaDeadline && new Date(ticket.slaDeadline) < new Date() && ticket.status !== 'closed' && ticket.status !== 'resolved';
@@ -104,6 +104,11 @@ export default function TicketCard({ ticket, onClick }) {
             <MetaItem icon={<User size={11} />}>{ticket.createdBy?.name || 'User'}</MetaItem>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {ticket.attachments?.length > 0 && (
+              <MetaItem icon={<Paperclip size={11} />} color="var(--g600)">
+                {ticket.attachments.length}
+              </MetaItem>
+            )}
             {ticket.responses?.length > 0 && (
               <MetaItem icon={<MessageSquare size={11} />} color="var(--g600)">
                 {ticket.responses.length}

@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth, getPrimaryRole, getActiveRole, userHasRole } from './context/AuthContext.jsx';
+import { NotificationProvider } from './context/NotificationContext.jsx';
 
 import Login      from './pages/auth/Login.jsx';
 import Register   from './pages/auth/Register.jsx';
@@ -292,24 +293,26 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            style: {
-              background: '#0D3B1A',
-              color: '#fff',
-              border: '1px solid rgba(52,201,97,0.3)',
-              borderRadius: 12,
-              fontSize: 13.5,
-              fontFamily: 'Nunito, sans-serif',
-              fontWeight: 600,
-            },
-            success: { iconTheme: { primary: '#34C961', secondary: '#0D3B1A' } },
-            error:   { iconTheme: { primary: '#EF4444', secondary: '#fff' } },
-          }}
-        />
-        <AppRoutes />
-        <DeshAiChatBot />
+        <NotificationProvider>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              style: {
+                background: '#0D3B1A',
+                color: '#fff',
+                border: '1px solid rgba(52,201,97,0.3)',
+                borderRadius: 12,
+                fontSize: 13.5,
+                fontFamily: 'Nunito, sans-serif',
+                fontWeight: 600,
+              },
+              success: { iconTheme: { primary: '#34C961', secondary: '#0D3B1A' } },
+              error:   { iconTheme: { primary: '#EF4444', secondary: '#fff' } },
+            }}
+          />
+          <AppRoutes />
+          <DeshAiChatBot />
+        </NotificationProvider>
       </AuthProvider>
     </BrowserRouter>
   );

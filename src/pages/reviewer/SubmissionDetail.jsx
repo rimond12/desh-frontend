@@ -940,9 +940,6 @@ export default function ReviewerSubmissionDetail() {
 
           {/* Action buttons */}
           <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Link to="/notes" style={{ textDecoration: 'none' }} className="btn-secondary">
-              📝 Notes
-            </Link>
             <button onClick={exportPdf} style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '7px 14px', borderRadius: 10, cursor: 'pointer',
@@ -952,6 +949,24 @@ export default function ReviewerSubmissionDetail() {
             }}>
               ⬇ Download Report
             </button>
+            <Link
+              to="/notes"
+              title="Notes"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 36,
+                height: 36,
+                padding: 0,
+                borderRadius: 10,
+                fontSize: 16,
+                textDecoration: 'none'
+              }}
+              className="btn-secondary"
+            >
+              📝
+            </Link>
 
             {/* Status Selector */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>

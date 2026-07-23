@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { useNotifications } from '../../context/NotificationContext.jsx';
 import toast from 'react-hot-toast';
 import useNavLabels from '../../hooks/useNavLabels.js';
 import { NAV_CONFIG } from '../../config/navConfig.js';
@@ -24,20 +25,7 @@ export default function Sidebar({
   const axiosSecure = useAxiosSecure();
   const L = useNavLabels();
   const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    if (!user) return;
-    const fetchUnread = async () => {
-      try {
-        const res = await axiosSecure.get('/notifications/unread-count');
-        setUnreadCount(res.data.count || 0);
-      } catch (_) {}
-    };
-    fetchUnread();
-    const interval = setInterval(fetchUnread, 15000);
-    return () => clearInterval(interval);
-  }, [user, location.pathname]);
+  const { unreadCount } = useNotifications();
 
   const role = isAdmin ? 'admin' : isManager ? 'manager' : isReviewer ? 'reviewer' : 'user';
   const roleConfig = NAV_CONFIG.find(r => r.role === role);
