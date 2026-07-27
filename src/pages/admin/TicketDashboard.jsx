@@ -9,6 +9,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, TrendingUp, Settings as SettingsIcon
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 const KPI_CONFIG = [
   { key: 'total',     label: 'Total Tickets',  icon: Ticket,       color: '#22A84B', bg: 'rgba(34,168,75,0.09)',   border: 'rgba(34,168,75,0.2)'   },
@@ -38,11 +39,29 @@ export default function TicketDashboard() {
       .finally(() => setLoading(false));
   };
 
+  const fetchStats = () => {
+    axiosSecure.get('/tickets/stats').then((res) => setStats(res.data.stats)).catch(() => {});
+  };
+
   useEffect(() => { fetchTickets(); }, [filters]);
   useEffect(() => {
-    axiosSecure.get('/tickets/stats').then((res) => setStats(res.data.stats)).catch(() => {});
+    fetchStats();
     axiosSecure.get('/projects').then((res) => setProjects(res.data.projects || res.data || [])).catch(() => {});
   }, [axiosSecure]);
+
+  const handleDeleteTicket = async (t) => {
+    if (!window.confirm(`Are you sure you want to delete ticket ${t.ticketNumber}? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await axiosSecure.delete(`/tickets/${t._id}`);
+      toast.success(`Ticket ${t.ticketNumber} deleted successfully`);
+      fetchTickets();
+      fetchStats();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete ticket');
+    }
+  };
 
   const handleFilterChange = (key, val) => setFilters({ ...filters, [key]: val });
   const handleResetFilters = () => setFilters({ search: '', status: '', priority: '', projectId: '' });
@@ -150,7 +169,7 @@ export default function TicketDashboard() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 14 }}>
           {tickets.map((t) => (
-            <TicketCard key={t._id} ticket={t} onClick={(t) => navigate(`/admin/tickets/${t._id}`)} />
+            <TicketCard key={t._id} ticket={t} onClick={(t) => navigate(`/admin/tickets/${t._id}`)} onDelete={handleDeleteTicket} />
           ))}
         </div>
       )}

@@ -6,6 +6,7 @@ import TicketFilters from '../../components/tickets/TicketFilters';
 import CreateTicketModal from '../../components/tickets/CreateTicketModal';
 import { Plus, Ticket, ShieldAlert, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 export default function ManagerTicketDashboard() {
   const axiosSecure = useAxiosSecure();
@@ -35,6 +36,19 @@ export default function ManagerTicketDashboard() {
     fetchTickets();
     axiosSecure.get('/projects').then((res) => setProjects(res.data.projects || res.data || [])).catch(() => {});
   }, [filters]);
+
+  const handleDeleteTicket = async (t) => {
+    if (!window.confirm(`Are you sure you want to delete ticket ${t.ticketNumber}? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await axiosSecure.delete(`/tickets/${t._id}`);
+      toast.success(`Ticket ${t.ticketNumber} deleted successfully`);
+      fetchTickets();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete ticket');
+    }
+  };
 
   const handleFilterChange = (key, val) => setFilters({ ...filters, [key]: val });
   const handleResetFilters = () => setFilters({ search: '', status: '', priority: '', projectId: '' });
@@ -111,7 +125,7 @@ export default function ManagerTicketDashboard() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 12 }}>
             {reviewQueue.map((t) => (
-              <TicketCard key={t._id} ticket={t} onClick={(t) => navigate(`/manager/tickets/${t._id}`)} />
+              <TicketCard key={t._id} ticket={t} onClick={(t) => navigate(`/manager/tickets/${t._id}`)} onDelete={handleDeleteTicket} />
             ))}
           </div>
         </div>
@@ -142,7 +156,7 @@ export default function ManagerTicketDashboard() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 14 }}>
           {tickets.map((t) => (
-            <TicketCard key={t._id} ticket={t} onClick={(t) => navigate(`/manager/tickets/${t._id}`)} />
+            <TicketCard key={t._id} ticket={t} onClick={(t) => navigate(`/manager/tickets/${t._id}`)} onDelete={handleDeleteTicket} />
           ))}
         </div>
       )}

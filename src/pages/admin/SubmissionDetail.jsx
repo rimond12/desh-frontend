@@ -1226,8 +1226,8 @@ body{font-family:'Inter',Arial,sans-serif;font-size:13px;color:#111827;line-heig
                       </div>
                     </div>
 
-                    <div style={{ width: '100%', height: 148 }}>
-                      <ResponsiveContainer width="100%" height="100%" key={tabChartData.length}>
+                    <div style={{ width: '100%', height: 148, minWidth: 0 }}>
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0} key={tabChartData.length}>
                         <BarChart
                           data={tabChartData}
                           barGap={3}

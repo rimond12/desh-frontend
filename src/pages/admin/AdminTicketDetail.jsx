@@ -8,7 +8,7 @@ import TicketResponseForm from '../../components/tickets/TicketResponseForm';
 import LinkedQuestionCard from '../../components/tickets/LinkedQuestionCard';
 import {
   ArrowLeft, CheckCircle, XCircle, Hash, Calendar,
-  User, Folder, GitBranch, Clock, Shield, Paperclip
+  User, Folder, GitBranch, Clock, Shield, Paperclip, Trash2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -52,6 +52,19 @@ export default function AdminTicketDetail() {
     }
   };
 
+  const handleDeleteTicket = async () => {
+    if (!window.confirm(`Are you sure you want to delete ticket ${ticket.ticketNumber}? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await axiosSecure.delete(`/tickets/${id}`);
+      toast.success(`Ticket ${ticket.ticketNumber} deleted successfully`);
+      navigate('/admin/tickets');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete ticket');
+    }
+  };
+
   if (loading) return (
     <Layout isAdmin>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}>
@@ -76,6 +89,13 @@ export default function AdminTicketDetail() {
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={handleDeleteTicket}
+            className="btn-danger"
+            style={{ fontSize: 12.5, padding: '7px 16px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Trash2 size={14} /> Delete Ticket
+          </button>
           {ticket.status !== 'closed' && (
             <button
               onClick={() => handleStatusTransition('closed', 'Closed by Admin')}

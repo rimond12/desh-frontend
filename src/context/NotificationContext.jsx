@@ -3,7 +3,12 @@ import useAxiosSecure from '../hooks/useAxiosSecure';
 import { useAuth } from './AuthContext';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Bell, ExternalLink, X, CheckCheck } from 'lucide-react';
+import { Bell, ExternalLink, X } from 'lucide-react';
+import {
+  registerSocketUser,
+  unregisterSocketUser,
+  getSocketClient,
+} from '../services/socketService';
 
 const NotificationContext = createContext(null);
 
@@ -16,10 +21,9 @@ export function NotificationProvider({ children }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  // Use refs to avoid stale closures in the polling interval
+  // Use refs to avoid stale closures
   const toastedIds = useRef(new Set());
   const isInitialLoad = useRef(true);
-  // Keep a stable ref to navigate & activeRole so interval closure stays fresh
   const navigateRef = useRef(navigate);
   const activeRoleRef = useRef(null);
 
@@ -42,16 +46,12 @@ export function NotificationProvider({ children }) {
     } else if (['reviewer', 'desh_reviewer', 'desh_assessor'].includes(role)) {
       navigateRef.current(`/reviewer/tickets/${tid}`);
     } else {
-      // Professional/user role — navigate to the notifications hub instead
-      // (they don't have a standalone ticket detail page)
       navigateRef.current('/notifications');
     }
   }, []);
 
   // ── Toast notification ─────────────────────────────────────────────────────
-  // Defined as a ref-based function so the interval closure always calls the
-  // latest version without needing it in the useCallback dep array.
-  const markAsReadRef = useRef(null); // populated below after markAsRead is defined
+  const markAsReadRef = useRef(null);
 
   const showNotificationToast = useCallback((n) => {
     toast.custom((t) => (
@@ -104,7 +104,7 @@ export function NotificationProvider({ children }) {
     ), { duration: 5000, position: 'top-right' });
   }, [navigateToNotificationTarget]);
 
-  // ── Core fetch — wrapped in useCallback for stable reference ──────────────
+  // ── Core REST fetch ────────────────────────────────────────────────────────
   const fetchNotifications = useCallback(async (quiet = false) => {
     if (!user) return;
     if (!quiet) setLoading(true);
@@ -126,17 +126,11 @@ export function NotificationProvider({ children }) {
 
       if (unreadList.length > 0) {
         // On initial load, toast up to 2 most recent unread notifications
-        // On polling updates, toast all new unread notifications
+        // On background polling updates, toast all new unread notifications
         const toToast = isInitialLoad.current ? unreadList.slice(0, 2) : unreadList;
-        
         toToast.forEach(n => {
           toastedIds.current.add(n._id);
           showNotificationToast(n);
-        });
-
-        // Mark all items currently in list as processed in toastedIds set
-        list.forEach(n => {
-          toastedIds.current.add(n._id);
         });
       }
 
@@ -148,11 +142,13 @@ export function NotificationProvider({ children }) {
     }
   }, [user, axiosSecure, showNotificationToast]);
 
-  // Keep a stable ref so the interval always calls the latest version
   const fetchRef = useRef(fetchNotifications);
   useEffect(() => { fetchRef.current = fetchNotifications; }, [fetchNotifications]);
 
-  // ── Polling setup ──────────────────────────────────────────────────────────
+  // ── Socket.IO Real-Time Listener & User Room Setup ─────────────────────────
+  const mongoId = dbUser?._id;
+  const firebaseUid = user?.uid;
+
   useEffect(() => {
     if (!user) {
       setNotifications([]);
@@ -161,17 +157,78 @@ export function NotificationProvider({ children }) {
       return;
     }
 
-    // Reset on login / user change
     isInitialLoad.current = true;
     toastedIds.current.clear();
 
-    // Initial fetch
+    // Perform initial REST fetch
     fetchRef.current();
 
-    // Poll every 5 seconds via stable ref for fast real-time notifications
+    // Register user keys (both mongoId and firebaseUid) to guarantee room match
+    const userKeys = [mongoId, firebaseUid].filter(Boolean);
+    registerSocketUser(userKeys);
+    const socket = getSocketClient();
+
+    // 1. Handle incoming real-time notifications
+    const handleNewNotification = ({ notification, unreadCount: serverUnreadCount }) => {
+      if (!notification || !notification._id) return;
+
+      setNotifications(prev => {
+        const exists = prev.some(n => n._id === notification._id);
+        if (exists) return prev;
+        return [notification, ...prev];
+      });
+
+      if (typeof serverUnreadCount === 'number') {
+        setUnreadCount(serverUnreadCount);
+      } else {
+        setUnreadCount(prev => prev + 1);
+      }
+
+      if (!toastedIds.current.has(notification._id)) {
+        toastedIds.current.add(notification._id);
+        showNotificationToast(notification);
+      }
+    };
+
+    // 2. Handle cross-tab status updates (read/unread toggles)
+    const handleNotificationUpdated = ({ notificationId, isRead, unreadCount: serverUnreadCount }) => {
+      setNotifications(prev => prev.map(n => n._id === notificationId ? { ...n, isRead } : n));
+      if (typeof serverUnreadCount === 'number') {
+        setUnreadCount(serverUnreadCount);
+      }
+    };
+
+    // 3. Handle mark all as read across tabs
+    const handleReadAll = ({ unreadCount: serverUnreadCount = 0 }) => {
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setUnreadCount(serverUnreadCount);
+    };
+
+    // 4. Handle notification deletion across tabs
+    const handleDeleted = ({ notificationId, unreadCount: serverUnreadCount }) => {
+      setNotifications(prev => prev.filter(n => n._id !== notificationId));
+      if (typeof serverUnreadCount === 'number') {
+        setUnreadCount(serverUnreadCount);
+      }
+    };
+
+    socket.on('notification:new', handleNewNotification);
+    socket.on('notification:updated', handleNotificationUpdated);
+    socket.on('notification:read_all', handleReadAll);
+    socket.on('notification:deleted', handleDeleted);
+
+    // High-reliability 5-second polling loop
     const interval = setInterval(() => fetchRef.current(true), 5000);
-    return () => clearInterval(interval);
-  }, [user]);
+
+    return () => {
+      socket.off('notification:new', handleNewNotification);
+      socket.off('notification:updated', handleNotificationUpdated);
+      socket.off('notification:read_all', handleReadAll);
+      socket.off('notification:deleted', handleDeleted);
+      unregisterSocketUser(userKeys);
+      clearInterval(interval);
+    };
+  }, [user, mongoId, firebaseUid, showNotificationToast]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
   const markAsRead = useCallback(async (id, silent = false) => {
@@ -185,7 +242,6 @@ export function NotificationProvider({ children }) {
     }
   }, [axiosSecure]);
 
-  // Wire the markAsRead ref so the toast callback always gets the latest function
   useEffect(() => { markAsReadRef.current = markAsRead; }, [markAsRead]);
 
   const markAsUnread = useCallback(async (id) => {

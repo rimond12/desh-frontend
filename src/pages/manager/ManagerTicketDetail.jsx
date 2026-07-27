@@ -5,7 +5,7 @@ import useAxiosSecure from '../../hooks/useAxiosSecure';
 import { TicketStatusBadge, TicketPriorityBadge, PRIORITY_ACCENT } from '../../components/tickets/TicketStatusBadge';
 import TicketTimeline from '../../components/tickets/TicketTimeline';
 import LinkedQuestionCard from '../../components/tickets/LinkedQuestionCard';
-import { ArrowLeft, CheckCircle, XCircle, Send, RotateCcw, Hash, Calendar, User, Folder, Clock, Shield, GitBranch, ChevronDown, MessageSquare, Paperclip } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Send, RotateCcw, Hash, Calendar, User, Folder, Clock, Shield, GitBranch, ChevronDown, MessageSquare, Paperclip, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function ManagerTicketDetail() {
@@ -13,7 +13,6 @@ export default function ManagerTicketDetail() {
   const navigate     = useNavigate();
   const axiosSecure  = useAxiosSecure();
   const [ticket,           setTicket]           = useState(null);
-  const [assessors,        setAssessors]        = useState([]);
   const [selectedAssessor, setSelectedAssessor] = useState('');
   const [loading,          setLoading]          = useState(true);
   const [forwarding,       setForwarding]       = useState(false);
@@ -94,6 +93,19 @@ export default function ManagerTicketDetail() {
     }
   };
 
+  const handleDeleteTicket = async () => {
+    if (!window.confirm(`Are you sure you want to delete ticket ${ticket.ticketNumber}? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await axiosSecure.delete(`/tickets/${id}`);
+      toast.success(`Ticket ${ticket.ticketNumber} deleted successfully`);
+      navigate('/manager/tickets');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete ticket');
+    }
+  };
+
   if (loading) return (
     <Layout isManager>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}>
@@ -120,6 +132,13 @@ export default function ManagerTicketDetail() {
 
         {/* Manager Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            onClick={handleDeleteTicket}
+            className="btn-danger"
+            style={{ fontSize: 12.5, padding: '7px 16px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Trash2 size={14} /> Delete Ticket
+          </button>
           {isManagerReviewState && (
             <>
               {/* Forward to assessor */}

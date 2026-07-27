@@ -1,8 +1,8 @@
 import React from 'react';
 import { TicketStatusBadge, TicketPriorityBadge, PRIORITY_ACCENT } from './TicketStatusBadge';
-import { Calendar, User, Folder, MessageSquare, AlertTriangle, Hash, Paperclip } from 'lucide-react';
+import { Calendar, User, Folder, MessageSquare, AlertTriangle, Hash, Paperclip, Trash2 } from 'lucide-react';
 
-export default function TicketCard({ ticket, onClick }) {
+export default function TicketCard({ ticket, onClick, onDelete }) {
   const isOverdue = ticket.slaDeadline && new Date(ticket.slaDeadline) < new Date() && ticket.status !== 'closed' && ticket.status !== 'resolved';
   const accentColor = PRIORITY_ACCENT[ticket.priority] || PRIORITY_ACCENT.medium;
 
@@ -36,7 +36,7 @@ export default function TicketCard({ ticket, onClick }) {
 
       <div style={{ padding: '14px 16px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-        {/* Top row: ticket number + badges */}
+        {/* Top row: ticket number + badges + actions */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -74,7 +74,35 @@ export default function TicketCard({ ticket, onClick }) {
             </h3>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-            <TicketStatusBadge status={ticket.status} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <TicketStatusBadge status={ticket.status} />
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(ticket);
+                  }}
+                  title="Delete Ticket"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#DC2626',
+                    cursor: 'pointer',
+                    padding: '3px',
+                    borderRadius: '6px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(220,38,38,0.1)'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
+            </div>
             <TicketPriorityBadge priority={ticket.priority} />
           </div>
         </div>
