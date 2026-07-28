@@ -79,6 +79,8 @@ export default function CreateTicketModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (step < 3) return; // Prevent submission from intermediate steps (e.g. via Enter key)
+
     if (!selectedProject)    return toast.error('Please select a project');
     if (!subject.trim())     return toast.error('Please enter a subject');
     if (!description.trim()) return toast.error('Please enter a description');
@@ -419,10 +421,10 @@ export default function CreateTicketModal({
           {/* ── FOOTER ─────────────────────────────── */}
           <div style={styles.footer}>
             {step > 1 ? (
-              <button type="button" onClick={goBack} className="btn-secondary" style={{ fontSize: 12.5, padding: '8px 18px' }}>
+              <button key="btn-back" type="button" onClick={goBack} className="btn-secondary" style={{ fontSize: 12.5, padding: '8px 18px' }}>
                 <ChevronLeft size={14} /> Back
               </button>
-            ) : <div />}
+            ) : <div key="btn-back-placeholder" />}
 
             {/* dots */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -441,11 +443,11 @@ export default function CreateTicketModal({
             </div>
 
             {step < 3 ? (
-              <button type="button" onClick={goNext} className="btn-primary-green" style={{ fontSize: 12.5, padding: '8px 20px' }}>
+              <button key="btn-next" type="button" onClick={goNext} className="btn-primary-green" style={{ fontSize: 12.5, padding: '8px 20px' }}>
                 Next <ChevronRight size={14} />
               </button>
             ) : (
-              <button type="submit" disabled={loading} className="btn-primary-green" style={{ fontSize: 12.5, padding: '8px 22px', minWidth: 130 }}>
+              <button key="btn-submit" type="submit" disabled={loading} className="btn-primary-green" style={{ fontSize: 12.5, padding: '8px 22px', minWidth: 130 }}>
                 {loading ? (
                   <><Spinner /> Submitting…</>
                 ) : (

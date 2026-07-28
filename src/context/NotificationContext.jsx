@@ -26,6 +26,7 @@ export function NotificationProvider({ children }) {
   const isInitialLoad = useRef(true);
   const navigateRef = useRef(navigate);
   const activeRoleRef = useRef(null);
+  const markAsReadRef = useRef(null);
 
   useEffect(() => { navigateRef.current = navigate; }, [navigate]);
 
@@ -50,59 +51,10 @@ export function NotificationProvider({ children }) {
     }
   }, []);
 
-  // ── Toast notification ─────────────────────────────────────────────────────
-  const markAsReadRef = useRef(null);
-
   const showNotificationToast = useCallback((n) => {
-    toast.custom((t) => (
-      <div
-        className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-[340px] w-full shadow-xl rounded-xl p-2.5 px-3 pointer-events-auto flex items-center justify-between gap-2.5 relative border transition-all`}
-        style={{
-          background: 'linear-gradient(135deg, rgba(12,42,20,0.96), rgba(6,20,10,0.98))',
-          backdropFilter: 'blur(12px)',
-          borderColor: 'rgba(52,201,97,0.3)',
-          color: '#ffffff',
-          boxShadow: '0 8px 20px rgba(0,0,0,0.35), 0 0 12px rgba(52,201,97,0.12)',
-        }}
-      >
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ background: 'rgba(52,201,97,0.15)', border: '1px solid rgba(52,201,97,0.3)' }}>
-          <Bell size={14} className="text-emerald-400" />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0 animate-pulse" />
-            <h4 className="text-xs font-bold text-white truncate leading-tight">{n.title}</h4>
-          </div>
-          <p className="text-[11px] text-gray-300 truncate mt-0.5 leading-tight">{n.message}</p>
-        </div>
-
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {n.ticketId && (
-            <button
-              onClick={() => {
-                toast.dismiss(t.id);
-                if (markAsReadRef.current) markAsReadRef.current(n._id, true);
-                navigateToNotificationTarget(n);
-              }}
-              className="flex items-center gap-1 px-2 py-1 rounded-md font-bold text-[10px] transition-all hover:scale-105 active:scale-95"
-              style={{ background: '#22A84B', color: '#fff' }}
-            >
-              <span>View</span>
-              <ExternalLink size={10} />
-            </button>
-          )}
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="text-gray-400 hover:text-white p-0.5 rounded transition-colors"
-          >
-            <X size={13} />
-          </button>
-        </div>
-      </div>
-    ), { duration: 5000, position: 'top-right' });
-  }, [navigateToNotificationTarget]);
+    // Disabled/stopped notification toaster popup as requested
+    return;
+  }, []);
 
   // ── Core REST fetch ────────────────────────────────────────────────────────
   const fetchNotifications = useCallback(async (quiet = false) => {

@@ -6,7 +6,7 @@ import { TicketStatusBadge, TicketPriorityBadge } from '../../components/tickets
 import TicketTimeline from '../../components/tickets/TicketTimeline';
 import TicketResponseForm from '../../components/tickets/TicketResponseForm';
 import LinkedQuestionCard from '../../components/tickets/LinkedQuestionCard';
-import { ArrowLeft, CheckCircle, XCircle, Paperclip } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Paperclip, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 
@@ -17,13 +17,16 @@ export default function AssessorTicketDetail() {
   const { dbUser } = useAuth();
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [transitionLoading, setTransitionLoading] = useState(false);
 
-  const fetchTicket = () => {
-    setLoading(true);
+  const fetchTicket = (quiet = false) => {
+    if (!quiet) setLoading(true);
     axiosSecure.get(`/tickets/${id}`)
       .then((res) => setTicket(res.data.ticket))
       .catch((err) => toast.error(err.response?.data?.message || 'Failed to load ticket'))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!quiet) setLoading(false);
+      });
   };
 
   useEffect(() => {
@@ -31,12 +34,15 @@ export default function AssessorTicketDetail() {
   }, [id]);
 
   const handleStatusTransition = async (newStatus, reason = '') => {
+    setTransitionLoading(true);
     try {
       await axiosSecure.patch(`/tickets/${id}/status`, { status: newStatus, reason });
       toast.success(`Ticket status updated to ${newStatus.toUpperCase()}`);
-      fetchTicket();
+      fetchTicket(true);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Status transition failed');
+    } finally {
+      setTransitionLoading(false);
     }
   };
 
@@ -48,7 +54,7 @@ export default function AssessorTicketDetail() {
 
       await axiosSecure.post(`/tickets/${id}/responses`, formData);
       toast.success('Response & evidence submitted!');
-      fetchTicket();
+      fetchTicket(true);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to submit response');
     }
@@ -70,9 +76,17 @@ export default function AssessorTicketDetail() {
           {ticket.status === 'assigned' && (
             <button
               onClick={() => handleStatusTransition('in_progress', 'Assessor accepted ticket')}
-              className="btn-primary-green text-xs px-3.5 py-1.5 inline-flex items-center gap-1"
+              disabled={transitionLoading}
+              className="btn-primary-green text-xs px-3.5 py-1.5 inline-flex items-center gap-1.5 disabled:opacity-75 disabled:cursor-not-allowed"
             >
-              Start Working
+              {transitionLoading ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" />
+                  Starting...
+                </>
+              ) : (
+                'Start Working'
+              )}
             </button>
           )}
 
@@ -80,7 +94,8 @@ export default function AssessorTicketDetail() {
           {isOwnTicket && ticket.status !== 'closed' && (
             <button
               onClick={() => handleStatusTransition('closed', 'Closed by Assessor')}
-              className="btn-secondary text-xs px-3.5 py-1.5 inline-flex items-center gap-1"
+              disabled={transitionLoading}
+              className="btn-secondary text-xs px-3.5 py-1.5 inline-flex items-center gap-1 disabled:opacity-75 disabled:cursor-not-allowed"
             >
               <XCircle size={14} /> Close Ticket
             </button>
