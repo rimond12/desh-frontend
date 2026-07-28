@@ -275,7 +275,20 @@ export default function Register() {
                   <img key={i} src={getImgSrc(logo)} alt="Logo" className='h-12' style={{ objectFit: 'contain' }} />
                 ))}
               </div>
-              <span className="system-label card-subheading -mt-8 text-xs flex justify-center mx-auto text-center">{branding.authSystemLabel}</span>
+              {(branding.authSystemLabel || branding.authSystemLabel2) && (
+                <div className="system-labels-wrap flex flex-col items-center justify-center -mt-4 mb-6 text-center">
+                  {branding.authSystemLabel && (
+                    <span className="text-xs font-semibold tracking-wide text-[#7a9e84] whitespace-nowrap">
+                      {branding.authSystemLabel.replace(/(\S)\(/g, '$1 (')}
+                    </span>
+                  )}
+                  {branding.authSystemLabel2 && (
+                    <span className="text-[9.5px] sm:text-[11px] font-medium tracking-wide text-[#8ba98f] mt-1 leading-normal whitespace-nowrap">
+                      {branding.authSystemLabel2.replace(/(\S)\(/g, '$1 (')}
+                    </span>
+                  )}
+                </div>
+              )}
               <h2 className="card-heading text-center">Create Account</h2>
               <p className="card-subheading text-center">Join the green building community</p>
 

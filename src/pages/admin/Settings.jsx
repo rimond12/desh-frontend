@@ -33,6 +33,7 @@ export default function Settings() {
         authHeaderTitleBn: 'গণপ্রজাতন্ত্রী বাংলাদেশ সরকার',
         authHeaderTitleEn: "Government of the People's Republic of Bangladesh",
         authSystemLabel: 'Sustainable Design Assessment System',
+        authSystemLabel2: '',
     });
     const [authCardLogos, setAuthCardLogos] = useState([]);
     const [authCardLogoFile, setAuthCardLogoFile] = useState(null);
@@ -55,6 +56,7 @@ export default function Settings() {
     const authLogoInputRefs = {
         authHeaderLogo: useRef(null),
     };
+    const [showExtraLabel, setShowExtraLabel] = useState(false);
 
     useEffect(() => {
         axiosSecure.get('/settings')
@@ -71,7 +73,11 @@ export default function Settings() {
                     ...(s.authHeaderTitleBn && { authHeaderTitleBn: s.authHeaderTitleBn }),
                     ...(s.authHeaderTitleEn && { authHeaderTitleEn: s.authHeaderTitleEn }),
                     ...(s.authSystemLabel && { authSystemLabel: s.authSystemLabel }),
+                    ...(s.authSystemLabel2 !== undefined && { authSystemLabel2: s.authSystemLabel2 }),
                 }));
+                if (s.authSystemLabel2) {
+                    setShowExtraLabel(true);
+                }
                 if (s.authCardLogos && s.authCardLogos.length > 0) setAuthCardLogos(s.authCardLogos);
                 else setAuthCardLogos(['/images/0_HBRI_Picture3-removebg-preview.png', '/images/logo (1).png']);
                 if (s.navLabels) setNavLabels(prev => ({ ...prev, ...s.navLabels }));
@@ -95,6 +101,7 @@ export default function Settings() {
                 authHeaderTitleBn: authBranding.authHeaderTitleBn,
                 authHeaderTitleEn: authBranding.authHeaderTitleEn,
                 authSystemLabel: authBranding.authSystemLabel,
+                authSystemLabel2: authBranding.authSystemLabel2,
             });
             toast.success('Auth branding saved!');
         } catch { toast.error('Failed to save'); }
@@ -351,11 +358,46 @@ export default function Settings() {
 
                     {/* System label */}
                     <div className="mb-5">
-                        <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>SYSTEM LABEL TEXT</label>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="block text-xs font-semibold" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>SYSTEM LABEL TEXT</label>
+                            {!showExtraLabel && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowExtraLabel(true)}
+                                    className="text-xs font-semibold flex items-center gap-1 hover:brightness-110 transition-all duration-150"
+                                    style={{ color: '#22A84B', background: 'none', border: 'none', cursor: 'pointer' }}
+                                >
+                                    ➕ Add Extra Text
+                                </button>
+                            )}
+                        </div>
                         <input value={authBranding.authSystemLabel}
                             onChange={e => setAuthBranding(prev => ({ ...prev, authSystemLabel: e.target.value }))}
                             className="input-dark w-full px-4 py-3 text-sm"
                             placeholder="e.g. Sustainable Design Assessment System" />
+
+                        {showExtraLabel && (
+                            <div className="mt-4 p-4 rounded-xl border border-dashed border-gray-700 bg-black/20 animate-fadeIn">
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="block text-xs font-semibold" style={{ color: 'var(--tx-muted)', letterSpacing: '0.06em' }}>EXTRA SYSTEM LABEL TEXT</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowExtraLabel(false);
+                                            setAuthBranding(prev => ({ ...prev, authSystemLabel2: '' }));
+                                        }}
+                                        className="text-xs font-semibold hover:brightness-110 transition-all duration-150"
+                                        style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                                    >
+                                        ❌ Remove
+                                    </button>
+                                </div>
+                                <input value={authBranding.authSystemLabel2 || ''}
+                                    onChange={e => setAuthBranding(prev => ({ ...prev, authSystemLabel2: e.target.value }))}
+                                    className="input-dark w-full px-4 py-3 text-sm"
+                                    placeholder="e.g. Under Ministry of Housing & Public Works" />
+                            </div>
+                        )}
                     </div>
 
                     <button onClick={saveAuthBranding} disabled={savingAuth} className="btn-primary-green text-sm">

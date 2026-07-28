@@ -12,6 +12,7 @@ const DEFAULTS = {
     authCardLogoRight: '/images/logo (1).png',
     authCardLogos: ['/images/0_HBRI_Picture3-removebg-preview.png', '/images/logo (1).png'],
     authSystemLabel: 'Sustainable Design Assessment System',
+    authSystemLabel2: '',
 };
 
 /**
@@ -44,6 +45,7 @@ export default function useAuthBranding() {
                     authCardLogoRight: s.authCardLogoRight || DEFAULTS.authCardLogoRight,
                     authCardLogos: (s.authCardLogos && s.authCardLogos.length > 0) ? s.authCardLogos : DEFAULTS.authCardLogos,
                     authSystemLabel: s.authSystemLabel || DEFAULTS.authSystemLabel,
+                    authSystemLabel2: s.authSystemLabel2 || DEFAULTS.authSystemLabel2,
                 });
             })
             .catch(() => { }); // silently keep defaults on error
