@@ -22,11 +22,104 @@
 .ce-section-title  { font-size: .92rem; font-weight: 600; }
 .ce-section-body   { padding: 1.1rem; }
 
+/* ─── Table scroll wrapper ───────────────────────────────────────────────── */
+/*
+  Wraps the <table> in a horizontally-scrollable container.
+  - overflow-x: auto  → enables horizontal scroll when columns overflow
+  - position: relative → needed for the ::after pseudo-element shadow
+  - The table itself is NOT set to width:100% here; it auto-sizes to content
+    so that min-widths on cells keep column headers readable.
+*/
+.ce-table-scroll-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch; /* smooth scroll on iOS */
+  position: relative;
+  border-radius: 6px;
+  /* ── Custom scrollbar (Webkit) ─────────────────────────────────────────── */
+  scrollbar-width: thin;                         /* Firefox */
+  scrollbar-color: #22c55e60 transparent;       /* Firefox: thumb / track */
+}
+/* Webkit (Chrome, Edge, Safari) */
+.ce-table-scroll-wrap::-webkit-scrollbar {
+  height: 6px;
+}
+.ce-table-scroll-wrap::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+.ce-table-scroll-wrap::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #22c55e90, #16a34a90);
+  border-radius: 3px;
+  transition: background 0.2s;
+}
+.ce-table-scroll-wrap::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+/*
+  Two-layer approach for the right-edge shadow:
+  - .ce-table-outer  — non-scrolling, position:relative wrapper that holds the ::after overlay
+  - .ce-table-scroll-wrap — the actual overflow-x:auto scroller inside it
+
+  Because .ce-table-outer does NOT scroll, its ::after pseudo-element
+  truly stays pinned to the right edge while the table scrolls beneath it.
+*/
+.ce-table-outer {
+  position: relative;
+}
+.ce-table-outer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;            /* stretch to full height of the table */
+  width: 56px;
+  pointer-events: none;
+  z-index: 4;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.95));
+  border-radius: 0 6px 6px 0;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+/* JS adds/removes .ce-table-scroll-shadow on the OUTER wrapper */
+.ce-table-outer.ce-table-scroll-shadow::after {
+  opacity: 1;
+}
+
 /* Table */
-.ce-table { width: 100%; border-collapse: collapse; }
-.ce-table th, .ce-table td { padding: .45rem .65rem; border: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
+.ce-table { width: max-content; min-width: 100%; border-collapse: collapse; }
+.ce-table th, .ce-table td { padding: .45rem .65rem; border: 1px solid #e2e8f0; text-align: left; vertical-align: middle; white-space: nowrap; min-width: 130px; }
 .ce-table th { background: #f8fafc; font-size: .78rem; font-weight: 600; color: #64748b; }
 .ce-table td { background: #fff; font-size: .83rem; }
+
+/* ─── Sticky first column (Surface Type) ────────────────────────────────── */
+/*
+  .ce-col-sticky is placed on the first <th> and <td> of every row.
+  position: sticky + left: 0 keeps it visible as the user scrolls right.
+  A box-shadow on the right edge acts as a subtle divider line.
+*/
+.ce-table th.ce-col-sticky,
+.ce-table td.ce-col-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  /* Ensure the cell always has a solid background so scrolled content
+     doesn't bleed through from behind */
+}
+.ce-table th.ce-col-sticky {
+  background: #f8fafc;
+  /* Subtle right shadow to visually separate frozen column from scrolling cols */
+  box-shadow: 2px 0 6px -2px rgba(0, 0, 0, 0.10);
+}
+.ce-table td.ce-col-sticky {
+  background: #fff;
+  box-shadow: 2px 0 6px -2px rgba(0, 0, 0, 0.07);
+}
+/* Zebra-stripe compat: if a parent applies a striped background,
+   inherit it on the sticky cell */
+.ce-table tr:nth-child(even) td.ce-col-sticky {
+  background: #fafafa;
+}
 
 /* Inputs */
 .ce-select, .ce-input { width: 100%; padding: .38rem .6rem; border: 1px solid #e2e8f0; border-radius: 5px; font-size: .82rem; background: #fff; color: #1e293b; }
@@ -310,7 +403,23 @@
     border-bottom: 1px solid #94a3b8 !important;
   }
 
+  /* Disable scroll-container, sticky columns, and shadow in print */
+  .ce-table-outer,
+  .ce-table-scroll-wrap {
+    overflow: visible !important;
+    position: static !important;
+  }
+  .ce-table-outer::after {
+    display: none !important;
+  }
+  .ce-table th.ce-col-sticky,
+  .ce-table td.ce-col-sticky {
+    position: static !important;
+    box-shadow: none !important;
+  }
   .ce-table {
+    width: 100% !important;
+    min-width: unset !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }

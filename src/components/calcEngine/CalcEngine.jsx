@@ -533,7 +533,7 @@ function TableRow({ sec, rowIdx, sections, sectionRows, summaries, crossCalcRows
 
   return (
     <tr>
-      {visibleCols.map(col => <td key={col.id}>{renderCell(col)}</td>)}
+      {visibleCols.map((col, ci) => <td key={col.id} className={ci === 0 ? "ce-col-sticky" : ""}>{renderCell(col)}</td>)}
       {!readOnly && <td><button className="ce-remove-btn" onClick={onRemove} title="Remove">✕</button></td>}
     </tr>
   );
@@ -546,6 +546,23 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
   const visibleCols = (sec.config.columns || []).filter(c => !isHidden(c));
   const visibleSums = (sec.config.summaries || []).filter(s => !isHidden(s));
   const columnGroups = sec.config.column_groups || [];
+
+  // ── Scroll-shadow tracking ────────────────────────────────────────────────
+  const scrollRef = useRef(null);
+  const [showRightShadow, setShowRightShadow] = useState(true);
+
+  function handleTableScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    // Hide the shadow once we've scrolled all the way to the right (within 2px)
+    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+    setShowRightShadow(!atEnd);
+  }
+
+  // Also re-check after rows change (new row added = same scroll width?)
+  useEffect(() => {
+    handleTableScroll();
+  });
 
   // Build merged-header data when groups are defined
   const hasGroupHeaders = columnGroups.length > 0;
@@ -591,36 +608,50 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
 
   return (
     <div className="ce-section-body">
-      <table className="ce-table">
-        <thead>
-          {hasGroupHeaders ? (
-            <>
+      {/* ── Horizontally scrollable wrapper with right-edge fade shadow ─── */}
+      {/* Outer (non-scrolling) wrapper hosts the ::after shadow overlay   */}
+      <div className={`ce-table-outer${showRightShadow ? " ce-table-scroll-shadow" : ""}`}>
+      {/* Inner scrolling container */}
+      <div
+        className="ce-table-scroll-wrap"
+        ref={scrollRef}
+        onScroll={handleTableScroll}
+      >
+        <table className="ce-table">
+          <thead>
+            {hasGroupHeaders ? (
+              <>
+                <tr>
+                  {row1Items.map((item, i) => item.type === "group"
+                    ? <th key={i} colSpan={item.colSpan} style={{ background: item.grp.bgColor, color: item.grp.textColor, textAlign: "center" }}>{item.grp.label}</th>
+                    : <th key={i} rowSpan={2} className={i === 0 ? "ce-col-sticky" : ""}>{item.col.label}</th>
+                  )}
+                  {!readOnly && <th rowSpan={2} style={{ width: 40 }}></th>}
+                </tr>
+                <tr>{row2Cols.map((c, ci) => <th key={c.id} className={ci === 0 ? "ce-col-sticky" : ""}>{c.label}</th>)}</tr>
+              </>
+            ) : (
               <tr>
-                {row1Items.map((item, i) => item.type === "group"
-                  ? <th key={i} colSpan={item.colSpan} style={{ background: item.grp.bgColor, color: item.grp.textColor, textAlign: "center" }}>{item.grp.label}</th>
-                  : <th key={i} rowSpan={2}>{item.col.label}</th>
-                )}
-                {!readOnly && <th rowSpan={2} style={{ width: 40 }}></th>}
+                {visibleCols.map((c, ci) => <th key={c.id} className={ci === 0 ? "ce-col-sticky" : ""}>{c.label}</th>)}
+                {!readOnly && <th style={{ width: 40 }}></th>}
               </tr>
-              <tr>{row2Cols.map(c => <th key={c.id}>{c.label}</th>)}</tr>
-            </>
-          ) : (
-            <tr>{visibleCols.map(c => <th key={c.id}>{c.label}</th>)}{!readOnly && <th style={{ width: 40 }}></th>}</tr>
-          )}
-        </thead>
-        <tbody>
-          {rows.map((_, ri) => (
-            <TableRow key={ri} sec={sec} rowIdx={ri} sections={sections} sectionRows={sectionRows}
-              summaries={summaries} crossCalcRows={crossCalcRows} dropdowns={dropdowns}
-              onCellChange={handleCellChange}
-              onRemove={() => {
-                setSectionRows(prev => { const n = { ...prev }; n[sec.order_num] = n[sec.order_num].filter((_, i) => i !== ri); return n; });
-                onRecalc();
-              }}
-              readOnly={readOnly} />
-          ))}
-        </tbody>
-      </table>
+            )}
+          </thead>
+          <tbody>
+            {rows.map((_, ri) => (
+              <TableRow key={ri} sec={sec} rowIdx={ri} sections={sections} sectionRows={sectionRows}
+                summaries={summaries} crossCalcRows={crossCalcRows} dropdowns={dropdowns}
+                onCellChange={handleCellChange}
+                onRemove={() => {
+                  setSectionRows(prev => { const n = { ...prev }; n[sec.order_num] = n[sec.order_num].filter((_, i) => i !== ri); return n; });
+                  onRecalc();
+                }}
+                readOnly={readOnly} />
+            ))}
+          </tbody>
+        </table>
+      </div>{/* end ce-table-scroll-wrap */}
+      </div>{/* end ce-table-outer */}
       {sec.config.can_add_rows !== false && !readOnly && (
         <div className="ce-add-row">
           <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => {
