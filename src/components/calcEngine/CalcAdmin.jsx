@@ -140,6 +140,8 @@ function MasterCard({ master, onRefresh, axios }) {
   const [name, setName] = useState(master.name);
   const [desc, setDesc] = useState(master.description || "");
   const [itemModal, setItemModal] = useState(null);
+  const [dragItem, setDragItem] = useState(null);
+  const [dragOverItemId, setDragOverItemId] = useState(null);
 
   async function loadItems() {
     try { const r = await axios.get(`${API_BASE}/dropdown-masters/${master._id || master.id}`); setItems(r.data.data.items || []); }
@@ -161,20 +163,128 @@ function MasterCard({ master, onRefresh, axios }) {
     catch (e) { alert("Delete failed: " + e.message); }
   }
 
+  function isDescendant(node, targetId) {
+    if (!node.children || node.children.length === 0) return false;
+    return node.children.some(child => (child._id || child.id) === targetId || isDescendant(child, targetId));
+  }
+
+  function handleDropItem(src, tgt) {
+    const srcId = src._id || src.id;
+    const tgtId = tgt._id || tgt.id;
+    if (!srcId || !tgtId || srcId === tgtId) return;
+    if (isDescendant(src, tgtId)) return;
+
+    const tree = JSON.parse(JSON.stringify(items));
+    let extracted = null;
+
+    function removeNode(list) {
+      for (let i = 0; i < list.length; i++) {
+        const id = list[i]._id || list[i].id;
+        if (id === srcId) {
+          [extracted] = list.splice(i, 1);
+          return true;
+        }
+        if (list[i].children && removeNode(list[i].children)) return true;
+      }
+      return false;
+    }
+    removeNode(tree);
+    if (!extracted) return;
+
+    let inserted = false;
+    function insertNode(list) {
+      for (let i = 0; i < list.length; i++) {
+        const id = list[i]._id || list[i].id;
+        if (id === tgtId) {
+          extracted.parent_id = list[i].parent_id || null;
+          list.splice(i, 0, extracted);
+          inserted = true;
+          return true;
+        }
+        if (list[i].children && insertNode(list[i].children)) return true;
+      }
+      return false;
+    }
+    insertNode(tree);
+    if (!inserted) return;
+
+    const flatUpdates = [];
+    function assignOrders(list, parentId = null) {
+      list.forEach((item, index) => {
+        item.order_num = index + 1;
+        item.parent_id = parentId;
+        flatUpdates.push({
+          id: item._id || item.id,
+          order_num: item.order_num,
+          parent_id: parentId
+        });
+        if (item.children && item.children.length > 0) {
+          assignOrders(item.children, item._id || item.id);
+        }
+      });
+    }
+    assignOrders(tree, null);
+
+    setItems(tree);
+    setDragItem(null);
+    setDragOverItemId(null);
+
+    axios.put(`${API_BASE}/admin/dropdown-items/reorder`, { orders: flatUpdates })
+      .catch(e => {
+        console.error("Reorder failed", e);
+        loadItems();
+      });
+  }
+
   function renderItems(list, depth = 0) {
-    return list.map(item => (
-      <div key={item._id || item.id}>
-        <div className="ce-item-row" style={{ marginLeft: depth * 20 }}>
-          <span className="ce-item-key">{item.item_key}</span>
-          <span className="ce-item-label">{item.item_label}</span>
-          <span className="ce-item-value">{item.num_value}</span>
-          <button className="ce-icon-btn" onClick={() => setItemModal({ editItem: item, parentId: item.parent_id })}>✏</button>
-          <button className="ce-icon-btn ce-icon-btn-danger" onClick={() => handleDeleteItem(item._id || item.id)}>✕</button>
-          <button className="ce-icon-btn" onClick={() => setItemModal({ editItem: null, parentId: item._id || item.id })}>+</button>
+    return list.map(item => {
+      const itemId = item._id || item.id;
+      const isDragging = dragItem && (dragItem._id || dragItem.id) === itemId;
+      const isOver = dragOverItemId === itemId;
+      return (
+        <div key={itemId}>
+          <div
+            className={`ce-item-row ${isOver ? "ce-item-row-over" : ""}`}
+            style={{
+              marginLeft: depth * 20,
+              opacity: isDragging ? 0.4 : 1,
+              border: isOver ? "2px dashed #3b82f6" : "1px solid transparent",
+              background: isOver ? "#eff6ff" : undefined,
+              transition: "all 0.15s ease",
+              cursor: "grab"
+            }}
+            draggable
+            onDragStart={(e) => { e.stopPropagation(); setDragItem(item); }}
+            onDragEnd={(e) => { e.stopPropagation(); setDragItem(null); setDragOverItemId(null); }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (dragItem && (dragItem._id || dragItem.id) !== itemId) {
+                setDragOverItemId(itemId);
+              }
+            }}
+            onDragLeave={(e) => {
+              e.stopPropagation();
+              if (dragOverItemId === itemId) setDragOverItemId(null);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (dragItem) handleDropItem(dragItem, item);
+            }}
+          >
+            <span className="ce-drag-handle" title="Drag to reorder">⠿</span>
+            <span className="ce-item-key">{item.item_key}</span>
+            <span className="ce-item-label">{item.item_label}</span>
+            <span className="ce-item-value">{item.num_value}</span>
+            <button className="ce-icon-btn" title="Edit Item" onClick={() => setItemModal({ editItem: item, parentId: item.parent_id })}>✏</button>
+            <button className="ce-icon-btn ce-icon-btn-danger" title="Delete Item" onClick={() => handleDeleteItem(itemId)}>✕</button>
+            <button className="ce-icon-btn" title="Add Sub-Item" onClick={() => setItemModal({ editItem: null, parentId: itemId })}>+</button>
+          </div>
+          {item.children?.length > 0 && renderItems(item.children, depth + 1)}
         </div>
-        {item.children?.length > 0 && renderItems(item.children, depth + 1)}
-      </div>
-    ));
+      );
+    });
   }
 
   return (
