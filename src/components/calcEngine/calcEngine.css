@@ -88,9 +88,30 @@
 
 /* Table */
 .ce-table { width: max-content; min-width: 100%; border-collapse: collapse; }
-.ce-table th, .ce-table td { padding: .45rem .65rem; border: 1px solid #e2e8f0; text-align: left; vertical-align: middle; white-space: nowrap; min-width: 130px; }
-.ce-table th { background: #f8fafc; font-size: .78rem; font-weight: 600; color: #64748b; }
+.ce-table th, .ce-table td { padding: .45rem .65rem; border: 1px solid #e2e8f0; text-align: left; vertical-align: middle; white-space: nowrap; min-width: 130px; } /* fallback default */
+.ce-table th { background: #f8fafc; font-size: .78rem; font-weight: 600; color: #64748b; white-space: normal; line-height: 1.35; }
 .ce-table td { background: #fff; font-size: .83rem; }
+
+/* Smart per-column widths based on data-col-type */
+.ce-table th[data-col-type="dropdown"], .ce-table td[data-col-type="dropdown"],
+.ce-table th[data-col-type="nested_dropdown"], .ce-table td[data-col-type="nested_dropdown"] {
+  min-width: 160px;
+}
+
+.ce-table th[data-col-type="number"], .ce-table td[data-col-type="number"],
+.ce-table th[data-col-type="locked"], .ce-table td[data-col-type="locked"],
+.ce-table th[data-col-type="formula"], .ce-table td[data-col-type="formula"] {
+  min-width: 110px;
+}
+
+.ce-table th[data-col-type="section_ref"], .ce-table td[data-col-type="section_ref"],
+.ce-table th[data-col-type="cross_calc_ref"], .ce-table td[data-col-type="cross_calc_ref"] {
+  min-width: 130px;
+}
+
+.ce-table th[data-col-type="text"], .ce-table td[data-col-type="text"] {
+  min-width: 150px;
+}
 
 /* ─── Sticky first column (Surface Type) ────────────────────────────────── */
 /*
@@ -103,6 +124,10 @@
   position: sticky;
   left: 0;
   z-index: 2;
+  min-width: 180px;
+  max-width: 260px;
+  white-space: normal;
+  word-break: break-word;
   /* Ensure the cell always has a solid background so scrolled content
      doesn't bleed through from behind */
 }

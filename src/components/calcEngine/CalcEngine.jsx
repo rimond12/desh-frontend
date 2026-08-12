@@ -12,6 +12,7 @@ import {
   evalSummaryExpr, calcFormulaSection,
 } from "./calcEngine.js";
 import { createPortal } from "react-dom";
+import CalcTableScroller from "./CalcTableScroller.jsx";
 import "./calcEngine.css";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -533,7 +534,7 @@ function TableRow({ sec, rowIdx, sections, sectionRows, summaries, crossCalcRows
 
   return (
     <tr>
-      {visibleCols.map((col, ci) => <td key={col.id} className={ci === 0 ? "ce-col-sticky" : ""}>{renderCell(col)}</td>)}
+      {visibleCols.map((col, ci) => <td key={col.id} className={ci === 0 ? "ce-col-sticky" : ""} data-col-type={col.type}>{renderCell(col)}</td>)}
       {!readOnly && <td><button className="ce-remove-btn" onClick={onRemove} title="Remove">✕</button></td>}
     </tr>
   );
@@ -546,23 +547,6 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
   const visibleCols = (sec.config.columns || []).filter(c => !isHidden(c));
   const visibleSums = (sec.config.summaries || []).filter(s => !isHidden(s));
   const columnGroups = sec.config.column_groups || [];
-
-  // ── Scroll-shadow tracking ────────────────────────────────────────────────
-  const scrollRef = useRef(null);
-  const [showRightShadow, setShowRightShadow] = useState(true);
-
-  function handleTableScroll() {
-    const el = scrollRef.current;
-    if (!el) return;
-    // Hide the shadow once we've scrolled all the way to the right (within 2px)
-    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
-    setShowRightShadow(!atEnd);
-  }
-
-  // Also re-check after rows change (new row added = same scroll width?)
-  useEffect(() => {
-    handleTableScroll();
-  });
 
   // Build merged-header data when groups are defined
   const hasGroupHeaders = columnGroups.length > 0;
@@ -608,15 +592,7 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
 
   return (
     <div className="ce-section-body">
-      {/* ── Horizontally scrollable wrapper with right-edge fade shadow ─── */}
-      {/* Outer (non-scrolling) wrapper hosts the ::after shadow overlay   */}
-      <div className={`ce-table-outer${showRightShadow ? " ce-table-scroll-shadow" : ""}`}>
-      {/* Inner scrolling container */}
-      <div
-        className="ce-table-scroll-wrap"
-        ref={scrollRef}
-        onScroll={handleTableScroll}
-      >
+      <CalcTableScroller>
         <table className="ce-table">
           <thead>
             {hasGroupHeaders ? (
@@ -624,15 +600,15 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
                 <tr>
                   {row1Items.map((item, i) => item.type === "group"
                     ? <th key={i} colSpan={item.colSpan} style={{ background: item.grp.bgColor, color: item.grp.textColor, textAlign: "center" }}>{item.grp.label}</th>
-                    : <th key={i} rowSpan={2} className={i === 0 ? "ce-col-sticky" : ""}>{item.col.label}</th>
+                    : <th key={i} rowSpan={2} className={i === 0 ? "ce-col-sticky" : ""} data-col-type={item.col?.type}>{item.col.label}</th>
                   )}
                   {!readOnly && <th rowSpan={2} style={{ width: 40 }}></th>}
                 </tr>
-                <tr>{row2Cols.map((c, ci) => <th key={c.id} className={ci === 0 ? "ce-col-sticky" : ""}>{c.label}</th>)}</tr>
+                <tr>{row2Cols.map((c, ci) => <th key={c.id} className={ci === 0 ? "ce-col-sticky" : ""} data-col-type={c.type}>{c.label}</th>)}</tr>
               </>
             ) : (
               <tr>
-                {visibleCols.map((c, ci) => <th key={c.id} className={ci === 0 ? "ce-col-sticky" : ""}>{c.label}</th>)}
+                {visibleCols.map((c, ci) => <th key={c.id} className={ci === 0 ? "ce-col-sticky" : ""} data-col-type={c.type}>{c.label}</th>)}
                 {!readOnly && <th style={{ width: 40 }}></th>}
               </tr>
             )}
@@ -650,8 +626,7 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
             ))}
           </tbody>
         </table>
-      </div>{/* end ce-table-scroll-wrap */}
-      </div>{/* end ce-table-outer */}
+      </CalcTableScroller>
       {sec.config.can_add_rows !== false && !readOnly && (
         <div className="ce-add-row">
           <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => {
@@ -806,13 +781,15 @@ function CalcRefSectionReadOnly({ sec, crossCalcRows }) {
       {srcRows.length === 0 ? (
         <div className="ce-alert-info">No data yet. Open the source calculation first.</div>
       ) : (
-        <table className="ce-table">
-          <thead><tr><th>Facility Area</th><th>Area (m²)</th></tr></thead>
-          <tbody>{srcRows.map((row, i) => {
-            const fa = row["fa"]; const faLabel = fa ? (fa.isOther ? fa.otherText || "Others" : fa.label) : "-";
-            return <tr key={i}><td>{faLabel}</td><td className="ce-locked">{getNum(row["area"])}</td></tr>;
-          })}</tbody>
-        </table>
+        <CalcTableScroller>
+          <table className="ce-table">
+            <thead><tr><th className="ce-col-sticky">Facility Area</th><th>Area (m²)</th></tr></thead>
+            <tbody>{srcRows.map((row, i) => {
+              const fa = row["fa"]; const faLabel = fa ? (fa.isOther ? fa.otherText || "Others" : fa.label) : "-";
+              return <tr key={i}><td className="ce-col-sticky">{faLabel}</td><td className="ce-locked">{getNum(row["area"])}</td></tr>;
+            })}</tbody>
+          </table>
+        </CalcTableScroller>
       )}
     </div>
   );
@@ -869,7 +846,7 @@ function InstrTableBlock({ block }) {
   });
 
   return (
-    <div className="ce-instr-table-wrap">
+    <CalcTableScroller>
       <table className="ce-instr-table">
         <thead>
           {hasGroups ? (
@@ -914,7 +891,7 @@ function InstrTableBlock({ block }) {
           )}
         </tbody>
       </table>
-    </div>
+    </CalcTableScroller>
   );
 }
 
