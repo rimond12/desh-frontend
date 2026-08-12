@@ -77,12 +77,17 @@ function SearchableSelect({ value, onChange, options, placeholder = "-- Select -
     const spaceBelow = window.innerHeight - rect.bottom;
     const openUp = spaceBelow < dropdownH && rect.top > dropdownH;
 
+    const minW = Math.max(rect.width, 180);
+    const maxLeft = Math.max(8, window.innerWidth - minW - 8);
+    const leftPos = Math.min(rect.left, maxLeft);
+
     const style = {
       position: "fixed",
-      left: rect.left,
+      left: Math.max(8, leftPos),
       width: rect.width,
       zIndex: 99999,
-      minWidth: Math.max(rect.width, 180),
+      minWidth: minW,
+      maxWidth: window.innerWidth - 16,
     };
     if (openUp) {
       style.bottom = window.innerHeight - rect.top + 2;
