@@ -486,7 +486,7 @@ function LockedCell({ col, row, onUnlockEdit, onToggleLock, readOnly }) {
 
 // ── Table Row ─────────────────────────────────────────────────────────────────
 
-function TableRow({ sec, rowIdx, sections, sectionRows, summaries, crossCalcRows, dropdowns, onCellChange, onRemove, readOnly }) {
+function TableRow({ sec, rowIdx, sections, sectionRows, summaries, crossCalcRows, dropdowns, onCellChange, onRemove, readOnly, canAddRows }) {
   const row = sectionRows[sec.order_num]?.[rowIdx] || {};
   const visibleCols = (sec.config.columns || []).filter(col => !isHidden(col));
 
@@ -540,7 +540,7 @@ function TableRow({ sec, rowIdx, sections, sectionRows, summaries, crossCalcRows
   return (
     <tr>
       {visibleCols.map((col, ci) => <td key={col.id} className={ci === 0 ? "ce-col-sticky" : ""} data-col-type={col.type}>{renderCell(col)}</td>)}
-      {!readOnly && <td><button className="ce-remove-btn" onClick={onRemove} title="Remove">✕</button></td>}
+      {!readOnly && canAddRows !== false && <td><button className="ce-remove-btn" onClick={onRemove} title="Remove">✕</button></td>}
     </tr>
   );
 }
@@ -607,14 +607,14 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
                     ? <th key={i} colSpan={item.colSpan} style={{ background: item.grp.bgColor, color: item.grp.textColor, textAlign: "center" }}>{item.grp.label}</th>
                     : <th key={i} rowSpan={2} className={i === 0 ? "ce-col-sticky" : ""} data-col-type={item.col?.type}>{item.col.label}</th>
                   )}
-                  {!readOnly && <th rowSpan={2} style={{ width: 40 }}></th>}
+                  {!readOnly && sec.config.can_add_rows !== false && <th rowSpan={2} style={{ width: 40 }}></th>}
                 </tr>
                 <tr>{row2Cols.map((c, ci) => <th key={c.id} className={ci === 0 ? "ce-col-sticky" : ""} data-col-type={c.type}>{c.label}</th>)}</tr>
               </>
             ) : (
               <tr>
                 {visibleCols.map((c, ci) => <th key={c.id} className={ci === 0 ? "ce-col-sticky" : ""} data-col-type={c.type}>{c.label}</th>)}
-                {!readOnly && <th style={{ width: 40 }}></th>}
+                {!readOnly && sec.config.can_add_rows !== false && <th style={{ width: 40 }}></th>}
               </tr>
             )}
           </thead>
@@ -627,7 +627,8 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
                   setSectionRows(prev => { const n = { ...prev }; n[sec.order_num] = n[sec.order_num].filter((_, i) => i !== ri); return n; });
                   onRecalc();
                 }}
-                readOnly={readOnly} />
+                readOnly={readOnly}
+                canAddRows={sec.config.can_add_rows !== false} />
             ))}
           </tbody>
         </table>
@@ -1163,8 +1164,13 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
             }
           } else {
             initRows[sec.order_num] = [];
-            if (stored?.rows?.[sec.order_num]) initRows[sec.order_num] = stored.rows[sec.order_num];
-            else if (sec.config.can_add_rows) { const row = {}; (sec.config.columns || []).forEach(c => { row[c.id] = null; }); initRows[sec.order_num] = [row]; }
+            if (stored?.rows?.[sec.order_num]) {
+              initRows[sec.order_num] = stored.rows[sec.order_num];
+            } else if ((sec.config.columns?.length ?? 0) > 0) {
+              // Always seed at least one blank row so users can enter data.
+              // can_add_rows only controls whether they can add/remove *more* rows.
+              const row = {}; (sec.config.columns || []).forEach(c => { row[c.id] = null; }); initRows[sec.order_num] = [row];
+            }
           }
         });
         const { rows: newRows, sums: newSums } = doRecalc(initRows, initSums, cfg.sections, refSecConfigs);
@@ -1197,7 +1203,10 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
         }
       } else {
         initRows[sec.order_num] = [];
-        if (sec.config.can_add_rows) { const row = {}; (sec.config.columns || []).forEach(c => { row[c.id] = null; }); initRows[sec.order_num] = [row]; }
+        if ((sec.config.columns?.length ?? 0) > 0) {
+          // Always seed at least one blank row on reset.
+          const row = {}; (sec.config.columns || []).forEach(c => { row[c.id] = null; }); initRows[sec.order_num] = [row];
+        }
       }
     });
     const { rows: newRows, sums: newSums } = doRecalc(initRows, {}, calcConfig.sections);

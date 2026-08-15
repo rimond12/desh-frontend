@@ -1227,7 +1227,8 @@ function SectionModal({ calcId, calcOrder, editSec, allCalcs, allMasters, curren
               >
                 <span title="Drag to reorder" style={{ color: 'var(--tx-faint)', fontSize: 14, cursor: 'grab', flexShrink: 0, userSelect: 'none', lineHeight: 1 }}>⠿</span>
                 <span className="ce-type-badge">SUM</span>
-                <div className="ce-col-info"><strong>{s.label}</strong> <span className="ce-col-id">[{s.id}]</span> <span>{s.formula}</span></div>
+                <div className="ce-col-info"><strong>{s.label}</strong> <span className="ce-col-id">[{s.id}]</span> <span>{s.formula}</span><VisibilityBadge item={s} /></div>
+                <button className="ce-icon-btn" title={isHidden(s) ? "Show summary" : "Hide summary"} onClick={() => { const updated = { ...s, hidden: !s.hidden }; setSummaries(a => { const n = [...a]; n[i] = updated; return n; }) }}>{isHidden(s) ? "👁" : "🙈"}</button>
                 <button className="ce-icon-btn" onClick={() => setSumModal({ editSummary: s, editIdx: i })}>✏</button>
                 <button className="ce-icon-btn ce-icon-btn-danger" onClick={() => setSummaries(a => a.filter((_, j) => j !== i))}>✕</button>
               </div>
