@@ -1155,12 +1155,11 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
             if (srcRows.length > 0) {
               initRows[sec.order_num] = JSON.parse(JSON.stringify(srcRows));
             } else {
+              // Source has no saved data yet — always seed one blank row so the
+              // reference table shows at least one editable row on first load.
               const row = {};
               (srcSecCfg?.columns || []).forEach(c => { row[c.id] = null; });
-              initRows[sec.order_num] =
-                srcSecCfg?.can_add_rows !== false && (srcSecCfg?.columns?.length ?? 0) > 0
-                  ? [row]
-                  : [];
+              initRows[sec.order_num] = (srcSecCfg?.columns?.length ?? 0) > 0 ? [row] : [];
             }
           } else {
             initRows[sec.order_num] = [];
@@ -1194,12 +1193,10 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
         if (srcRows.length > 0) {
           initRows[sec.order_num] = JSON.parse(JSON.stringify(srcRows));
         } else {
+          // Source has no saved data — seed one blank row so reference table is not empty.
           const row = {};
           (srcSecCfg?.columns || []).forEach(c => { row[c.id] = null; });
-          initRows[sec.order_num] =
-            srcSecCfg?.can_add_rows !== false && (srcSecCfg?.columns?.length ?? 0) > 0
-              ? [row]
-              : [];
+          initRows[sec.order_num] = (srcSecCfg?.columns?.length ?? 0) > 0 ? [row] : [];
         }
       } else {
         initRows[sec.order_num] = [];
