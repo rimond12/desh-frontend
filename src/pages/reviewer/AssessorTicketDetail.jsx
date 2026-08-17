@@ -73,7 +73,7 @@ export default function AssessorTicketDetail() {
         </button>
 
         <div className="flex items-center gap-2">
-          {ticket.status === 'assigned' && (
+          {(ticket.status === 'forwarded_to_assessor' || ticket.status === 'assigned') && (
             <button
               onClick={() => handleStatusTransition('in_progress', 'Assessor accepted ticket')}
               disabled={transitionLoading}

@@ -21,15 +21,17 @@ const ROLE_STYLES = {
 
 function getTransitionLabel(from, to) {
   if (from === 'open' && to === 'submitted') return 'Ticket Created & Submitted';
-  if (from === 'submitted' && to === 'manager_review') return 'Routed for Manager Review';
-  if (from === 'manager_review' && to === 'assigned') return 'Manager Forwarded Ticket to Assessor';
-  if (from === 'assigned' && to === 'in_progress') return 'Assessor Accepted & In Progress';
+  if ((from === 'submitted' || from === 'open') && (to === 'pending_approval' || to === 'manager_review')) return 'Routed for Manager Approval';
+  if ((from === 'pending_approval' || from === 'manager_review' || from === 'submitted') && (to === 'forwarded_to_assessor' || to === 'assigned')) return 'Forwarded to Assessor';
+  if ((from === 'forwarded_to_assessor' || from === 'assigned') && to === 'in_progress') return 'Assessor Accepted & In Progress';
   if (from === 'in_progress' && to === 'response_submitted') return 'Assessor Submitted Official Response';
   if (from === 'response_submitted' && to === 'resolved') return 'Manager Approved & Resolved Ticket';
-  if (from === 'response_submitted' && to === 'returned') return 'Manager Returned Response to Assessor';
+  if (from === 'response_submitted' && to === 'returned') return 'Manager Returned Response for Re-review';
+  if (to === 'returned') return 'Sent Back for Re-review';
   if (to === 'closed') return 'Ticket Closed';
   if (to === 'rejected') return 'Ticket Rejected by Manager';
-  return `Status updated: ${from?.replace('_',' ').toUpperCase()} → ${to?.replace('_',' ').toUpperCase()}`;
+  if (to === 'reopened') return 'Ticket Reopened';
+  return `Status updated: ${from?.replace(/_/g,' ').toUpperCase()} → ${to?.replace(/_/g,' ').toUpperCase()}`;
 }
 
 export default function TicketTimeline({ ticket }) {

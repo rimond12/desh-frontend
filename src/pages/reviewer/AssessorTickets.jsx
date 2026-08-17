@@ -6,6 +6,7 @@ import TicketFilters from '../../components/tickets/TicketFilters';
 import CreateTicketModal from '../../components/tickets/CreateTicketModal';
 import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { sortTicketsPriority } from '../../constants/ticketConstants';
 
 export default function AssessorTickets() {
   const axiosSecure = useAxiosSecure();
@@ -24,9 +25,18 @@ export default function AssessorTickets() {
 
   const fetchTickets = () => {
     setLoading(true);
-    const params = new URLSearchParams({ ...filters, role: 'desh_assessor' }).toString();
-    axiosSecure.get(`/tickets?${params}`)
-      .then((res) => setTickets(res.data.tickets || []))
+    const cleanParams = new URLSearchParams();
+    Object.entries({ ...filters, role: 'desh_assessor' }).forEach(([key, val]) => {
+      if (val !== undefined && val !== null && val !== '') {
+        cleanParams.append(key, val);
+      }
+    });
+
+    axiosSecure.get(`/tickets?${cleanParams.toString()}`)
+      .then((res) => {
+        const all = res.data.tickets || [];
+        setTickets(sortTicketsPriority(all));
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };

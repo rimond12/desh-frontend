@@ -4,15 +4,15 @@ import useAxiosSecure from '../../hooks/useAxiosSecure';
 import TicketCard from '../../components/tickets/TicketCard';
 import TicketFilters from '../../components/tickets/TicketFilters';
 import CreateTicketModal from '../../components/tickets/CreateTicketModal';
-import { Plus, Ticket, ShieldAlert, Clock } from 'lucide-react';
+import { Plus, Ticket } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { sortTicketsPriority } from '../../constants/ticketConstants';
 
 export default function ManagerTicketDashboard() {
   const axiosSecure = useAxiosSecure();
   const navigate    = useNavigate();
   const [tickets,      setTickets]      = useState([]);
-  const [reviewQueue,  setReviewQueue]  = useState([]);
   const [projects,     setProjects]     = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -21,12 +21,17 @@ export default function ManagerTicketDashboard() {
 
   const fetchTickets = () => {
     setLoading(true);
-    const params = new URLSearchParams(filters).toString();
-    axiosSecure.get(`/tickets?${params}`)
+    const cleanParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, val]) => {
+      if (val !== undefined && val !== null && val !== '') {
+        cleanParams.append(key, val);
+      }
+    });
+
+    axiosSecure.get(`/tickets?${cleanParams.toString()}`)
       .then((res) => {
         const all = res.data.tickets || [];
-        setTickets(all);
-        setReviewQueue(all.filter((t) => t.status === 'manager_review'));
+        setTickets(sortTicketsPriority(all));
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -83,53 +88,6 @@ export default function ManagerTicketDashboard() {
           <Plus size={14} /> New Ticket
         </button>
       </div>
-
-      {/* Review Queue Banner */}
-      {reviewQueue.length > 0 && (
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(245,158,11,0.07), rgba(234,88,12,0.04))',
-          border: '1.5px solid rgba(245,158,11,0.3)',
-          borderRadius: 14,
-          padding: '16px 20px',
-          marginBottom: 20,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 9,
-              background: 'rgba(245,158,11,0.15)',
-              border: '1px solid rgba(245,158,11,0.3)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <ShieldAlert size={16} color="#D97706" />
-            </div>
-            <div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#92400E', margin: 0, fontFamily: "'Montserrat',sans-serif" }}>
-                Manager Review Queue
-              </p>
-              <p style={{ fontSize: 11.5, color: '#B45309', margin: 0, fontFamily: "'Nunito',sans-serif" }}>
-                {reviewQueue.length} ticket{reviewQueue.length > 1 ? 's' : ''} awaiting your approval
-              </p>
-            </div>
-            <span style={{
-              marginLeft: 'auto',
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '4px 12px', borderRadius: 99,
-              fontSize: 11, fontWeight: 800,
-              fontFamily: "'Montserrat',sans-serif",
-              background: 'rgba(245,158,11,0.15)',
-              color: '#92400E',
-              border: '1px solid rgba(245,158,11,0.3)',
-            }}>
-              <Clock size={11} /> Pending Review
-            </span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 12 }}>
-            {reviewQueue.map((t) => (
-              <TicketCard key={t._id} ticket={t} onClick={(t) => navigate(`/manager/tickets/${t._id}`)} onDelete={handleDeleteTicket} />
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Filters */}
       <TicketFilters filters={filters} onChange={handleFilterChange} onReset={handleResetFilters} projects={projects} />

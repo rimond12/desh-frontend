@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search, X, ChevronDown } from 'lucide-react';
+import { STATUS_OPTIONS, STATUS_CONFIG } from '../../constants/ticketConstants';
 
 export default function TicketFilters({ filters, onChange, onReset, projects = [] }) {
   const hasActive = filters.status || filters.priority || filters.projectId || filters.search;
@@ -40,20 +41,11 @@ export default function TicketFilters({ filters, onChange, onReset, projects = [
 
         {/* Status */}
         <FilterSelect label="Status" value={filters.status || ''} onChange={(v) => onChange('status', v)}>
-          <option value="">All Statuses</option>
-          <option value="open">Open</option>
-          <option value="submitted">Submitted</option>
-          <option value="manager_review">Manager Review</option>
-          <option value="assigned">Assigned</option>
-          <option value="in_progress">In Progress</option>
-          <option value="response_submitted">Response Submitted</option>
-          <option value="resolved">Resolved</option>
-          <option value="closed">Closed</option>
-          <option value="returned">Returned</option>
-          <option value="reopened">Reopened</option>
-          <option value="on_hold">On Hold</option>
-          <option value="rejected">Rejected</option>
-          <option value="cancelled">Cancelled</option>
+          {STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
         </FilterSelect>
 
         {/* Priority */}
@@ -99,9 +91,9 @@ export default function TicketFilters({ filters, onChange, onReset, projects = [
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
           <span style={{ fontSize: 11, color: 'var(--tx-faint)', fontFamily: "'Nunito',sans-serif", alignSelf: 'center', marginRight: 2 }}>Active:</span>
           {filters.search    && <Chip label={`"${filters.search}"`}  onRemove={() => onChange('search', '')} />}
-          {filters.status    && <Chip label={filters.status.replace(/_/g, ' ')} onRemove={() => onChange('status', '')} />}
-          {filters.priority  && <Chip label={filters.priority}        onRemove={() => onChange('priority', '')} />}
-          {filters.projectId && <Chip label="Project filter"          onRemove={() => onChange('projectId', '')} />}
+          {filters.status    && <Chip label={STATUS_CONFIG[filters.status]?.label || filters.status.replace(/_/g, ' ')} onRemove={() => onChange('status', '')} />}
+          {filters.priority  && <Chip label={filters.priority.charAt(0).toUpperCase() + filters.priority.slice(1)} onRemove={() => onChange('priority', '')} />}
+          {filters.projectId && <Chip label={projects.find(p => p._id === filters.projectId)?.title || 'Project'} onRemove={() => onChange('projectId', '')} />}
         </div>
       )}
     </div>

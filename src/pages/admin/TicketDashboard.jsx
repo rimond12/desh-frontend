@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { sortTicketsPriority } from '../../constants/ticketConstants';
 
 const KPI_CONFIG = [
   { key: 'total',     label: 'Total Tickets',  icon: Ticket,       color: '#22A84B', bg: 'rgba(34,168,75,0.09)',   border: 'rgba(34,168,75,0.2)'   },
@@ -32,9 +33,18 @@ export default function TicketDashboard() {
 
   const fetchTickets = () => {
     setLoading(true);
-    const params = new URLSearchParams(filters).toString();
-    axiosSecure.get(`/tickets?${params}`)
-      .then((res) => setTickets(res.data.tickets || []))
+    const cleanParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, val]) => {
+      if (val !== undefined && val !== null && val !== '') {
+        cleanParams.append(key, val);
+      }
+    });
+
+    axiosSecure.get(`/tickets?${cleanParams.toString()}`)
+      .then((res) => {
+        const all = res.data.tickets || [];
+        setTickets(sortTicketsPriority(all));
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };

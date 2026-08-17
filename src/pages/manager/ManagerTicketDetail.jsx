@@ -61,12 +61,7 @@ export default function ManagerTicketDetail() {
     setForwarding(true);
     try {
       await axiosSecure.patch(`/tickets/${id}/assign`, { assignedAssessor: selectedAssessor });
-      if (ticket.status === 'submitted') {
-        try {
-          await axiosSecure.patch(`/tickets/${id}/status`, { status: 'manager_review', reason: 'Manager Review' });
-        } catch (_) {}
-      }
-      await axiosSecure.patch(`/tickets/${id}/status`, { status: 'assigned', reason: 'Forwarded by Manager' });
+      await axiosSecure.patch(`/tickets/${id}/status`, { status: 'forwarded_to_assessor', reason: 'Forwarded by Manager' });
       toast.success('Ticket forwarded to Assessor successfully!');
       fetchTicket();
     } catch (err) {
@@ -120,7 +115,7 @@ export default function ManagerTicketDetail() {
   if (!ticket) return <Layout isManager><div style={{ textAlign: 'center', padding: 60 }}>Ticket not found.</div></Layout>;
 
   const accentColor = PRIORITY_ACCENT[ticket.priority] || PRIORITY_ACCENT.medium;
-  const isManagerReviewState = ticket.status === 'manager_review' || ticket.status === 'submitted';
+  const isManagerReviewState = ticket.status === 'pending_approval' || ticket.status === 'manager_review' || ticket.status === 'submitted' || ticket.status === 'open';
 
   return (
     <Layout isManager>
