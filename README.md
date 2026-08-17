@@ -123,19 +123,19 @@ Here are some of the most intricate technical solutions implemented across this 
 ## 📸 Screenshots
 
 ### Multi-Step Project Creation
-![New Project](docs/screenshots/new-project-form.png)
+<img src="./docs/screenshots/new-project-form.png" alt="Multi-Step Project Creation" width="100%" />
 
 ### DESH Professional — Assessment Workspace
-![Assessment Workspace](docs/screenshots/assessment-workspace.png)
+<img src="./docs/screenshots/assessment-workspace.png" alt="Assessment Workspace" width="100%" />
 
 ### Reviewer & Assessor — Submissions Dashboard
-![Reviewer Dashboard](docs/screenshots/reviewer-dashboard.png)
+<img src="./docs/screenshots/reviewer-dashboard.png" alt="Reviewer Dashboard" width="100%" />
 
 ### Manager — Ticket Control Center
-![Ticket Management](docs/screenshots/ticket-management.png)
+<img src="./docs/screenshots/ticket-management.png" alt="Ticket Management" width="100%" />
 
 ### Certificate Generation & Live Preview
-![Certificate Preview](docs/screenshots/certificate-preview.png)
+<img src="./docs/screenshots/certificate-preview.png" alt="Certificate Preview" width="100%" />
 
 ---
 
