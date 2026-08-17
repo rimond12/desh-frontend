@@ -122,8 +122,20 @@ Here are some of the most intricate technical solutions implemented across this 
 
 ## 📸 Screenshots
 
-<!-- Add screenshots here -->
-> *Screenshots covering the User Project Dashboard, Multi-Pillar Assessment Matrix, Dynamic Calculation Engine, Reviewer Verification Console, Support Ticket Timeline, and Official Certificate Preview will be added here.*
+### Multi-Step Project Creation
+![New Project](docs/screenshots/new-project-form.png)
+
+### DESH Professional — Assessment Workspace
+![Assessment Workspace](docs/screenshots/assessment-workspace.png)
+
+### Reviewer & Assessor — Submissions Dashboard
+![Reviewer Dashboard](docs/screenshots/reviewer-dashboard.png)
+
+### Manager — Ticket Control Center
+![Ticket Management](docs/screenshots/ticket-management.png)
+
+### Certificate Generation & Live Preview
+![Certificate Preview](docs/screenshots/certificate-preview.png)
 
 ---
 
