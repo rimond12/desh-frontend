@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef } from "react";
 import useAxiosSecure from "../../hooks/useAxiosSecure.jsx";
 import CalcEngine from "./CalcEngine.jsx";
+import { parseTableNumbers, formatTableNumbers, getSectionTableGroups } from "./calcEngine.js";
 import "./calcEngine.css";
 import "./calcAdmin.css";
 
@@ -385,7 +386,7 @@ function ColTypeFields({ type, col, allMasters, allCalcs, editorColumns, editing
         {others.map(c => <option key={c.id} value={c.id}>{c.label} [{c.id}]</option>)}
       </select>
       <label className="ce-label">Source Field</label>
-      <input type="text" className="ce-input ce-form-input" value={col.source_field || "numValue"} onChange={e => set("source_field", e.target.value)} list="ce_sf" />
+      <input type="text" className="ce-input ce-form-input" value={col.source_field !== undefined ? col.source_field : "numValue"} onChange={e => set("source_field", e.target.value)} placeholder="numValue" list="ce_sf" />
       <datalist id="ce_sf">{["numValue", "area", "key", "label", "text"].map(f => <option key={f} value={f} />)}</datalist>
       <label className="ce-label"><input type="checkbox" checked={!!col.allow_unlock} onChange={e => set("allow_unlock", e.target.checked)} /> Allow user to unlock &amp; override (🔒/🔓)</label>
     </div>);
@@ -417,21 +418,58 @@ function ColTypeFields({ type, col, allMasters, allCalcs, editorColumns, editing
 }
 
 // ── Column Modal ──────────────────────────────────────────────────────────────
-function ColumnModal({ editCol, editIdx, allMasters, allCalcs, editorColumns, onClose, onConfirm, currentCalcId, currentCalcOrder }) {
-  const [col, setCol] = useState(editCol ? JSON.parse(JSON.stringify(editCol)) : { id: "", label: "", type: "number" });
+function ColumnModal({ editCol, editIdx, allMasters, allCalcs, editorColumns, defaultTableNo, onClose, onConfirm, currentCalcId, currentCalcOrder }) {
+  const [col, setCol] = useState(() => {
+    if (editCol) {
+      const copy = JSON.parse(JSON.stringify(editCol));
+      if (copy.table_no === undefined || copy.table_no === null) copy.table_no = "1";
+      if (copy.type === "locked" && !copy.source_field) copy.source_field = "numValue";
+      return copy;
+    }
+    return { id: "", label: "", type: "number", table_no: defaultTableNo || "1" };
+  });
   const TYPES = [["number", "Number"], ["text", "Text"], ["dropdown", "Dropdown"], ["section_ref", "Section Reference"], ["cross_calc_ref", "Cross-Calc Reference"], ["nested_dropdown", "Nested Dropdown"], ["locked", "Locked (auto-fill)"], ["formula", "Formula"]];
+
+  function handleSave() {
+    const id = col.id.trim().replace(/\s+/g, "_");
+    if (!id || !col.label) { alert("ID and Label required"); return; }
+    const table_no = String(col.table_no || "1").trim() || "1";
+    const finalCol = { ...col, id, table_no };
+    if (finalCol.type === "locked" && !finalCol.source_field) {
+      finalCol.source_field = "numValue";
+    }
+    onConfirm(finalCol, editIdx);
+  }
+
   return (
     <Modal title={editCol ? "Edit Column" : "Add Column"} onClose={onClose}
-      footer={<><button className="ce-btn ce-btn-secondary" onClick={onClose}>Cancel</button><button className="ce-btn ce-btn-primary" onClick={() => { const id = col.id.trim().replace(/\s+/g, "_"); if (!id || !col.label) { alert("ID and Label required"); return; } onConfirm({ ...col, id }, editIdx); }}>
+      footer={<><button className="ce-btn ce-btn-secondary" onClick={onClose}>Cancel</button><button className="ce-btn ce-btn-primary" onClick={handleSave}>
         {editCol ? "Save Column" : "Add Column"}</button></>}>
       <div className="ce-form-grid">
         <div><label className="ce-label">Column ID * <span className="ce-hint">(no spaces)</span></label><input type="text" className="ce-input ce-form-input" value={col.id} onChange={e => setCol({ ...col, id: e.target.value })} placeholder="e.g. area" /></div>
         <div><label className="ce-label">Label *</label><input type="text" className="ce-input ce-form-input" value={col.label} onChange={e => setCol({ ...col, label: e.target.value })} placeholder="e.g. Area (m²)" /></div>
       </div>
-      <label className="ce-label">Column Type *</label>
-      <select className="ce-select ce-form-input" value={col.type} onChange={e => setCol({ ...col, type: e.target.value })}>
-        {TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-      </select>
+      <div className="ce-form-grid">
+        <div>
+          <label className="ce-label">Column Type *</label>
+          <select className="ce-select ce-form-input" value={col.type} onChange={e => setCol({ ...col, type: e.target.value })}>
+            {TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="ce-label">Table No: <span className="ce-hint">(e.g. 1 or 1,2,3)</span></label>
+          <input
+            type="text"
+            className="ce-input ce-form-input"
+            value={col.table_no !== undefined ? col.table_no : "1"}
+            onChange={e => setCol({ ...col, table_no: e.target.value })}
+            placeholder="e.g. 1 or 1, 2, 3, 4"
+          />
+        </div>
+      </div>
+      <p className="ce-hint" style={{ marginTop: "-0.2rem", marginBottom: "0.5rem" }}>
+        Enter <code>1</code> for Table 1, or comma-separated numbers (e.g. <code>1, 2, 3</code>) to clone/repeat this column across any tables.
+      </p>
       <ColTypeFields type={col.type} col={col} allMasters={allMasters} allCalcs={allCalcs} editorColumns={editorColumns} editingIdx={editIdx} onChange={setCol} currentCalcId={currentCalcId} currentCalcOrder={currentCalcOrder} />
     </Modal>
   );
@@ -1075,6 +1113,12 @@ function SectionModal({ calcId, calcOrder, editSec, allCalcs, allMasters, curren
   const [type, setType] = useState(editSec?.config?.type || "input_table");
   const [canAddRows, setCanAddRows] = useState(editSec?.config?.can_add_rows !== false);
   const [columns, setColumns] = useState(JSON.parse(JSON.stringify(editSec?.config?.columns || [])));
+  const [tableColumnOrders, setTableColumnOrders] = useState(
+    JSON.parse(JSON.stringify(editSec?.config?.table_column_orders || {}))
+  );
+  const [tableNames, setTableNames] = useState(
+    JSON.parse(JSON.stringify(editSec?.config?.table_names || {}))
+  );
   const [summaries, setSummaries] = useState(JSON.parse(JSON.stringify(editSec?.config?.summaries || [])));
   const [formulas, setFormulas] = useState(JSON.parse(JSON.stringify(editSec?.config?.formulas || [])));
   const [refCalcId, setRefCalcId] = useState(editSec?.config?.ref_calc_id || "");
@@ -1085,7 +1129,7 @@ function SectionModal({ calcId, calcOrder, editSec, allCalcs, allMasters, curren
   const [sumModal, setSumModal] = useState(null);
   const [fmlModal, setFmlModal] = useState(null);
   const [grpModal, setGrpModal] = useState(null);
-  const [colDragState, setColDragState] = useState({ dragId: null, overId: null });
+  const [colDragState, setColDragState] = useState({ tableNo: null, dragId: null, overId: null });
   const [sumDragState, setSumDragState] = useState({ dragId: null, overId: null });
   const [fmlDragState, setFmlDragState] = useState({ dragId: null, overId: null });
   const [instrBlocks, setInstrBlocks] = useState(() => {
@@ -1101,11 +1145,94 @@ function SectionModal({ calcId, calcOrder, editSec, allCalcs, allMasters, curren
     return [];
   });
 
+  const tableGroups = getSectionTableGroups(columns, tableColumnOrders, tableNames);
+  const maxTableNo = tableGroups.reduce((max, g) => Math.max(max, g.tableNo), 1);
+
+  function handleTableColDrop(targetTableNo, targetColId) {
+    const { tableNo: fromTableNo, dragId } = colDragState;
+    setColDragState({ tableNo: null, dragId: null, overId: null });
+    if (!dragId || !fromTableNo) return;
+
+    if (fromTableNo === targetTableNo) {
+      if (dragId === targetColId) return;
+      const grp = tableGroups.find(g => g.tableNo === targetTableNo);
+      if (!grp) return;
+      const curCols = [...grp.columns];
+      const fromIdx = curCols.findIndex(c => c.id === dragId);
+      const toIdx = targetColId ? curCols.findIndex(c => c.id === targetColId) : curCols.length;
+      if (fromIdx !== -1 && toIdx !== -1) {
+        const [item] = curCols.splice(fromIdx, 1);
+        curCols.splice(toIdx, 0, item);
+        const newOrder = curCols.map(c => c.id);
+        setTableColumnOrders(prev => ({ ...prev, [targetTableNo]: newOrder }));
+        if (tableGroups.length === 1) {
+          setColumns(curCols);
+        }
+      }
+    } else {
+      // Dragged from one table to another -> clone/add table to column
+      setColumns(prevCols => prevCols.map(c => {
+        if (c.id === dragId) {
+          const existing = parseTableNumbers(c.table_no);
+          if (!existing.includes(targetTableNo)) {
+            const updated = [...existing, targetTableNo].sort((a, b) => a - b);
+            return { ...c, table_no: updated.join(", ") };
+          }
+        }
+        return c;
+      }));
+      const grp = tableGroups.find(g => g.tableNo === targetTableNo);
+      const curOrder = grp ? grp.columns.map(c => c.id).filter(id => id !== dragId) : [];
+      const targetIdx = targetColId ? curOrder.indexOf(targetColId) : curOrder.length;
+      if (targetIdx !== -1) {
+        curOrder.splice(targetIdx, 0, dragId);
+      } else {
+        curOrder.push(dragId);
+      }
+      setTableColumnOrders(prev => ({ ...prev, [targetTableNo]: curOrder }));
+    }
+  }
+
+  function handleRemoveColumnFromTable(tableNo, col) {
+    const tableNums = parseTableNumbers(col.table_no);
+    if (tableNums.length > 1) {
+      const remaining = tableNums.filter(t => t !== tableNo);
+      setColumns(prev => prev.map(c => c.id === col.id ? { ...c, table_no: remaining.join(", ") } : c));
+      setTableColumnOrders(prev => {
+        const n = { ...prev };
+        if (n[tableNo]) n[tableNo] = n[tableNo].filter(id => id !== col.id);
+        return n;
+      });
+    } else {
+      if (window.confirm(`Delete column "${col.label}" [${col.id}] completely?`)) {
+        setColumns(prev => prev.filter(c => c.id !== col.id));
+        setTableColumnOrders(prev => {
+          const n = {};
+          Object.entries(prev).forEach(([k, order]) => {
+            n[k] = (order || []).filter(id => id !== col.id);
+          });
+          return n;
+        });
+      }
+    }
+  }
+
   async function handleSave() {
     if (!name.trim()) { alert("Name required"); return; }
     let config = { type };
     if (hidden) config.hidden = true;
-    if (type === "input_table") { config.can_add_rows = canAddRows; config.columns = columns; config.summaries = summaries; if (columnGroups.length) config.column_groups = columnGroups; }
+    if (type === "input_table") {
+      config.can_add_rows = canAddRows;
+      config.columns = columns;
+      config.summaries = summaries;
+      if (columnGroups.length) config.column_groups = columnGroups;
+      if (tableColumnOrders && Object.keys(tableColumnOrders).length) {
+        config.table_column_orders = tableColumnOrders;
+      }
+      if (tableNames && Object.keys(tableNames).length) {
+        config.table_names = tableNames;
+      }
+    }
     else if (type === "formula_display") { config.formulas = formulas; }
     else if (type === "calc_ref") { config.ref_calc_id = refCalcId; config.ref_section_order = parseInt(refSecOrder) || 1; config.description = refDesc; }
     else if (type === "instruction_table") { config.blocks = instrBlocks; }
@@ -1132,57 +1259,155 @@ function SectionModal({ calcId, calcOrder, editSec, allCalcs, allMasters, curren
       {type === "input_table" && (
         <div>
           <div className="ce-section-editor-header">
-            <strong>Columns</strong>
-            <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => setColModal({ editCol: null, editIdx: null })}>+ Add Column</button>
+            <strong>Columns ({columns.length} total across {tableGroups.length} {tableGroups.length === 1 ? 'table' : 'tables'})</strong>
+            <div style={{ display: "flex", gap: ".4rem", alignItems: "center", flexWrap: "wrap" }}>
+              <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => setColModal({ editCol: null, editIdx: null, defaultTableNo: "1" })}>+ Add Column</button>
+              <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => setColModal({ editCol: null, editIdx: null, defaultTableNo: String(maxTableNo + 1) })}>+ Add Table {maxTableNo + 1}</button>
+            </div>
             <label className="ce-label ce-check-label" style={{ margin: 0 }}><input type="checkbox" checked={canAddRows} onChange={e => setCanAddRows(e.target.checked)} /> Users can add rows</label>
           </div>
-          {columns.map((col, i) => {
-            const isDragging = colDragState.dragId === col.id;
-            const isOver = colDragState.overId === col.id;
-            return (
-              <div key={col.id} 
-                draggable
-                onDragStart={e => {
-                  e.dataTransfer.effectAllowed = 'move';
-                  setColDragState({ dragId: col.id, overId: null });
-                }}
-                onDragOver={e => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                  if (col.id !== colDragState.dragId) setColDragState(s => ({ ...s, overId: col.id }));
-                }}
-                onDrop={e => {
-                  e.preventDefault();
-                  const { dragId, overId } = colDragState;
-                  setColDragState({ dragId: null, overId: null });
-                  if (!dragId || !overId || dragId === overId) return;
-                  const next = [...columns];
-                  const fromIdx = next.findIndex(c => c.id === dragId);
-                  const toIdx = next.findIndex(c => c.id === overId);
-                  if (fromIdx !== -1 && toIdx !== -1) {
-                    next.splice(toIdx, 0, next.splice(fromIdx, 1)[0]);
-                    setColumns(next);
-                  }
-                }}
-                onDragEnd={() => setColDragState({ dragId: null, overId: null })}
-                className="ce-col-row"
-                style={{
-                  opacity: isDragging ? 0.4 : 1,
-                  background: isOver ? 'rgba(34,168,75,0.04)' : '',
-                  outline: isOver ? '1.5px solid var(--g400)' : 'none',
-                  transition: 'opacity 0.12s, background 0.12s',
-                  cursor: 'grab',
-                }}
-              >
-                <span title="Drag to reorder" style={{ color: 'var(--tx-faint)', fontSize: 14, cursor: 'grab', flexShrink: 0, userSelect: 'none', lineHeight: 1 }}>⠿</span>
-                <span className="ce-type-badge">{col.type}</span>
-                <div className="ce-col-info"><strong>{col.label}</strong> <span className="ce-col-id">[{col.id}]</span><VisibilityBadge item={col} /></div>
-                <button className="ce-icon-btn" onClick={() => { const c = { ...col }; c.hidden = !c.hidden; setColumns(cs => { const n = [...cs]; n[i] = c; return n; }) }}>{isHidden(col) ? "👁" : "🙈"}</button>
-                <button className="ce-icon-btn" onClick={() => setColModal({ editCol: col, editIdx: i })}>✏</button>
-                <button className="ce-icon-btn ce-icon-btn-danger" onClick={() => setColumns(cs => cs.filter((_, j) => j !== i))}>✕</button>
-              </div>
-            );
-          })}
+
+          <div className="ce-admin-tables-wrap">
+            {tableGroups.map(grp => {
+              const grpCols = grp.columns || [];
+              return (
+                <div key={grp.tableNo} className="ce-admin-table-container">
+                  <div className="ce-admin-table-header">
+                    <div className="ce-admin-table-title">
+                      <input
+                        type="text"
+                        className="ce-admin-table-badge-input"
+                        value={tableNames[grp.tableNo] ?? tableNames[String(grp.tableNo)] ?? `Table ${grp.tableNo}`}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setTableNames(prev => ({
+                            ...prev,
+                            [grp.tableNo]: val,
+                            [String(grp.tableNo)]: val,
+                          }));
+                        }}
+                        placeholder={`Table ${grp.tableNo}`}
+                        title="Click to edit table heading"
+                      />
+                      <span className="ce-hint">({grpCols.length} {grpCols.length === 1 ? 'column' : 'columns'})</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="ce-btn ce-btn-outline ce-btn-sm"
+                      onClick={() => setColModal({ editCol: null, editIdx: null, defaultTableNo: String(grp.tableNo) })}
+                    >
+                      + Add Column to Table {grp.tableNo}
+                    </button>
+                  </div>
+
+                  <div
+                    className="ce-admin-table-col-list"
+                    onDragOver={e => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                    }}
+                    onDrop={e => {
+                      e.preventDefault();
+                      handleTableColDrop(grp.tableNo, null);
+                    }}
+                  >
+                    {grpCols.length === 0 && (
+                      <div className="ce-admin-table-empty-drop">
+                        No columns in Table {grp.tableNo}. Click "+ Add Column to Table {grp.tableNo}" or drag columns here.
+                      </div>
+                    )}
+                    {grpCols.map((col) => {
+                      const isCloned = parseTableNumbers(col.table_no).length > 1;
+                      const isDragging = colDragState.dragId === col.id && colDragState.tableNo === grp.tableNo;
+                      const isOver = colDragState.overId === col.id && colDragState.tableNo === grp.tableNo;
+                      return (
+                        <div
+                          key={`${grp.tableNo}_${col.id}`}
+                          draggable
+                          onDragStart={e => {
+                            e.dataTransfer.effectAllowed = 'move';
+                            setColDragState({ tableNo: grp.tableNo, dragId: col.id, overId: null });
+                          }}
+                          onDragOver={e => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'move';
+                            if (col.id !== colDragState.dragId || colDragState.tableNo !== grp.tableNo) {
+                              setColDragState(s => ({ ...s, overId: col.id, tableNo: grp.tableNo }));
+                            }
+                          }}
+                          onDrop={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleTableColDrop(grp.tableNo, col.id);
+                          }}
+                          onDragEnd={() => setColDragState({ tableNo: null, dragId: null, overId: null })}
+                          className="ce-col-row"
+                          style={{
+                            opacity: isDragging ? 0.4 : 1,
+                            background: isOver ? 'rgba(34,168,75,0.06)' : '',
+                            outline: isOver ? '1.5px solid var(--g400)' : 'none',
+                            transition: 'opacity 0.12s, background 0.12s',
+                            cursor: 'grab',
+                          }}
+                        >
+                          <span title="Drag to reorder" style={{ color: 'var(--tx-faint)', fontSize: 14, cursor: 'grab', flexShrink: 0, userSelect: 'none', lineHeight: 1 }}>⠿</span>
+                          <span className="ce-type-badge">{col.type}</span>
+                          <div className="ce-col-info">
+                            <strong>{col.label}</strong>
+                            <span className="ce-col-id">[{col.id}]</span>
+                            {isCloned ? (
+                              <span className="ce-badge ce-badge-cloned" title={`Repeated in Tables: ${formatTableNumbers(col.table_no)}`}>
+                                🔁 Repeated (Table {formatTableNumbers(col.table_no)})
+                              </span>
+                            ) : (
+                              <span className="ce-badge ce-badge-table-tag">
+                                Table {col.table_no || 1}
+                              </span>
+                            )}
+                            <VisibilityBadge item={col} />
+                          </div>
+                          <button
+                            type="button"
+                            className="ce-icon-btn"
+                            title={isHidden(col) ? "Show column" : "Hide column"}
+                            onClick={() => {
+                              const cIdx = columns.findIndex(c => c.id === col.id);
+                              if (cIdx !== -1) {
+                                const updated = { ...columns[cIdx], hidden: !columns[cIdx].hidden };
+                                setColumns(cs => { const n = [...cs]; n[cIdx] = updated; return n; });
+                              }
+                            }}
+                          >
+                            {isHidden(col) ? "👁" : "🙈"}
+                          </button>
+                          <button
+                            type="button"
+                            className="ce-icon-btn"
+                            title="Edit Column"
+                            onClick={() => {
+                              const cIdx = columns.findIndex(c => c.id === col.id);
+                              setColModal({ editCol: col, editIdx: cIdx !== -1 ? cIdx : null });
+                            }}
+                          >
+                            ✏
+                          </button>
+                          <button
+                            type="button"
+                            className="ce-icon-btn ce-icon-btn-danger"
+                            title={isCloned ? `Remove from Table ${grp.tableNo}` : "Delete column"}
+                            onClick={() => handleRemoveColumnFromTable(grp.tableNo, col)}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           <div className="ce-section-editor-header" style={{ marginTop: "1rem" }}>
             <strong>Summaries</strong>
             <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => setSumModal({ editSummary: null, editIdx: null })}>+ Add Summary</button>
@@ -1327,7 +1552,7 @@ function SectionModal({ calcId, calcOrder, editSec, allCalcs, allMasters, curren
         <InstructionBlocksEditor blocks={instrBlocks} onBlocksChange={setInstrBlocks} />
       )}
 
-      {colModal && <ColumnModal editCol={colModal.editCol} editIdx={colModal.editIdx} allMasters={allMasters} allCalcs={allCalcs} editorColumns={columns} currentCalcId={calcId} currentCalcOrder={calcOrder} onClose={() => setColModal(null)} onConfirm={(col, idx) => { if (idx !== null && idx !== undefined) setColumns(cs => { const n = [...cs]; n[idx] = col; return n; }); else setColumns(cs => [...cs, col]); setColModal(null); }} />}
+      {colModal && <ColumnModal editCol={colModal.editCol} editIdx={colModal.editIdx} defaultTableNo={colModal.defaultTableNo} allMasters={allMasters} allCalcs={allCalcs} editorColumns={columns} currentCalcId={calcId} currentCalcOrder={calcOrder} onClose={() => setColModal(null)} onConfirm={(col, idx) => { if (idx !== null && idx !== undefined) setColumns(cs => { const n = [...cs]; n[idx] = col; return n; }); else setColumns(cs => [...cs, col]); setColModal(null); }} />}
       {sumModal && <SummaryModal editSummary={sumModal.editSummary} editIdx={sumModal.editIdx} currentCalcId={calcId} currentCalcOrder={calcOrder} allCalcs={allCalcs} onClose={() => setSumModal(null)} onConfirm={(s, idx) => { if (idx !== null && idx !== undefined) setSummaries(a => { const n = [...a]; n[idx] = s; return n; }); else setSummaries(a => [...a, s]); setSumModal(null); }} />}
       {fmlModal && <FormulaModal editFormula={fmlModal.editFormula} editIdx={fmlModal.editIdx} currentCalcId={calcId} currentCalcOrder={calcOrder} allCalcs={allCalcs} onClose={() => setFmlModal(null)} onConfirm={(f, idx) => { if (idx !== null && idx !== undefined) setFormulas(a => { const n = [...a]; n[idx] = f; return n; }); else setFormulas(a => [...a, f]); setFmlModal(null); }} />}
       {grpModal && <GroupModal editGroup={grpModal.editGroup} editIdx={grpModal.editIdx} columns={columns} onClose={() => setGrpModal(null)} onConfirm={(g, idx) => { if (idx !== null && idx !== undefined) setColumnGroups(gs => { const n = [...gs]; n[idx] = g; return n; }); else setColumnGroups(gs => [...gs, g]); setGrpModal(null); }} />}
@@ -1397,7 +1622,18 @@ function BuilderPanel({ calcId, calcName, allCalcs, allMasters, onBack, axios })
                 </div>
               </div>
               <div className="ce-sec-body" id={"sb_" + sid}>
-                {sec.config?.type === "input_table" && (sec.config.columns || []).map((c, i) => <div key={i} className="ce-col-row"><span className="ce-type-badge">{c.type}</span><strong>{c.label}</strong><span className="ce-col-id">[{c.id}]</span></div>)}
+                {sec.config?.type === "input_table" && (sec.config.columns || []).map((c, i) => (
+                  <div key={i} className="ce-col-row">
+                    <span className="ce-type-badge">{c.type}</span>
+                    <strong>{c.label}</strong>
+                    <span className="ce-col-id">[{c.id}]</span>
+                    {c.table_no && (
+                      <span className="ce-badge ce-badge-table-tag">
+                        Table {formatTableNumbers(c.table_no)}
+                      </span>
+                    )}
+                  </div>
+                ))}
                 {sec.config?.type === "formula_display" && (sec.config.formulas || []).map((f, i) => <div key={i} className="ce-col-row"><span className="ce-type-badge">expr</span><strong>{f.label}</strong><span className="ce-col-id">{f.expr}</span></div>)}
                 {sec.config?.type === "calc_ref" && <div className="ce-alert-info">References Calc {sec.config.ref_calc_id}, Section {sec.config.ref_section_order}</div>}
                 {sec.config?.type === "instruction_table" && <div className="ce-alert-info">Instruction Table — {(sec.config.blocks || []).length} block(s) · {(sec.config.blocks || []).filter(b => b.blockType === "paragraph").length} paragraph(s) · {(sec.config.blocks || []).filter(b => b.blockType === "table").length} table(s)</div>}

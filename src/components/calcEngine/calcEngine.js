@@ -3,14 +3,89 @@
 
 export function getNum(cell) {
   if (cell === null || cell === undefined) return 0;
-  if (typeof cell === "number") return cell;
-  if (typeof cell === "object") return parseFloat(cell.numValue ?? cell.v ?? 0) || 0;
-  return parseFloat(cell) || 0;
+  if (typeof cell === "number") return isFinite(cell) ? cell : 0;
+  if (typeof cell === "object") {
+    const val = cell.numValue ?? cell.num_value ?? cell.numVal ?? cell.numeric_value ?? cell.numericValue ?? cell.rawValue ?? (typeof cell.value === "number" ? cell.value : undefined) ?? cell.v ?? cell.area ?? 0;
+    const n = parseFloat(val);
+    return isFinite(n) ? n : 0;
+  }
+  const n = parseFloat(cell);
+  return isFinite(n) ? n : 0;
 }
 
 export function isHidden(item) {
   return item?.hidden === true || item?.visible === false;
 }
+
+// ── Split table helpers ───────────────────────────────────────────────────────
+
+export function parseTableNumbers(tableNo) {
+  if (Array.isArray(tableNo)) {
+    const nums = tableNo.map(n => parseInt(n)).filter(n => !isNaN(n) && n > 0);
+    return nums.length ? [...new Set(nums)].sort((a, b) => a - b) : [1];
+  }
+  if (typeof tableNo === "number") {
+    return isNaN(tableNo) || tableNo < 1 ? [1] : [Math.floor(tableNo)];
+  }
+  if (!tableNo) return [1];
+  const parts = String(tableNo)
+    .split(/[,|\s]+/)
+    .map(s => parseInt(s.trim()))
+    .filter(n => !isNaN(n) && n > 0);
+  return parts.length ? [...new Set(parts)].sort((a, b) => a - b) : [1];
+}
+
+export function formatTableNumbers(tableNo) {
+  const nums = parseTableNumbers(tableNo);
+  return nums.join(", ");
+}
+
+export function getSectionTableGroups(columns = [], tableColumnOrders = {}, tableNames = {}) {
+  const tableMap = {};
+  
+  columns.forEach(col => {
+    const tableNums = parseTableNumbers(col.table_no);
+    tableNums.forEach(tNum => {
+      if (!tableMap[tNum]) tableMap[tNum] = [];
+      tableMap[tNum].push(col);
+    });
+  });
+
+  // Also include any table numbers that exist in tableNames or tableColumnOrders
+  Object.keys(tableNames || {}).forEach(k => {
+    const n = parseInt(k);
+    if (!isNaN(n) && n > 0 && !tableMap[n]) {
+      tableMap[n] = [];
+    }
+  });
+
+  const sortedTableNums = Object.keys(tableMap)
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  if (sortedTableNums.length === 0) {
+    const defaultName = tableNames?.[1] || tableNames?.["1"] || "Table 1";
+    return [{ tableNo: 1, name: defaultName, columns: [] }];
+  }
+
+  return sortedTableNums.map(tNum => {
+    let cols = tableMap[tNum] || [];
+    const customOrder = tableColumnOrders?.[tNum] || tableColumnOrders?.[String(tNum)];
+    if (Array.isArray(customOrder) && customOrder.length > 0) {
+      cols = [...cols].sort((a, b) => {
+        const idxA = customOrder.indexOf(a.id);
+        const idxB = customOrder.indexOf(b.id);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return 0;
+      });
+    }
+    const customName = tableNames?.[tNum] || tableNames?.[String(tNum)] || `Table ${tNum}`;
+    return { tableNo: tNum, name: customName, columns: cols };
+  });
+}
+
 
 // ── Cross-calc data helpers ───────────────────────────────────────────────────
 
@@ -132,20 +207,101 @@ export function resolveLockedCols(secOrder, rowIdx, sectionRows, sections) {
     if (col.allow_unlock && existing?.unlocked) return;
 
     const srcCell = row[col.source_col];
-    if (!srcCell) { row[col.id] = { numValue: 0 }; return; }
+    if (srcCell === null || srcCell === undefined) {
+      row[col.id] = { rawValue: 0, numValue: 0 };
+      return;
+    }
 
-    let val = 0;
-    if (col.source_field === "area") {
-      val = srcCell.area ?? srcCell.numValue ?? 0;
-    } else if (col.source_field === "numValue") {
-      val = srcCell.numValue ?? srcCell.v ?? 0;
-    } else {
-      if (srcCell[col.source_field] !== undefined) {
-        val = srcCell[col.source_field];
-      } else if (srcCell._sourceRow) {
-        val = getNum(srcCell._sourceRow[col.source_field]);
+    const rawField = col.source_field !== undefined && col.source_field !== null ? String(col.source_field).trim() : "numValue";
+    const field = rawField || "numValue";
+    const fieldLower = field.toLowerCase();
+    let val = undefined;
+
+    if (typeof srcCell === "number") {
+      val = srcCell;
+    } else if (typeof srcCell === "string") {
+      val = srcCell;
+    } else if (typeof srcCell === "object") {
+      if (
+        !field ||
+        fieldLower === "numvalue" ||
+        fieldLower === "num_value" ||
+        fieldLower === "numval" ||
+        fieldLower === "numeric_value" ||
+        fieldLower === "numericvalue" ||
+        fieldLower === "num" ||
+        fieldLower === "v" ||
+        fieldLower === "value"
+      ) {
+        val =
+          srcCell.numValue ??
+          srcCell.num_value ??
+          srcCell.numVal ??
+          srcCell.numeric_value ??
+          srcCell.numericValue ??
+          srcCell.rawValue ??
+          (typeof srcCell.value === "number" ? srcCell.value : undefined) ??
+          srcCell.v ??
+          (srcCell[field] !== undefined ? srcCell[field] : undefined);
+
+        if ((val === undefined || val === 0) && srcCell._sourceRow) {
+          const sRow = srcCell._sourceRow;
+          if (sRow[col.source_col] !== undefined) {
+            val = getNum(sRow[col.source_col]);
+          } else if (sRow["fa"] !== undefined) {
+            val = getNum(sRow["fa"]);
+          } else if (sRow["area"] !== undefined) {
+            val = getNum(sRow["area"]);
+          } else {
+            for (const k of Object.keys(sRow)) {
+              const num = getNum(sRow[k]);
+              if (num !== 0) { val = num; break; }
+            }
+          }
+        }
+
+        if (val === undefined) {
+          val = getNum(srcCell);
+        }
+      } else if (fieldLower === "area") {
+        val = srcCell.area ?? srcCell.numValue ?? (srcCell._sourceRow ? getNum(srcCell._sourceRow["area"]) : 0);
+      } else if (fieldLower === "key" || fieldLower === "item_key") {
+        val = srcCell.key ?? srcCell.item_key ?? srcCell.k ?? (srcCell._sourceRow?.[col.source_col]?.key) ?? "";
+      } else if (fieldLower === "label" || fieldLower === "item_label") {
+        val = srcCell.label ?? srcCell.item_label ?? srcCell.l ?? (srcCell.isOther ? srcCell.otherText : "") ?? (srcCell._sourceRow?.[col.source_col]?.label) ?? "";
+      } else if (fieldLower === "text") {
+        val = srcCell.text ?? srcCell.label ?? (srcCell._sourceRow?.[col.source_col]?.text) ?? "";
+      } else {
+        // Custom extra value field (e.g. value1, density, note, etc.)
+        if (srcCell[field] !== undefined) {
+          val = srcCell[field];
+        } else if (srcCell.extra_values?.[field] !== undefined) {
+          val = srcCell.extra_values[field];
+        } else if (srcCell._sourceRow) {
+          const sRow = srcCell._sourceRow;
+          if (sRow[field] !== undefined) {
+            val = typeof sRow[field] === "object" ? (sRow[field]?.rawValue ?? sRow[field]?.numValue ?? sRow[field]?.text ?? getNum(sRow[field])) : sRow[field];
+          } else if (sRow[col.source_col]?.[field] !== undefined) {
+            val = sRow[col.source_col][field];
+          } else if (sRow[col.source_col]?.extra_values?.[field] !== undefined) {
+            val = sRow[col.source_col].extra_values[field];
+          } else {
+            for (const k of Object.keys(sRow)) {
+              if (sRow[k]?.[field] !== undefined) {
+                val = sRow[k][field];
+                break;
+              }
+              if (sRow[k]?.extra_values?.[field] !== undefined) {
+                val = sRow[k].extra_values[field];
+                break;
+              }
+            }
+          }
+        }
       }
     }
+
+    if (val === undefined) val = 0;
     const asNum = parseFloat(val);
     row[col.id] = {
       rawValue: val,
@@ -233,21 +389,31 @@ export function buildRefOptions(sourceRows) {
   const opts = [];
   if (!sourceRows?.length) return opts;
 
+  const findDropdownCell = (row) => {
+    if (!row) return null;
+    if (row["fa"]) return row["fa"];
+    for (const k of Object.keys(row)) {
+      const c = row[k];
+      if (c && typeof c === "object" && (c.key !== undefined || c.label !== undefined)) return c;
+    }
+    return null;
+  };
+
   sourceRows.forEach(row => {
-    const fa = row["fa"];
+    const fa = findDropdownCell(row);
     if (!fa) return;
     const key = fa.isOther ? "__other__:" + fa.otherText : (fa.key || "");
     counts[key] = (counts[key] || 0) + 1;
   });
 
   sourceRows.forEach((row, i) => {
-    const fa = row["fa"];
+    const fa = findDropdownCell(row);
     if (!fa) return;
     const key = fa.isOther ? "__other__:" + fa.otherText : (fa.key || "");
     const label = fa.isOther ? fa.otherText || "Others" : fa.label || fa.key || "";
     idx[key] = (idx[key] || 0) + 1;
     const dispLabel = counts[key] > 1 ? `${label}(${idx[key]})` : label;
-    opts.push({ rowIndex: i, key, label: dispLabel, area: getNum(row["area"]), faNumValue: fa.numValue || fa.v || 0 });
+    opts.push({ rowIndex: i, key, label: dispLabel, area: getNum(row["area"]), faNumValue: getNum(fa) });
   });
   return opts;
 }

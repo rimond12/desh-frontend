@@ -2,14 +2,15 @@
  * CalcEngine.jsx — DESH-integrated Calculation Engine
  * Uses axiosSecure for admin API calls and plain fetch for public reads.
  */
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import useAxiosSecure from "../../hooks/useAxiosSecure.jsx";
 import {
   getNum, isHidden, fmtNum,
   buildRefOptions, getRefSourceRows,
   resolveLockedCols, resolveFormulaColumns,
   saveToStorage, loadFromStorage, evalExpr,
-  evalSummaryExpr, calcFormulaSection,
+  evalSummaryExpr,
+  getSectionTableGroups,
 } from "./calcEngine.js";
 import { createPortal } from "react-dom";
 import CalcTableScroller from "./CalcTableScroller.jsx";
@@ -287,10 +288,12 @@ function DropdownCell({ col, row, dropdowns, onChange, readOnly }) {
     }
     const item = items.find(i => (i.item_key || i.k) === key);
     if (item) {
+      const rawNum = item.num_value ?? item.numValue ?? item.numVal ?? item.v ?? 0;
+      const numVal = parseFloat(rawNum);
       onChange(col.id, {
         key: item.item_key || item.k,
         label: item.item_label || item.l,
-        numValue: item.num_value ?? item.v ?? 0,
+        numValue: Number.isFinite(numVal) ? numVal : 0,
         isOther: false,
         ...(item.extra_values || {})
       });
@@ -375,10 +378,12 @@ function NestedDropdownCell({ col, row, dropdowns, sec, onChange, readOnly }) {
     }
     const found = children.find(c => (c.item_key || c.k) === key);
     if (found) {
+      const rawNum = found.num_value ?? found.numValue ?? found.numVal ?? found.v ?? 0;
+      const numVal = parseFloat(rawNum);
       onChange(col.id, {
         key: found.item_key || found.k,
         label: found.item_label || found.l,
-        numValue: found.num_value ?? found.v ?? 0,
+        numValue: Number.isFinite(numVal) ? numVal : 0,
         isOther: false,
         ...(found.extra_values || {})
       });
@@ -428,9 +433,12 @@ function SectionRefCell({ col, row, sections, sectionRows, crossCalcRows, onChan
     if (val === "") { onChange(col.id, null); return; }
     const rowIndex = parseInt(val);
     const srcRow = sourceRows[rowIndex] || {};
-    const area = getNum(srcRow["area"]);
     const opt = opts.find(o => o.rowIndex === rowIndex);
-    onChange(col.id, { rowIndex, label: opt?.label || "", area, numValue: area, _sourceRow: srcRow });
+    const area = getNum(srcRow["area"]);
+    const faCell = srcRow["fa"] || Object.values(srcRow).find(c => c && typeof c === "object" && (c.key !== undefined || c.label !== undefined || c.numValue !== undefined));
+    const faNum = opt?.faNumValue ?? (faCell ? getNum(faCell) : 0);
+    const primaryNum = area !== 0 ? area : faNum;
+    onChange(col.id, { rowIndex, label: opt?.label || "", area, numValue: primaryNum, faNumValue: faNum, _sourceRow: srcRow });
   };
 
   return (
@@ -486,9 +494,10 @@ function LockedCell({ col, row, onUnlockEdit, onToggleLock, readOnly }) {
 
 // ── Table Row ─────────────────────────────────────────────────────────────────
 
-function TableRow({ sec, rowIdx, sections, sectionRows, summaries, crossCalcRows, dropdowns, onCellChange, onRemove, readOnly, canAddRows }) {
+function TableRow({ sec, columns, rowIdx, sections, sectionRows, summaries, crossCalcRows, dropdowns, onCellChange, onRemove, readOnly, canAddRows }) {
   const row = sectionRows[sec.order_num]?.[rowIdx] || {};
-  const visibleCols = (sec.config.columns || []).filter(col => !isHidden(col));
+  const activeCols = columns || sec.config.columns || [];
+  const visibleCols = activeCols.filter(col => !isHidden(col));
 
   function handleChange(colId, value) { onCellChange(sec.order_num, rowIdx, colId, value, sec); }
   function handleUnlockEdit(colId, val) { onCellChange(sec.order_num, rowIdx, colId, { numValue: val, unlocked: true }, sec); }
@@ -545,28 +554,53 @@ function TableRow({ sec, rowIdx, sections, sectionRows, summaries, crossCalcRows
   );
 }
 
-// ── Section Components ────────────────────────────────────────────────────────
+// ── SubTable Component (for split tables) ─────────────────────────────────────
 
-function InputTableSection({ sec, sections, sectionRows, setSectionRows, summaries, crossCalcRows, dropdowns, onRecalc, readOnly }) {
+function SubTable({
+  tableNo,
+  tableCols,
+  columnGroups,
+  sec,
+  sections,
+  sectionRows,
+  setSectionRows,
+  summaries,
+  crossCalcRows,
+  dropdowns,
+  onCellChange,
+  onRecalc,
+  onAddRow,
+  readOnly,
+  isSplit,
+}) {
+  const visibleCols = tableCols.filter(c => !isHidden(c));
   const rows = sectionRows[sec.order_num] || [];
-  const visibleCols = (sec.config.columns || []).filter(c => !isHidden(c));
-  const visibleSums = (sec.config.summaries || []).filter(s => !isHidden(s));
-  const columnGroups = sec.config.column_groups || [];
+  const customTableName = sec.config?.table_names?.[tableNo] || sec.config?.table_names?.[String(tableNo)] || "";
 
-  // Build merged-header data when groups are defined
-  const hasGroupHeaders = columnGroups.length > 0;
+  // Filter columnGroups to only those that have at least one column in this subtable
+  const relevantGroups = (columnGroups || []).filter(g =>
+    (g.column_ids || []).some(cid => visibleCols.some(c => c.id === cid))
+  );
+  const hasGroupHeaders = relevantGroups.length > 0;
+
   let row1Items = [];
   let row2Cols = [];
   if (hasGroupHeaders) {
     const colToGroup = {};
-    columnGroups.forEach(g => g.column_ids.forEach(id => { colToGroup[id] = g; }));
+    relevantGroups.forEach(g => {
+      (g.column_ids || []).forEach(id => {
+        if (visibleCols.some(c => c.id === id)) {
+          colToGroup[id] = g;
+        }
+      });
+    });
     const seenGroups = new Set();
     visibleCols.forEach(col => {
       const grp = colToGroup[col.id];
       if (grp) {
         if (!seenGroups.has(grp.id)) {
           seenGroups.add(grp.id);
-          const colSpan = visibleCols.filter(c => grp.column_ids.includes(c.id)).length;
+          const colSpan = visibleCols.filter(c => (grp.column_ids || []).includes(c.id)).length;
           row1Items.push({ type: "group", grp, colSpan });
         }
         row2Cols.push(col);
@@ -576,27 +610,19 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
     });
   }
 
-  function handleCellChange(secOrder, rowIdx, colId, value, secObj) {
-    setSectionRows(prev => {
-      const next = JSON.parse(JSON.stringify(prev));
-      if (!next[secOrder]) next[secOrder] = [];
-      if (!next[secOrder][rowIdx]) next[secOrder][rowIdx] = {};
-      next[secOrder][rowIdx][colId] = value;
-      secObj.config.columns?.forEach(c => {
-        if (c.type === "nested_dropdown" && c.parent_col === colId) {
-          next[secOrder][rowIdx][c.id] = null;
-          secObj.config.columns?.forEach(lc => {
-            if (lc.type === "locked" && lc.source_col === c.id) next[secOrder][rowIdx][lc.id] = { numValue: 0 };
-          });
-        }
-      });
-      return next;
-    });
-    onRecalc();
-  }
-
   return (
-    <div className="ce-section-body">
+    <div className={`ce-subtable-block${isSplit ? " ce-subtable-split" : ""}`}>
+      {isSplit && (
+        <div className="ce-subtable-header">
+          <div className="ce-subtable-badge">
+            <span className="ce-subtable-badge-dot"></span>
+            {customTableName || `Table ${tableNo}`}
+          </div>
+          <div className="ce-subtable-meta">
+            <span className="ce-subtable-count">{visibleCols.length} {visibleCols.length === 1 ? "column" : "columns"}</span>
+          </div>
+        </div>
+      )}
       <CalcTableScroller>
         <table className="ce-table">
           <thead>
@@ -620,27 +646,145 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
           </thead>
           <tbody>
             {rows.map((_, ri) => (
-              <TableRow key={ri} sec={sec} rowIdx={ri} sections={sections} sectionRows={sectionRows}
-                summaries={summaries} crossCalcRows={crossCalcRows} dropdowns={dropdowns}
-                onCellChange={handleCellChange}
+              <TableRow
+                key={ri}
+                sec={sec}
+                columns={tableCols}
+                rowIdx={ri}
+                sections={sections}
+                sectionRows={sectionRows}
+                summaries={summaries}
+                crossCalcRows={crossCalcRows}
+                dropdowns={dropdowns}
+                onCellChange={onCellChange}
                 onRemove={() => {
-                  setSectionRows(prev => { const n = { ...prev }; n[sec.order_num] = n[sec.order_num].filter((_, i) => i !== ri); return n; });
+                  setSectionRows(prev => {
+                    const n = { ...prev };
+                    n[sec.order_num] = n[sec.order_num].filter((_, i) => i !== ri);
+                    return n;
+                  });
                   onRecalc();
                 }}
                 readOnly={readOnly}
-                canAddRows={sec.config.can_add_rows !== false} />
+                canAddRows={sec.config.can_add_rows !== false}
+              />
             ))}
           </tbody>
         </table>
       </CalcTableScroller>
-      {sec.config.can_add_rows !== false && !readOnly && (
-        <div className="ce-add-row">
-          <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={() => {
-            setSectionRows(prev => { const n = { ...prev }; const row = {}; (sec.config.columns || []).forEach(c => { row[c.id] = null; }); n[sec.order_num] = [...(n[sec.order_num] || []), row]; return n; });
-            onRecalc();
-          }}>+ Add Row</button>
+      {!readOnly && sec.config.can_add_rows !== false && (
+        <div className="ce-subtable-footer">
+          <button
+            type="button"
+            className="ce-btn ce-btn-outline ce-btn-sm ce-subtable-add-row-btn"
+            onClick={onAddRow}
+          >
+            + Add Row
+          </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Section Components ────────────────────────────────────────────────────────
+
+function InputTableSection({ sec, sections, sectionRows, setSectionRows, summaries, crossCalcRows, dropdowns, onRecalc, readOnly }) {
+  const visibleSums = (sec.config.summaries || []).filter(s => !isHidden(s));
+  const columnGroups = sec.config.column_groups || [];
+  const tableGroups = getSectionTableGroups(sec.config.columns || [], sec.config.table_column_orders || {}, sec.config.table_names || {});
+  const isSplit = tableGroups.length > 1;
+
+  function handleCellChange(secOrder, rowIdx, colId, value, secObj) {
+    setSectionRows(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      if (!next[secOrder]) next[secOrder] = [];
+      if (!next[secOrder][rowIdx]) next[secOrder][rowIdx] = {};
+      next[secOrder][rowIdx][colId] = value;
+      secObj.config.columns?.forEach(c => {
+        if (c.type === "nested_dropdown" && c.parent_col === colId) {
+          next[secOrder][rowIdx][c.id] = null;
+          secObj.config.columns?.forEach(lc => {
+            if (lc.type === "locked" && lc.source_col === c.id) next[secOrder][rowIdx][lc.id] = { numValue: 0 };
+          });
+        }
+        if (c.type === "number" && c.linked_to_dropdown === colId) {
+          const num = value?.numValue ?? value?.num_value ?? (typeof value === "number" ? value : 0);
+          next[secOrder][rowIdx][c.id] = { numValue: num };
+        }
+      });
+      return next;
+    });
+    onRecalc();
+  }
+
+  function handleAddRow() {
+    setSectionRows(prev => {
+      const n = { ...prev };
+      const row = {};
+      (sec.config.columns || []).forEach(c => { row[c.id] = null; });
+      n[sec.order_num] = [...(n[sec.order_num] || []), row];
+      return n;
+    });
+    onRecalc();
+  }
+
+  return (
+    <div className={`ce-section-body${isSplit ? " ce-section-split" : ""}`}>
+      {isSplit ? (
+        <div className="ce-subtables-container">
+          {tableGroups.map(grp => (
+            <SubTable
+              key={grp.tableNo}
+              tableNo={grp.tableNo}
+              tableCols={grp.columns}
+              columnGroups={columnGroups}
+              sec={sec}
+              sections={sections}
+              sectionRows={sectionRows}
+              setSectionRows={setSectionRows}
+              summaries={summaries}
+              crossCalcRows={crossCalcRows}
+              dropdowns={dropdowns}
+              onCellChange={handleCellChange}
+              onRecalc={onRecalc}
+              onAddRow={handleAddRow}
+              readOnly={readOnly}
+              isSplit={isSplit}
+            />
+          ))}
+        </div>
+      ) : (
+        tableGroups.map(grp => (
+          <SubTable
+            key={grp.tableNo}
+            tableNo={grp.tableNo}
+            tableCols={grp.columns}
+            columnGroups={columnGroups}
+            sec={sec}
+            sections={sections}
+            sectionRows={sectionRows}
+            setSectionRows={setSectionRows}
+            summaries={summaries}
+            crossCalcRows={crossCalcRows}
+            dropdowns={dropdowns}
+            onCellChange={handleCellChange}
+            onRecalc={onRecalc}
+            onAddRow={handleAddRow}
+            readOnly={readOnly}
+            isSplit={isSplit}
+          />
+        ))
+      )}
+
+      {sec.config.can_add_rows !== false && !readOnly && (
+        <div className="ce-add-row">
+          <button className="ce-btn ce-btn-outline ce-btn-sm" onClick={handleAddRow}>
+            + Add Row
+          </button>
+        </div>
+      )}
+
       {visibleSums.length > 0 && (
         <div className="ce-summary">
           {visibleSums.map(s => (
@@ -1248,47 +1392,86 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
       if (effectiveType === "input_table") {
         // Resolve target config columns (virtual if calc_ref)
         let cols = sec.config.columns || [];
+        let tableOrders = sec.config.table_column_orders || {};
+        let tableNames = sec.config.table_names || {};
         if (isCalcRef && srcSec?.config?.columns) {
           cols = srcSec.config.columns;
+          tableOrders = srcSec.config.table_column_orders || {};
+          tableNames = srcSec.config.table_names || {};
         }
 
-        const visibleCols = cols.filter(c => !isHidden(c));
         const rows = sectionRows[sec.order_num] || [];
+        const tableGroups = getSectionTableGroups(cols, tableOrders, tableNames);
 
-        // Headers
-        if (visibleCols.length > 0) {
-          csvContent += visibleCols.map(c => `"${c.label?.replace(/"/g, '""')}"`).join(",") + "\n";
+        if (tableGroups.length > 1) {
+          tableGroups.forEach(grp => {
+            const visibleCols = (grp.columns || []).filter(c => !isHidden(c));
+            if (visibleCols.length > 0) {
+              const titleDisplay = (tableNames[grp.tableNo] || tableNames[String(grp.tableNo)]) || `Table ${grp.tableNo}`;
+              csvContent += `[${titleDisplay}]\n`;
+              csvContent += visibleCols.map(c => `"${c.label?.replace(/"/g, '""')}"`).join(",") + "\n";
 
-          // Row data
-          rows.forEach(row => {
-            const rowCells = visibleCols.map(col => {
-              const cell = row[col.id];
-              let valStr = "";
+              rows.forEach(row => {
+                const rowCells = visibleCols.map(col => {
+                  const cell = row[col.id];
+                  let valStr = "";
 
-              if (col.type === "dropdown" || col.type === "nested_dropdown" || col.type === "section_ref") {
-                valStr = cell?.label || (cell?.key === "__other__" ? cell?.otherText : "") || "";
-              } else if (col.type === "locked") {
-                const rawVal = cell ? (cell.rawValue ?? cell.text ?? cell.numValue ?? cell.v ?? 0) : 0;
-                const numVal = parseFloat(rawVal);
-                valStr = Number.isFinite(numVal) ? fmtNum(numVal) : String(rawVal ?? "");
-              } else if (col.type === "formula") {
-                const val = cell?.numValue ?? 0;
-                valStr = isNaN(val) ? "-" : fmtNum(val);
-              } else if (col.type === "number") {
-                valStr = cell?.numValue !== undefined ? fmtNum(cell.numValue) : "";
-              } else if (col.type === "text") {
-                valStr = cell?.text || "";
-              }
+                  if (col.type === "dropdown" || col.type === "nested_dropdown" || col.type === "section_ref" || col.type === "cross_calc_ref") {
+                    valStr = cell?.label || (cell?.key === "__other__" ? cell?.otherText : "") || "";
+                  } else if (col.type === "locked") {
+                    const rawVal = cell ? (cell.rawValue ?? cell.text ?? cell.numValue ?? cell.v ?? 0) : 0;
+                    const numVal = parseFloat(rawVal);
+                    valStr = Number.isFinite(numVal) ? fmtNum(numVal) : String(rawVal ?? "");
+                  } else if (col.type === "formula") {
+                    const val = cell?.numValue ?? 0;
+                    valStr = isNaN(val) ? "-" : fmtNum(val);
+                  } else if (col.type === "number") {
+                    valStr = cell?.numValue !== undefined ? fmtNum(cell.numValue) : "";
+                  } else if (col.type === "text") {
+                    valStr = cell?.text || "";
+                  }
 
-              return `"${valStr.replace(/"/g, '""')}"`;
-            });
-            csvContent += rowCells.join(",") + "\n";
+                  return `"${valStr.replace(/"/g, '""')}"`;
+                });
+                csvContent += rowCells.join(",") + "\n";
+              });
+              csvContent += "\n";
+            }
           });
         } else {
-          csvContent += "No columns configured\n";
-        }
+          const visibleCols = cols.filter(c => !isHidden(c));
+          if (visibleCols.length > 0) {
+            csvContent += visibleCols.map(c => `"${c.label?.replace(/"/g, '""')}"`).join(",") + "\n";
 
-        csvContent += "\n";
+            rows.forEach(row => {
+              const rowCells = visibleCols.map(col => {
+                const cell = row[col.id];
+                let valStr = "";
+
+                if (col.type === "dropdown" || col.type === "nested_dropdown" || col.type === "section_ref" || col.type === "cross_calc_ref") {
+                  valStr = cell?.label || (cell?.key === "__other__" ? cell?.otherText : "") || "";
+                } else if (col.type === "locked") {
+                  const rawVal = cell ? (cell.rawValue ?? cell.text ?? cell.numValue ?? cell.v ?? 0) : 0;
+                  const numVal = parseFloat(rawVal);
+                  valStr = Number.isFinite(numVal) ? fmtNum(numVal) : String(rawVal ?? "");
+                } else if (col.type === "formula") {
+                  const val = cell?.numValue ?? 0;
+                  valStr = isNaN(val) ? "-" : fmtNum(val);
+                } else if (col.type === "number") {
+                  valStr = cell?.numValue !== undefined ? fmtNum(cell.numValue) : "";
+                } else if (col.type === "text") {
+                  valStr = cell?.text || "";
+                }
+
+                return `"${valStr.replace(/"/g, '""')}"`;
+              });
+              csvContent += rowCells.join(",") + "\n";
+            });
+          } else {
+            csvContent += "No columns configured\n";
+          }
+          csvContent += "\n";
+        }
 
         // Summaries
         let sums = sec.config.summaries || [];
@@ -1492,81 +1675,153 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
       if (pdfEffectiveType === "input_table") {
         // Resolve target config columns (virtual if calc_ref)
         let cols = sec.config.columns || [];
+        let tableOrders = sec.config.table_column_orders || {};
+        let tableNames = sec.config.table_names || {};
         if (isCalcRef && pdfSrcSec?.config?.columns) {
           cols = pdfSrcSec.config.columns;
+          tableOrders = pdfSrcSec.config.table_column_orders || {};
+          tableNames = pdfSrcSec.config.table_names || {};
         }
 
-        const visibleCols = cols.filter(c => !isHidden(c));
         const rows = sectionRows[sec.order_num] || [];
+        let columnGroups = sec.config.column_groups || [];
+        if (isCalcRef && pdfSrcSec?.config?.column_groups) {
+          columnGroups = pdfSrcSec.config.column_groups;
+        }
 
-        if (visibleCols.length > 0) {
-          // Resolve Column Groups (if present)
-          let columnGroups = sec.config.column_groups || [];
-          if (isCalcRef && pdfSrcSec?.config?.column_groups) {
-            columnGroups = pdfSrcSec.config.column_groups;
-          }
+        const tableGroups = getSectionTableGroups(cols, tableOrders, tableNames);
 
-          const colToGroup = {};
-          columnGroups.forEach(g => g.column_ids.forEach(id => { colToGroup[id] = g; }));
-
-          // Compile Headers (Virtual Group name prepended via newline)
-          const headers = visibleCols.map(col => {
-            const grp = colToGroup[col.id];
-            return grp ? `${grp.label}\n${col.label}` : col.label;
-          });
-
-          // Compile Table Rows
-          const body = rows.map(row => {
-            return visibleCols.map(col => {
-              const cell = row[col.id];
-              let valStr = "";
-
-              if (col.type === "dropdown" || col.type === "nested_dropdown" || col.type === "section_ref" || col.type === "cross_calc_ref") {
-                valStr = cell?.label || (cell?.key === "__other__" ? cell?.otherText : "") || "";
-              } else if (col.type === "locked") {
-                const rawVal = cell ? (cell.rawValue ?? cell.text ?? cell.numValue ?? cell.v ?? 0) : 0;
-                const numVal = parseFloat(rawVal);
-                valStr = Number.isFinite(numVal) ? fmtNum(numVal) : String(rawVal ?? "");
-              } else if (col.type === "formula") {
-                const val = cell?.numValue ?? 0;
-                valStr = isNaN(val) ? "-" : fmtNum(val);
-              } else if (col.type === "number") {
-                valStr = cell?.numValue !== undefined ? fmtNum(cell.numValue) : "";
-              } else if (col.type === "text") {
-                valStr = cell?.text || "";
+        if (tableGroups.length > 1) {
+          tableGroups.forEach(grp => {
+            const grpCols = (grp.columns || []).filter(c => !isHidden(c));
+            if (grpCols.length > 0) {
+              if (y > 255) {
+                doc.addPage();
+                y = 20;
               }
-              return valStr;
-            });
-          });
+              doc.setFontSize(8.5);
+              doc.setFont("helvetica", "bold");
+              doc.setTextColor(13, 59, 26);
+              const titleDisplay = (tableNames[grp.tableNo] || tableNames[String(grp.tableNo)]) || `Table ${grp.tableNo}`;
+              doc.text(titleDisplay, 14, y);
+              y += 3.5;
 
-          // Draw AutoTable
-          autoTable(doc, {
-            startY: y,
-            margin: { left: 14, right: 14 },
-            theme: "grid",
-            head: [headers],
-            body: body,
-            styles: { fontSize: 7.5, cellPadding: 2, font: "helvetica", textColor: [15, 23, 42] },
-            headStyles: { fillColor: [13, 59, 26], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.5, halign: "left", cellPadding: 2.5 },
-            alternateRowStyles: { fillColor: [248, 250, 252] },
-            didParseCell: function (data) {
-              if (data.section === "body") {
-                const colCfg = visibleCols[data.column.index];
-                if (colCfg?.type === "formula") {
-                  data.cell.styles.fontStyle = "bold";
-                  data.cell.styles.textColor = [29, 78, 216]; // Blue for formulas
+              const colToGroup = {};
+              columnGroups.forEach(g => (g.column_ids || []).forEach(id => { colToGroup[id] = g; }));
+
+              const headers = grpCols.map(col => {
+                const g = colToGroup[col.id];
+                return g ? `${g.label}\n${col.label}` : col.label;
+              });
+
+              const body = rows.map(row => {
+                return grpCols.map(col => {
+                  const cell = row[col.id];
+                  let valStr = "";
+
+                  if (col.type === "dropdown" || col.type === "nested_dropdown" || col.type === "section_ref" || col.type === "cross_calc_ref") {
+                    valStr = cell?.label || (cell?.key === "__other__" ? cell?.otherText : "") || "";
+                  } else if (col.type === "locked") {
+                    const rawVal = cell ? (cell.rawValue ?? cell.text ?? cell.numValue ?? cell.v ?? 0) : 0;
+                    const numVal = parseFloat(rawVal);
+                    valStr = Number.isFinite(numVal) ? fmtNum(numVal) : String(rawVal ?? "");
+                  } else if (col.type === "formula") {
+                    const val = cell?.numValue ?? 0;
+                    valStr = isNaN(val) ? "-" : fmtNum(val);
+                  } else if (col.type === "number") {
+                    valStr = cell?.numValue !== undefined ? fmtNum(cell.numValue) : "";
+                  } else if (col.type === "text") {
+                    valStr = cell?.text || "";
+                  }
+                  return valStr;
+                });
+              });
+
+              autoTable(doc, {
+                startY: y,
+                margin: { left: 14, right: 14 },
+                theme: "grid",
+                head: [headers],
+                body: body,
+                styles: { fontSize: 7.5, cellPadding: 2, font: "helvetica", textColor: [15, 23, 42] },
+                headStyles: { fillColor: [13, 59, 26], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.5, halign: "left", cellPadding: 2.5 },
+                alternateRowStyles: { fillColor: [248, 250, 252] },
+                didParseCell: function (data) {
+                  if (data.section === "body") {
+                    const colCfg = grpCols[data.column.index];
+                    if (colCfg?.type === "formula") {
+                      data.cell.styles.fontStyle = "bold";
+                      data.cell.styles.textColor = [29, 78, 216];
+                    }
+                  }
                 }
-              }
+              });
+
+              y = doc.lastAutoTable.finalY + 5;
             }
           });
-
-          y = doc.lastAutoTable.finalY + 4;
         } else {
-          doc.setFont("helvetica", "italic");
-          doc.setFontSize(8);
-          doc.setTextColor(148, 163, 184);
-          doc.text("No columns configured for this section.", 14, y);
-          y += 5;
+          const visibleCols = cols.filter(c => !isHidden(c));
+          if (visibleCols.length > 0) {
+            const colToGroup = {};
+            columnGroups.forEach(g => (g.column_ids || []).forEach(id => { colToGroup[id] = g; }));
+
+            const headers = visibleCols.map(col => {
+              const grp = colToGroup[col.id];
+              return grp ? `${grp.label}\n${col.label}` : col.label;
+            });
+
+            const body = rows.map(row => {
+              return visibleCols.map(col => {
+                const cell = row[col.id];
+                let valStr = "";
+
+                if (col.type === "dropdown" || col.type === "nested_dropdown" || col.type === "section_ref" || col.type === "cross_calc_ref") {
+                  valStr = cell?.label || (cell?.key === "__other__" ? cell?.otherText : "") || "";
+                } else if (col.type === "locked") {
+                  const rawVal = cell ? (cell.rawValue ?? cell.text ?? cell.numValue ?? cell.v ?? 0) : 0;
+                  const numVal = parseFloat(rawVal);
+                  valStr = Number.isFinite(numVal) ? fmtNum(numVal) : String(rawVal ?? "");
+                } else if (col.type === "formula") {
+                  const val = cell?.numValue ?? 0;
+                  valStr = isNaN(val) ? "-" : fmtNum(val);
+                } else if (col.type === "number") {
+                  valStr = cell?.numValue !== undefined ? fmtNum(cell.numValue) : "";
+                } else if (col.type === "text") {
+                  valStr = cell?.text || "";
+                }
+                return valStr;
+              });
+            });
+
+            autoTable(doc, {
+              startY: y,
+              margin: { left: 14, right: 14 },
+              theme: "grid",
+              head: [headers],
+              body: body,
+              styles: { fontSize: 7.5, cellPadding: 2, font: "helvetica", textColor: [15, 23, 42] },
+              headStyles: { fillColor: [13, 59, 26], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.5, halign: "left", cellPadding: 2.5 },
+              alternateRowStyles: { fillColor: [248, 250, 252] },
+              didParseCell: function (data) {
+                if (data.section === "body") {
+                  const colCfg = visibleCols[data.column.index];
+                  if (colCfg?.type === "formula") {
+                    data.cell.styles.fontStyle = "bold";
+                    data.cell.styles.textColor = [29, 78, 216];
+                  }
+                }
+              }
+            });
+
+            y = doc.lastAutoTable.finalY + 4;
+          } else {
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(8);
+            doc.setTextColor(148, 163, 184);
+            doc.text("No columns configured for this section.", 14, y);
+            y += 5;
+          }
         }
 
         // Render Section Summaries Card (if visible summaries exist)

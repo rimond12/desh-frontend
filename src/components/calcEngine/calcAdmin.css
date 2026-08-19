@@ -219,3 +219,109 @@
   color: #86efac;           /* green on dark */
   flex: 1; word-break: break-all;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Table-wise Drag & Drop Column Management Styles
+   ══════════════════════════════════════════════════════════════════════════════ */
+.ce-admin-tables-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.ce-admin-table-container {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.ce-admin-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.75rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ce-admin-table-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.ce-admin-table-badge {
+  background: #0f172a;
+  color: #ffffff;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.ce-admin-table-col-list {
+  padding: 0.55rem;
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ce-admin-table-empty-drop {
+  padding: 0.75rem;
+  text-align: center;
+  font-size: 0.76rem;
+  color: #94a3b8;
+  border: 1px dashed #cbd5e1;
+  border-radius: 5px;
+  background: #fafafa;
+}
+
+.ce-badge-cloned {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.ce-badge-table-tag {
+  background: #e0e7ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.ce-admin-table-badge-input {
+  background: #0f172a;
+  color: #ffffff;
+  padding: 0.18rem 0.55rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid #334155;
+  width: auto;
+  min-width: 90px;
+  max-width: 220px;
+  height: 26px;
+  transition: all 0.15s ease;
+}
+
+.ce-admin-table-badge-input:focus {
+  outline: none;
+  background: #1e293b;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+}
+
+.ce-admin-table-badge-input::placeholder {
+  color: #94a3b8;
+}
+
+
+
