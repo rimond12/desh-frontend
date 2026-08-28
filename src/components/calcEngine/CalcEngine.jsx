@@ -1262,6 +1262,8 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
         setDropdowns(ddMap);
 
         // ── 3. Load cross-calc rows from localStorage/DB ─────────────────────────
+        // NOTE: JSON.parse always produces string-keyed objects, so section order
+        // numbers must be coerced to String when used as object keys.
         const ccRows = {};
         for (const sec of cfg.sections) {
           if (sec.config.type === "calc_ref" || sec.config.cross_calc_fa) {
@@ -1270,7 +1272,7 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
             if (refId && refOrd) { 
               const key = `${refId}_${refOrd}`; 
               const srcStored = allProjectCalcs[refId] || loadFromStorage(refId); 
-              ccRows[key] = srcStored?.rows?.[refOrd] || []; 
+              ccRows[key] = srcStored?.rows?.[String(refOrd)] || srcStored?.rows?.[refOrd] || []; 
             }
           }
           (sec.config.columns || []).forEach(col => { 
@@ -1278,7 +1280,7 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
               const key = `${col.ref_calc_id}_${col.ref_section_order}`; 
               if (!ccRows[key]) { 
                 const srcStored = allProjectCalcs[col.ref_calc_id] || loadFromStorage(col.ref_calc_id); 
-                ccRows[key] = srcStored?.rows?.[col.ref_section_order] || []; 
+                ccRows[key] = srcStored?.rows?.[String(col.ref_section_order)] || srcStored?.rows?.[col.ref_section_order] || []; 
               } 
             } 
           });

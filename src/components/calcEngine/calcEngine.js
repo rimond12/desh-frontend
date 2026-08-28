@@ -108,13 +108,15 @@ export function loadCrossCalcData(calcId, crossCalcCache) {
 export function getCrossCalcSummary(calcOrder, secOrder, summaryId, calcOrderMap, crossCalcCache) {
   const calcId = calcOrderMap[calcOrder] || calcOrder;
   const data = loadCrossCalcData(calcId, crossCalcCache);
-  return parseFloat(data.sums?.[secOrder]?.[summaryId] ?? 0) || 0;
+  // JSON.parse always produces string-keyed objects, so coerce secOrder to string
+  return parseFloat(data.sums?.[String(secOrder)]?.[summaryId] ?? data.sums?.[secOrder]?.[summaryId] ?? 0) || 0;
 }
 
 export function getCrossCalcAggregate(calcOrder, secOrder, fn, colId, calcOrderMap, crossCalcCache) {
   const calcId = calcOrderMap[calcOrder] || calcOrder;
   const data = loadCrossCalcData(calcId, crossCalcCache);
-  const rows = data.rows?.[secOrder] || [];
+  // JSON.parse always produces string-keyed objects, so coerce secOrder to string
+  const rows = data.rows?.[String(secOrder)] || data.rows?.[secOrder] || [];
   const vals = rows.map(r => getNum(r[colId]));
   if (!vals.length) return 0;
   switch (fn.toUpperCase()) {
