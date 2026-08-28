@@ -1105,6 +1105,8 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
   const dropdownRef = useRef(null);
   const calcOrderMapRef = useRef({});
   const crossCalcCacheRef = useRef({});
+  // Persists DB-loaded project calc data so it survives cache clears in doRecalc
+  const allProjectCalcsRef = useRef({});
 
   // doRecalc accepts an optional refConfigs override so init() can pass the
   // freshly-fetched configs before the state setter has flushed.
@@ -1114,7 +1116,13 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
     const virtSections = buildVirtualSections(sections, configs);
     const newRows = JSON.parse(JSON.stringify(rows));
     const newSums = JSON.parse(JSON.stringify(sums));
+    // Clear the transient cache, then restore any DB-loaded project calc data
+    // so that CAL(c).SEC(n).id formula expressions can still resolve summaries
+    // from other calculations even after the cache is wiped.
     crossCalcCacheRef.current = {};
+    Object.entries(allProjectCalcsRef.current).forEach(([cId, data]) => {
+      crossCalcCacheRef.current[cId] = { rows: data.rows || {}, sums: data.sums || {} };
+    });
     virtSections.forEach(sec => {
       const cfg = sec.config;
       if (cfg.type === "input_table") {
@@ -1143,7 +1151,10 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
     return { rows: newRows, sums: newSums };
   }
 
-    async function saveData(rows, sums) {
+  async function saveData(rows, sums) {
+    // Keep the persistent ref up-to-date so cross-calc formulas in OTHER calcs
+    // can read the latest summaries from this calc without a full page reload.
+    allProjectCalcsRef.current[calcId] = { rows, sums };
     if (projectId) {
       try {
         await axios.put(`/projects/${projectId}/calculations/${calcId}`, {
@@ -1207,6 +1218,9 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
             console.error("Failed to load project calculations map", e);
           }
         }
+
+        // Store in persistent ref so doRecalc can restore after cache clears
+        allProjectCalcsRef.current = allProjectCalcs;
 
         Object.entries(allProjectCalcs).forEach(([cId, data]) => {
           crossCalcCacheRef.current[cId] = {
