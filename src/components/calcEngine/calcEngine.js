@@ -141,9 +141,12 @@ export function evalExpr(expr, secOrder, rowIdx, sectionRows, summaries, calcOrd
   e = e.replace(/CAL\((\d+)\)\.SEC\((\d+)\)\.(\w+)/gi, (_, cid, sid, sumId) =>
     getCrossCalcSummary(parseInt(cid), parseInt(sid), sumId, calcOrderMap, crossCalcCache)
   );
-  e = e.replace(/SEC\((\d+)\)\.(\w+)/gi, (_, n, sid) =>
-    parseFloat(summaries[parseInt(n)]?.[sid] ?? 0) || 0
-  );
+  e = e.replace(/SEC\((\d+)\)\.(\w+)/gi, (_, n, sid) => {
+    // JSON.parse produces string-keyed objects; try both string and number keys
+    const num = parseInt(n);
+    const val = summaries[num]?.[sid] ?? summaries[String(num)]?.[sid] ?? 0;
+    return parseFloat(val) || 0;
+  });
   if (rowIdx !== undefined) {
     e = e.replace(/ROW\.([\w-]+)/gi, (_, colId) => {
       const cell = sectionRows[secOrder]?.[rowIdx]?.[colId];
@@ -183,9 +186,12 @@ export function evalSummaryExpr(formula, secOrder, sectionRows, summaries, calcO
   };
   expr = expr.replace(/\b(SUM|AVG|MIN|MAX)\((\w+)\)/gi, (_, fn, colId) => aggrFn(fn, colId));
   expr = expr.replace(/\bCOUNT\(\)/gi, rows.length);
-  expr = expr.replace(/SEC\((\d+)\)\.(\w+)/gi, (_, n, sid) =>
-    parseFloat(summaries[parseInt(n)]?.[sid] ?? 0) || 0
-  );
+  expr = expr.replace(/SEC\((\d+)\)\.(\w+)/gi, (_, n, sid) => {
+    // JSON.parse produces string-keyed objects; try both string and number keys
+    const num = parseInt(n);
+    const val = summaries[num]?.[sid] ?? summaries[String(num)]?.[sid] ?? 0;
+    return parseFloat(val) || 0;
+  });
 
   try {
     if (/[^0-9+\-*/().\s]/.test(expr)) return 0;
