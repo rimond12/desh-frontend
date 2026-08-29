@@ -111,13 +111,16 @@ export function getCrossCalcSummary(calcOrder, secOrder, summaryId, calcOrderMap
   const val = parseFloat(data.sums?.[String(secOrder)]?.[summaryId] ?? data.sums?.[secOrder]?.[summaryId] ?? 0) || 0;
   // DEBUG: remove after fix confirmed
   if (val === 0) {
-    console.warn(`[CAL DEBUG] CAL(${calcOrder}).SEC(${secOrder}).${summaryId} = 0`, {
-      calcId,
-      calcOrderMap,
-      cacheKeys: Object.keys(crossCalcCache),
-      sumsForCalc: data.sums,
-      secKeys: data.sums ? Object.keys(data.sums) : [],
-    });
+    const secKeys = data.sums ? Object.keys(data.sums) : [];
+    const secData = data.sums?.[String(secOrder)] ?? data.sums?.[secOrder];
+    console.warn(
+      `[CAL DEBUG] CAL(${calcOrder}).SEC(${secOrder}).${summaryId} = 0\n` +
+      `  calcId       = ${calcId}\n` +
+      `  cacheKeys    = [${Object.keys(crossCalcCache).join(", ")}]\n` +
+      `  secKeys      = [${secKeys.join(", ")}]\n` +
+      `  sec(${secOrder}) data = ${JSON.stringify(secData)}\n` +
+      `  full sums    = ${JSON.stringify(data.sums)}`
+    );
   }
   return val;
 }
