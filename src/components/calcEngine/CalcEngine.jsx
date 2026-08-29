@@ -1108,11 +1108,12 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
   // Persists DB-loaded project calc data so it survives cache clears in doRecalc
   const allProjectCalcsRef = useRef({});
 
-  // doRecalc accepts an optional refConfigs override so init() can pass the
-  // freshly-fetched configs before the state setter has flushed.
-  function doRecalc(rows, sums, sections, refConfigs) {
+  // doRecalc accepts an optional refConfigs and ddMap override so init() can pass the
+  // freshly-fetched configs and dropdowns before the state setter has flushed.
+  function doRecalc(rows, sums, sections, refConfigs, ddMap) {
     if (!sections) return { rows, sums };
     const configs = refConfigs !== undefined ? refConfigs : refSectionConfigs;
+    const activeDropdowns = ddMap !== undefined ? ddMap : dropdowns;
     const virtSections = buildVirtualSections(sections, configs);
     const newRows = JSON.parse(JSON.stringify(rows));
     const newSums = JSON.parse(JSON.stringify(sums));
@@ -1128,7 +1129,7 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
       if (cfg.type === "input_table") {
         const srs = newRows[sec.order_num] || [];
         srs.forEach((_, ri) => {
-          resolveLockedCols(sec.order_num, ri, newRows, virtSections);
+          resolveLockedCols(sec.order_num, ri, newRows, virtSections, activeDropdowns);
           resolveFormulaColumns(sec.order_num, ri, newRows, virtSections, newSums, calcOrderMapRef.current, crossCalcCacheRef.current);
         });
         if (!newSums[sec.order_num]) newSums[sec.order_num] = {};
@@ -1332,7 +1333,7 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
             }
           }
         });
-        const { rows: newRows, sums: newSums } = doRecalc(initRows, initSums, cfg.sections, refSecConfigs);
+        const { rows: newRows, sums: newSums } = doRecalc(initRows, initSums, cfg.sections, refSecConfigs, ddMap);
         setSectionRows(newRows); setSummaries(newSums);
       } catch (e) { setError(e.message); }
     }

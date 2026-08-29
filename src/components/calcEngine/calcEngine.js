@@ -203,7 +203,29 @@ export function evalSummaryExpr(formula, secOrder, sectionRows, summaries, calcO
 
 // ── Locked & formula column resolvers ────────────────────────────────────────
 
-export function resolveLockedCols(secOrder, rowIdx, sectionRows, sections) {
+function findCaseInsensitive(obj, targetKey) {
+  if (!obj || typeof obj !== "object") return undefined;
+  if (obj[targetKey] !== undefined) return obj[targetKey];
+  const lower = String(targetKey).toLowerCase();
+  for (const k of Object.keys(obj)) {
+    if (k.toLowerCase() === lower) return obj[k];
+  }
+  return undefined;
+}
+
+function findItemInTree(items, key) {
+  if (!Array.isArray(items) || !key) return null;
+  for (const it of items) {
+    if ((it.item_key || it.k) === key) return it;
+    if (it.children?.length) {
+      const found = findItemInTree(it.children, key);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+export function resolveLockedCols(secOrder, rowIdx, sectionRows, sections, dropdowns = {}) {
   const sec = sections.find(s => s.order_num === secOrder);
   if (!sec?.config?.columns) return;
   const row = sectionRows[secOrder]?.[rowIdx];
@@ -280,28 +302,36 @@ export function resolveLockedCols(secOrder, rowIdx, sectionRows, sections) {
       } else if (fieldLower === "text") {
         val = srcCell.text ?? srcCell.label ?? (srcCell._sourceRow?.[col.source_col]?.text) ?? "";
       } else {
-        // Custom extra value field (e.g. value1, density, note, etc.)
-        if (srcCell[field] !== undefined) {
-          val = srcCell[field];
-        } else if (srcCell.extra_values?.[field] !== undefined) {
-          val = srcCell.extra_values[field];
-        } else if (srcCell._sourceRow) {
+        // Custom extra value field (e.g. ef, density, note, etc.)
+        // 1. Check direct cell properties (case-insensitive)
+        val = findCaseInsensitive(srcCell, field) ?? findCaseInsensitive(srcCell.extra_values, field);
+
+        // 2. Check referenced source row if this comes from section_ref / cross_calc_ref
+        if (val === undefined && srcCell._sourceRow) {
           const sRow = srcCell._sourceRow;
-          if (sRow[field] !== undefined) {
-            val = typeof sRow[field] === "object" ? (sRow[field]?.rawValue ?? sRow[field]?.numValue ?? sRow[field]?.text ?? getNum(sRow[field])) : sRow[field];
-          } else if (sRow[col.source_col]?.[field] !== undefined) {
-            val = sRow[col.source_col][field];
-          } else if (sRow[col.source_col]?.extra_values?.[field] !== undefined) {
-            val = sRow[col.source_col].extra_values[field];
-          } else {
+          val = findCaseInsensitive(sRow[field], "rawValue") ?? findCaseInsensitive(sRow[field], "numValue") ?? findCaseInsensitive(sRow[field], "text") ?? sRow[field];
+          if (val === undefined && sRow[col.source_col]) {
+            val = findCaseInsensitive(sRow[col.source_col], field) ?? findCaseInsensitive(sRow[col.source_col]?.extra_values, field);
+          }
+          if (val === undefined) {
             for (const k of Object.keys(sRow)) {
-              if (sRow[k]?.[field] !== undefined) {
-                val = sRow[k][field];
-                break;
-              }
-              if (sRow[k]?.extra_values?.[field] !== undefined) {
-                val = sRow[k].extra_values[field];
-                break;
+              val = findCaseInsensitive(sRow[k], field) ?? findCaseInsensitive(sRow[k]?.extra_values, field);
+              if (val !== undefined) break;
+            }
+          }
+        }
+
+        // 3. Fallback: Lookup in master dropdown tree if cell was selected before extra_values were added
+        if (val === undefined && srcCell.key && dropdowns) {
+          const srcColCfg = sec.config.columns?.find(c => c.id === col.source_col);
+          const masterId = srcColCfg?.dropdown_master_id;
+          if (masterId && dropdowns[masterId]) {
+            const masterItem = findItemInTree(dropdowns[masterId], srcCell.key);
+            if (masterItem) {
+              val = findCaseInsensitive(masterItem.extra_values, field) ?? findCaseInsensitive(masterItem, field);
+              if (val !== undefined) {
+                // Backfill into srcCell for speed
+                srcCell[field] = val;
               }
             }
           }

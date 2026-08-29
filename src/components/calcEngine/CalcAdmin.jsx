@@ -28,8 +28,11 @@ function parseExtraValues(text) {
   const out = {};
   String(text || "").split(/\r?\n/).forEach(line => {
     const t = line.trim(); if (!t) return;
-    const idx = t.indexOf("="); if (idx < 1) return;
-    const key = t.slice(0, idx).trim().replace(/\s+/g, "_"); const raw = t.slice(idx + 1).trim();
+    let idx = t.indexOf("=");
+    if (idx === -1) idx = t.indexOf(":");
+    if (idx < 1) return;
+    const key = t.slice(0, idx).trim().replace(/\s+/g, "_");
+    const raw = t.slice(idx + 1).trim();
     if (!key) return;
     const asNum = Number(raw);
     out[key] = raw !== "" && Number.isFinite(asNum) ? asNum : raw;
