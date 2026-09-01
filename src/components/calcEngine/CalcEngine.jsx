@@ -792,7 +792,7 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
               <div className="ce-summary-label">{s.label}</div>
               <div className="ce-summary-value-wrap">
                 <div className="ce-summary-value">{fmtNum(summaries[sec.order_num]?.[s.id] ?? 0)}</div>
-                <CopyBtn getValue={() => fmtNum(summaries[sec.order_num]?.[s.id] ?? 0)} />
+                {s.show_copy_btn === true && <CopyBtn getValue={() => fmtNum(summaries[sec.order_num]?.[s.id] ?? 0)} />}
               </div>
             </div>
           ))}
@@ -811,7 +811,7 @@ function FormulaDisplaySection({ sec, summaries }) {
           const display = !isFinite(val) ? "N/A" : fmtNum(val);
           return (
             <div key={f.id} className="ce-formula-card">
-              <CopyBtn getValue={() => display} className="ce-copy-card" />
+              {f.show_copy_btn === true && <CopyBtn getValue={() => display} className="ce-copy-card" />}
               <div className="ce-formula-label">{f.label}</div>
               <div className="ce-formula-value">{display}</div>
               {f.description && <div className="ce-formula-desc">{f.description}</div>}
