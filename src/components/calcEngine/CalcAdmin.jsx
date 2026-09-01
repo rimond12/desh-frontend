@@ -722,7 +722,7 @@ function FormulaInput({ value, onChange, multiline = false, placeholder, current
 
 // ── Summary Modal ─────────────────────────────────────────────────────────────
 function SummaryModal({ editSummary, editIdx, onClose, onConfirm, currentCalcId, currentCalcOrder, allCalcs }) {
-  const [s, setS] = useState(editSummary ? JSON.parse(JSON.stringify(editSummary)) : { id: "", label: "", formula: "", show_copy_btn: false, hidden: false });
+  const [s, setS] = useState(editSummary ? JSON.parse(JSON.stringify(editSummary)) : { id: "", label: "", formula: "", show_copy_btn: true, hidden: false });
   return (
     <Modal title={editSummary ? "Edit Summary" : "Add Summary"} onClose={onClose}
       footer={<><button className="ce-btn ce-btn-secondary" onClick={onClose}>Cancel</button><button className="ce-btn ce-btn-primary" onClick={() => { if (!s.id || !s.label || !s.formula) { alert("All fields required"); return; } onConfirm(s, editIdx); }}>Save</button></>}>
@@ -750,7 +750,7 @@ function SummaryModal({ editSummary, editIdx, onClose, onConfirm, currentCalcId,
           Hide this summary
         </label>
         <label className="ce-label ce-check-label">
-          <input type="checkbox" checked={s.show_copy_btn === true} onChange={e => setS({ ...s, show_copy_btn: e.target.checked })} />
+          <input type="checkbox" checked={s.show_copy_btn !== false} onChange={e => setS({ ...s, show_copy_btn: e.target.checked })} />
           Show copy button (📋) for this summary
         </label>
       </div>
@@ -761,7 +761,7 @@ function SummaryModal({ editSummary, editIdx, onClose, onConfirm, currentCalcId,
 
 // ── Formula Modal ─────────────────────────────────────────────────────────────
 function FormulaModal({ editFormula, editIdx, onClose, onConfirm, currentCalcId, currentCalcOrder, allCalcs }) {
-  const [f, setF] = useState(editFormula ? JSON.parse(JSON.stringify(editFormula)) : { id: "", label: "", expr: "", description: "", show_copy_btn: false, hidden: false });
+  const [f, setF] = useState(editFormula ? JSON.parse(JSON.stringify(editFormula)) : { id: "", label: "", expr: "", description: "", show_copy_btn: true, hidden: false });
   return (
     <Modal title={editFormula ? "Edit Formula" : "Add Formula"} onClose={onClose}
       footer={<><button className="ce-btn ce-btn-secondary" onClick={onClose}>Cancel</button><button className="ce-btn ce-btn-primary" onClick={() => { if (!f.id || !f.label || !f.expr) { alert("All fields required"); return; } onConfirm(f, editIdx); }}>Save</button></>}>
@@ -790,7 +790,7 @@ function FormulaModal({ editFormula, editIdx, onClose, onConfirm, currentCalcId,
           Hide this formula
         </label>
         <label className="ce-label ce-check-label">
-          <input type="checkbox" checked={f.show_copy_btn === true} onChange={e => setF({ ...f, show_copy_btn: e.target.checked })} />
+          <input type="checkbox" checked={f.show_copy_btn !== false} onChange={e => setF({ ...f, show_copy_btn: e.target.checked })} />
           Show copy button (📋) for this formula
         </label>
       </div>
@@ -1477,7 +1477,7 @@ function SectionModal({ calcId, calcOrder, editSec, allCalcs, allMasters, curren
                 <span className="ce-type-badge">SUM</span>
                 <div className="ce-col-info"><strong>{s.label}</strong> <span className="ce-col-id">[{s.id}]</span> <span>{s.formula}</span><VisibilityBadge item={s} /></div>
                 <button className="ce-icon-btn" title={isHidden(s) ? "Show summary" : "Hide summary"} onClick={() => { const updated = { ...s, hidden: !s.hidden }; setSummaries(a => { const n = [...a]; n[i] = updated; return n; }) }}>{isHidden(s) ? "👁" : "🙈"}</button>
-                <button type="button" className="ce-icon-btn" title={s.show_copy_btn ? "Copy button: ENABLED (visible on result) — click to hide" : "Copy button: HIDDEN (default) — click to show"} onClick={() => { const updated = { ...s, show_copy_btn: !s.show_copy_btn }; setSummaries(a => { const n = [...a]; n[i] = updated; return n; }) }} style={{ opacity: s.show_copy_btn ? 1 : 0.35, background: s.show_copy_btn ? 'rgba(34, 197, 94, 0.15)' : 'transparent', borderRadius: '4px', border: s.show_copy_btn ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid transparent' }}>📋</button>
+                <button type="button" className="ce-icon-btn" title={s.show_copy_btn !== false ? "Copy button: ENABLED (visible on result) — click to hide" : "Copy button: HIDDEN — click to show"} onClick={() => { const updated = { ...s, show_copy_btn: s.show_copy_btn === false ? true : false }; setSummaries(a => { const n = [...a]; n[i] = updated; return n; }) }} style={{ opacity: s.show_copy_btn !== false ? 1 : 0.35, background: s.show_copy_btn !== false ? 'rgba(34, 197, 94, 0.15)' : 'transparent', borderRadius: '4px', border: s.show_copy_btn !== false ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid transparent' }}>📋</button>
                 <button className="ce-icon-btn" onClick={() => setSumModal({ editSummary: s, editIdx: i })}>✏</button>
                 <button className="ce-icon-btn ce-icon-btn-danger" onClick={() => setSummaries(a => a.filter((_, j) => j !== i))}>✕</button>
               </div>
@@ -1548,7 +1548,7 @@ function SectionModal({ calcId, calcOrder, editSec, allCalcs, allMasters, curren
                 <span className="ce-type-badge">expr</span>
                 <div className="ce-col-info"><strong>{f.label}</strong> <span className="ce-col-id">[{f.id}]</span> <span>{f.expr}</span><VisibilityBadge item={f} /></div>
                 <button className="ce-icon-btn" title={isHidden(f) ? "Show formula" : "Hide formula"} onClick={() => { const updated = { ...f, hidden: !f.hidden }; setFormulas(a => { const n = [...a]; n[i] = updated; return n; }) }}>{isHidden(f) ? "👁" : "🙈"}</button>
-                <button type="button" className="ce-icon-btn" title={f.show_copy_btn ? "Copy button: ENABLED (visible on result) — click to hide" : "Copy button: HIDDEN (default) — click to show"} onClick={() => { const updated = { ...f, show_copy_btn: !f.show_copy_btn }; setFormulas(a => { const n = [...a]; n[i] = updated; return n; }) }} style={{ opacity: f.show_copy_btn ? 1 : 0.35, background: f.show_copy_btn ? 'rgba(34, 197, 94, 0.15)' : 'transparent', borderRadius: '4px', border: f.show_copy_btn ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid transparent' }}>📋</button>
+                <button type="button" className="ce-icon-btn" title={f.show_copy_btn !== false ? "Copy button: ENABLED (visible on result) — click to hide" : "Copy button: HIDDEN — click to show"} onClick={() => { const updated = { ...f, show_copy_btn: f.show_copy_btn === false ? true : false }; setFormulas(a => { const n = [...a]; n[i] = updated; return n; }) }} style={{ opacity: f.show_copy_btn !== false ? 1 : 0.35, background: f.show_copy_btn !== false ? 'rgba(34, 197, 94, 0.15)' : 'transparent', borderRadius: '4px', border: f.show_copy_btn !== false ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid transparent' }}>📋</button>
                 <button className="ce-icon-btn" onClick={() => setFmlModal({ editFormula: f, editIdx: i })}>✏</button>
                 <button className="ce-icon-btn ce-icon-btn-danger" onClick={() => setFormulas(a => a.filter((_, j) => j !== i))}>✕</button>
               </div>
