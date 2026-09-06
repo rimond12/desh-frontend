@@ -523,7 +523,10 @@ function TableRow({ sec, columns, rowIdx, sections, sectionRows, summaries, cros
               <span className="ce-locked">{cell?.numValue !== undefined ? fmtNum(cell.numValue) : "-"}</span>
             ) : (
               <div className="ce-cell-interactive">
-                <input type="number" className="ce-input ce-input-num" value={cell?.numValue ?? ""} step="any" onChange={e => handleChange(col.id, { numValue: parseFloat(e.target.value) || 0 })} />
+                <input type="number" className="ce-input ce-input-num" value={cell?.numValue ?? ""} step="any" onChange={e => {
+                const num = parseFloat(e.target.value);
+                if (Number.isFinite(num)) handleChange(col.id, { numValue: num });
+              }} />
               </div>
             )}
             <span className="ce-cell-print-only">{cell?.numValue !== undefined ? fmtNum(cell.numValue) : "-"}</span>
