@@ -1338,6 +1338,7 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
         });
         const { rows: newRows, sums: newSums } = doRecalc(initRows, initSums, cfg.sections, refSecConfigs, ddMap);
         setSectionRows(newRows); setSummaries(newSums);
+        if (!readOnly) saveData(newRows, newSums);
       } catch (e) { setError(e.message); }
     }
     init();
