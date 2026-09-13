@@ -575,6 +575,7 @@ function SubTable({
   onAddRow,
   readOnly,
   isSplit,
+  sectionRowsRef,
 }) {
   const visibleCols = tableCols.filter(c => !isHidden(c));
   const rows = sectionRows[sec.order_num] || [];
@@ -661,11 +662,11 @@ function SubTable({
                 dropdowns={dropdowns}
                 onCellChange={onCellChange}
                 onRemove={() => {
-                  setSectionRows(prev => {
-                    const n = { ...prev };
-                    n[sec.order_num] = n[sec.order_num].filter((_, i) => i !== ri);
-                    return n;
-                  });
+                  // Compute eagerly so onRecalc sees the updated rows immediately
+                  const n = JSON.parse(JSON.stringify(sectionRowsRef ? sectionRowsRef.current : sectionRows));
+                  n[sec.order_num] = n[sec.order_num].filter((_, i) => i !== ri);
+                  if (sectionRowsRef) sectionRowsRef.current = n;
+                  setSectionRows(n);
                   onRecalc();
                 }}
                 readOnly={readOnly}
@@ -692,43 +693,44 @@ function SubTable({
 
 // ── Section Components ────────────────────────────────────────────────────────
 
-function InputTableSection({ sec, sections, sectionRows, setSectionRows, summaries, crossCalcRows, dropdowns, onRecalc, readOnly }) {
+function InputTableSection({ sec, sections, sectionRows, setSectionRows, summaries, crossCalcRows, dropdowns, onRecalc, readOnly, sectionRowsRef }) {
   const visibleSums = (sec.config.summaries || []).filter(s => !isHidden(s));
   const columnGroups = sec.config.column_groups || [];
   const tableGroups = getSectionTableGroups(sec.config.columns || [], sec.config.table_column_orders || {}, sec.config.table_names || {});
   const isSplit = tableGroups.length > 1;
 
   function handleCellChange(secOrder, rowIdx, colId, value, secObj) {
-    setSectionRows(prev => {
-      const next = JSON.parse(JSON.stringify(prev));
-      if (!next[secOrder]) next[secOrder] = [];
-      if (!next[secOrder][rowIdx]) next[secOrder][rowIdx] = {};
-      next[secOrder][rowIdx][colId] = value;
-      secObj.config.columns?.forEach(c => {
-        if (c.type === "nested_dropdown" && c.parent_col === colId) {
-          next[secOrder][rowIdx][c.id] = null;
-          secObj.config.columns?.forEach(lc => {
-            if (lc.type === "locked" && lc.source_col === c.id) next[secOrder][rowIdx][lc.id] = { numValue: 0 };
-          });
-        }
-        if (c.type === "number" && c.linked_to_dropdown === colId) {
-          const num = value?.numValue ?? value?.num_value ?? (typeof value === "number" ? value : 0);
-          next[secOrder][rowIdx][c.id] = { numValue: num };
-        }
-      });
-      return next;
+    // Compute the mutated rows eagerly so the ref is current before onRecalc reads it
+    const next = JSON.parse(JSON.stringify(sectionRowsRef ? sectionRowsRef.current : sectionRows));
+    if (!next[secOrder]) next[secOrder] = [];
+    if (!next[secOrder][rowIdx]) next[secOrder][rowIdx] = {};
+    next[secOrder][rowIdx][colId] = value;
+    secObj.config.columns?.forEach(c => {
+      if (c.type === "nested_dropdown" && c.parent_col === colId) {
+        next[secOrder][rowIdx][c.id] = null;
+        secObj.config.columns?.forEach(lc => {
+          if (lc.type === "locked" && lc.source_col === c.id) next[secOrder][rowIdx][lc.id] = { numValue: 0 };
+        });
+      }
+      if (c.type === "number" && c.linked_to_dropdown === colId) {
+        const num = value?.numValue ?? value?.num_value ?? (typeof value === "number" ? value : 0);
+        next[secOrder][rowIdx][c.id] = { numValue: num };
+      }
     });
+    // Update ref synchronously so onRecalc() sees the new rows immediately
+    if (sectionRowsRef) sectionRowsRef.current = next;
+    setSectionRows(next);
     onRecalc();
   }
 
   function handleAddRow() {
-    setSectionRows(prev => {
-      const n = { ...prev };
-      const row = {};
-      (sec.config.columns || []).forEach(c => { row[c.id] = null; });
-      n[sec.order_num] = [...(n[sec.order_num] || []), row];
-      return n;
-    });
+    const n = JSON.parse(JSON.stringify(sectionRowsRef ? sectionRowsRef.current : sectionRows));
+    const row = {};
+    (sec.config.columns || []).forEach(c => { row[c.id] = null; });
+    n[sec.order_num] = [...(n[sec.order_num] || []), row];
+    // Update ref synchronously so onRecalc() sees the new rows immediately
+    if (sectionRowsRef) sectionRowsRef.current = n;
+    setSectionRows(n);
     onRecalc();
   }
 
@@ -754,6 +756,7 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
               onAddRow={handleAddRow}
               readOnly={readOnly}
               isSplit={isSplit}
+              sectionRowsRef={sectionRowsRef}
             />
           ))}
         </div>
@@ -776,6 +779,7 @@ function InputTableSection({ sec, sections, sectionRows, setSectionRows, summari
             onAddRow={handleAddRow}
             readOnly={readOnly}
             isSplit={isSplit}
+            sectionRowsRef={sectionRowsRef}
           />
         ))
       )}
@@ -833,7 +837,7 @@ function FormulaDisplaySection({ sec, summaries }) {
 
 function EditableCalcRefSection({
   sec, srcSec, allSections, refSectionConfigs,
-  sectionRows, setSectionRows, setCrossCalcRows, summaries, crossCalcRows, dropdowns, onRecalc, readOnly, projectId, axios
+  sectionRows, setSectionRows, setCrossCalcRows, summaries, crossCalcRows, dropdowns, onRecalc, readOnly, projectId, axios, sectionRowsRef
 }) {
   const refCalcId = sec.config.ref_calc_id;
   const refSecOrder = sec.config.ref_section_order;
@@ -861,32 +865,33 @@ function EditableCalcRefSection({
   // Wrap setSectionRows: after every state update, persist the updated rows
   // back into the source calculation's localStorage entry so Calc 01 stays
   // in sync when it is next opened.
-  function handleSyncedRows(updater) {
+  // Accepts either a plain object (from the fixed handlers) or a function updater.
+  function handleSyncedRows(updaterOrNext) {
     if (readOnly) return;
-    setSectionRows(prev => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      const refRows = next[sec.order_num] || [];
-      const key = `${refCalcId}_${refSecOrder}`;
-      if (setCrossCalcRows) {
-        setCrossCalcRows(cPrev => ({ ...cPrev, [key]: refRows }));
-      }
-      if (projectId) {
-        axios.get(`/projects/${projectId}/calculations/${refCalcId}`).then(res => {
-          const existingRows = res.data.data?.sectionRows || {};
-          const mergedRows = { ...existingRows, [refSecOrder]: refRows };
-          const existingSums = res.data.data?.summaries || {};
-          axios.put(`/projects/${projectId}/calculations/${refCalcId}`, {
-            sectionRows: mergedRows,
-            summaries: existingSums
-          });
-        }).catch(err => console.error(err));
-      } else {
-        const srcStored = loadFromStorage(refCalcId) || { rows: {}, sums: {} };
-        srcStored.rows = { ...(srcStored.rows || {}), [refSecOrder]: refRows };
-        saveToStorage(refCalcId, srcStored.rows, srcStored.sums || {});
-      }
-      return next;
-    });
+    const next = typeof updaterOrNext === "function"
+      ? updaterOrNext(sectionRowsRef ? sectionRowsRef.current : sectionRows)
+      : updaterOrNext;
+    const refRows = next[sec.order_num] || [];
+    const key = `${refCalcId}_${refSecOrder}`;
+    if (setCrossCalcRows) {
+      setCrossCalcRows(cPrev => ({ ...cPrev, [key]: refRows }));
+    }
+    if (projectId) {
+      axios.get(`/projects/${projectId}/calculations/${refCalcId}`).then(res => {
+        const existingRows = res.data.data?.sectionRows || {};
+        const mergedRows = { ...existingRows, [refSecOrder]: refRows };
+        const existingSums = res.data.data?.summaries || {};
+        axios.put(`/projects/${projectId}/calculations/${refCalcId}`, {
+          sectionRows: mergedRows,
+          summaries: existingSums
+        });
+      }).catch(err => console.error(err));
+    } else {
+      const srcStored = loadFromStorage(refCalcId) || { rows: {}, sums: {} };
+      srcStored.rows = { ...(srcStored.rows || {}), [refSecOrder]: refRows };
+      saveToStorage(refCalcId, srcStored.rows, srcStored.sums || {});
+    }
+    setSectionRows(next);
   }
 
   return (
@@ -917,6 +922,7 @@ function EditableCalcRefSection({
           dropdowns={dropdowns}
           onRecalc={onRecalc}
           readOnly={readOnly}
+          sectionRowsRef={sectionRowsRef}
         />
       )}
     </div>
@@ -1110,6 +1116,9 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
   const crossCalcCacheRef = useRef({});
   // Persists DB-loaded project calc data so it survives cache clears in doRecalc
   const allProjectCalcsRef = useRef({});
+  // Mirror of sectionRows kept in a ref so handleRecalc always reads the latest
+  // value without relying on stale closures or side-effects inside state updaters.
+  const sectionRowsRef = useRef({});
 
   // doRecalc accepts an optional refConfigs and ddMap override so init() can pass the
   // freshly-fetched configs and dropdowns before the state setter has flushed.
@@ -1177,13 +1186,23 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
   function handleRecalc() {
     if (!calcConfig) return;
     if (readOnly) return;
-    setSectionRows(prev => {
-      const { rows: newRows, sums: newSums } = doRecalc(prev, {}, calcConfig.sections);
-      setSummaries(newSums);
-      saveData(newRows, newSums);
-      return newRows;
-    });
+    // Use the ref so we always read the latest committed rows — even if a
+    // setSectionRows updater from handleCellChange/handleAddRow/handleRemoveRow
+    // was queued in the same event and hasn't re-rendered yet.
+    const { rows: newRows, sums: newSums } = doRecalc(
+      sectionRowsRef.current, {}, calcConfig.sections
+    );
+    sectionRowsRef.current = newRows;
+    setSectionRows(newRows);
+    setSummaries(newSums);
+    saveData(newRows, newSums);
   }
+
+  // Keep sectionRowsRef always in sync with the sectionRows state so
+  // handleRecalc can read the latest value without stale closures.
+  useEffect(() => {
+    sectionRowsRef.current = sectionRows;
+  }, [sectionRows]);
 
   // Handle clicking outside the export dropdown to close it
   useEffect(() => {
@@ -1337,6 +1356,7 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
           }
         });
         const { rows: newRows, sums: newSums } = doRecalc(initRows, initSums, cfg.sections, refSecConfigs, ddMap);
+        sectionRowsRef.current = newRows;
         setSectionRows(newRows); setSummaries(newSums);
         if (!readOnly) saveData(newRows, newSums);
       } catch (e) { setError(e.message); }
@@ -1372,7 +1392,7 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
       }
     });
     const { rows: newRows, sums: newSums } = doRecalc(initRows, {}, calcConfig.sections);
-    if (readOnly) return; setSectionRows(newRows); setSummaries(newSums); saveData(newRows, newSums);
+    if (readOnly) return; sectionRowsRef.current = newRows; setSectionRows(newRows); setSummaries(newSums); saveData(newRows, newSums);
   }
 
   function handleExport() {
@@ -2136,7 +2156,8 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
             {sec.config.type === "input_table" && (
               <InputTableSection sec={sec} sections={calcConfig.sections} sectionRows={sectionRows}
                 setSectionRows={setSectionRows} summaries={summaries} crossCalcRows={crossCalcRows}
-                dropdowns={dropdowns} onRecalc={handleRecalc} readOnly={readOnly} />
+                dropdowns={dropdowns} onRecalc={handleRecalc} readOnly={readOnly}
+                sectionRowsRef={sectionRowsRef} />
             )}
             {sec.config.type === "formula_display" && (
               <FormulaDisplaySection sec={sec} summaries={summaries} />
@@ -2157,6 +2178,7 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
                 readOnly={readOnly}
                 projectId={projectId}
                 axios={axios}
+                sectionRowsRef={sectionRowsRef}
               />
             )}
             {isCalcRef && !srcSec && (
