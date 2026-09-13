@@ -1129,26 +1129,29 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
     const virtSections = buildVirtualSections(sections, configs);
     const newRows = JSON.parse(JSON.stringify(rows));
     const newSums = JSON.parse(JSON.stringify(sums));
-    // Clear the transient cache, then restore any DB-loaded project calc data
-    // so that CAL(c).SEC(n).id formula expressions can still resolve summaries
-    // from other calculations even after the cache is wiped.
-    crossCalcCacheRef.current = {};
+
+    // Build a LOCAL snapshot of the cross-calc cache from allProjectCalcsRef.
+    // Using a local variable (not mutating crossCalcCacheRef mid-computation)
+    // means this function is side-effect-free and safe under React StrictMode
+    // double-invocations and rapid consecutive edits.
+    const localCache = {};
     Object.entries(allProjectCalcsRef.current).forEach(([cId, data]) => {
-      crossCalcCacheRef.current[cId] = { rows: data.rows || {}, sums: data.sums || {} };
+      localCache[cId] = { rows: data.rows || {}, sums: data.sums || {} };
     });
+
     virtSections.forEach(sec => {
       const cfg = sec.config;
       if (cfg.type === "input_table") {
         const srs = newRows[sec.order_num] || [];
         srs.forEach((_, ri) => {
           resolveLockedCols(sec.order_num, ri, newRows, virtSections, activeDropdowns);
-          resolveFormulaColumns(sec.order_num, ri, newRows, virtSections, newSums, calcOrderMapRef.current, crossCalcCacheRef.current);
+          resolveFormulaColumns(sec.order_num, ri, newRows, virtSections, newSums, calcOrderMapRef.current, localCache);
         });
         if (!newSums[sec.order_num]) newSums[sec.order_num] = {};
         (cfg.summaries || []).forEach(s => {
           newSums[sec.order_num][s.id] = evalSummaryExpr(
             s.formula, sec.order_num, newRows, newSums,
-            calcOrderMapRef.current, crossCalcCacheRef.current
+            calcOrderMapRef.current, localCache
           );
         });
       } else if (cfg.type === "formula_display") {
@@ -1156,11 +1159,16 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
         (cfg.formulas || []).forEach(f => {
           newSums[sec.order_num][f.id] = evalExpr(
             f.expr, sec.order_num, undefined, newRows, newSums,
-            calcOrderMapRef.current, crossCalcCacheRef.current
+            calcOrderMapRef.current, localCache
           );
         });
       }
     });
+
+    // Commit the local cache back to the shared ref so subsequent cross-calc
+    // lookups (e.g. loadCrossCalcData) can still use it for localStorage fallback.
+    crossCalcCacheRef.current = localCache;
+
     return { rows: newRows, sums: newSums };
   }
 
