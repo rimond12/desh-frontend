@@ -355,11 +355,26 @@ export function resolveFormulaColumns(secOrder, rowIdx, sectionRows, sections, s
   const row = sectionRows[secOrder]?.[rowIdx];
   if (!row) return;
 
-  sec.config.columns.forEach(col => {
-    if (col.type === "formula") {
-      row[col.id] = { numValue: evalExpr(col.expr, secOrder, rowIdx, sectionRows, summaries, calcOrderMap, crossCalcCache) };
+  const formulaCols = sec.config.columns.filter(col => col.type === "formula");
+  if (formulaCols.length === 0) return;
+
+  // Multi-pass fixed-point iteration:
+  // Formula columns can depend on other formula columns in the same row (e.g. ROW.colA).
+  // Because columns can be ordered arbitrarily, a single pass evaluates forward references
+  // using stale or 0 values. Iterating until convergence ensures all intra-row formula dependencies resolve.
+  const maxPasses = Math.min(formulaCols.length + 1, 10);
+  for (let pass = 0; pass < maxPasses; pass++) {
+    let changed = false;
+    for (const col of formulaCols) {
+      const newVal = evalExpr(col.expr, secOrder, rowIdx, sectionRows, summaries, calcOrderMap, crossCalcCache);
+      const oldVal = row[col.id]?.numValue;
+      if (oldVal === undefined || Math.abs(newVal - oldVal) > 1e-12) {
+        changed = true;
+        row[col.id] = { numValue: newVal };
+      }
     }
-  });
+    if (!changed) break;
+  }
 }
 
 // ── Section summaries ─────────────────────────────────────────────────────────
@@ -368,18 +383,42 @@ export function calcSectionSummaries(secOrder, sectionRows, summaries, sections,
   const sec = sections.find(s => s.order_num === secOrder);
   if (!sec?.config?.summaries) return;
   if (!summaries[secOrder]) summaries[secOrder] = {};
-  sec.config.summaries.forEach(s => {
-    summaries[secOrder][s.id] = evalSummaryExpr(s.formula, secOrder, sectionRows, summaries, calcOrderMap, crossCalcCache);
-  });
+
+  const sumList = sec.config.summaries;
+  const maxPasses = Math.min(sumList.length + 1, 10);
+  for (let pass = 0; pass < maxPasses; pass++) {
+    let changed = false;
+    for (const s of sumList) {
+      const newVal = evalSummaryExpr(s.formula, secOrder, sectionRows, summaries, calcOrderMap, crossCalcCache);
+      const oldVal = summaries[secOrder][s.id];
+      if (oldVal === undefined || Math.abs(newVal - oldVal) > 1e-12) {
+        changed = true;
+        summaries[secOrder][s.id] = newVal;
+      }
+    }
+    if (!changed) break;
+  }
 }
 
 export function calcFormulaSection(secOrder, sectionRows, summaries, sections, calcOrderMap, crossCalcCache) {
   const sec = sections.find(s => s.order_num === secOrder);
   if (!sec || sec.config.type !== "formula_display") return;
   if (!summaries[secOrder]) summaries[secOrder] = {};
-  sec.config.formulas.forEach(f => {
-    summaries[secOrder][f.id] = evalExpr(f.expr, secOrder, undefined, sectionRows, summaries, calcOrderMap, crossCalcCache);
-  });
+
+  const formList = sec.config.formulas || [];
+  const maxPasses = Math.min(formList.length + 1, 10);
+  for (let pass = 0; pass < maxPasses; pass++) {
+    let changed = false;
+    for (const f of formList) {
+      const newVal = evalExpr(f.expr, secOrder, undefined, sectionRows, summaries, calcOrderMap, crossCalcCache);
+      const oldVal = summaries[secOrder][f.id];
+      if (oldVal === undefined || Math.abs(newVal - oldVal) > 1e-12) {
+        changed = true;
+        summaries[secOrder][f.id] = newVal;
+      }
+    }
+    if (!changed) break;
+  }
 }
 
 // ── Full recalc ───────────────────────────────────────────────────────────────

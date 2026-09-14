@@ -1139,31 +1139,58 @@ export default function CalcEngine({ calcId, projectId = null, inputId = null, r
       localCache[cId] = { rows: data.rows || {}, sums: data.sums || {} };
     });
 
-    virtSections.forEach(sec => {
-      const cfg = sec.config;
-      if (cfg.type === "input_table") {
-        const srs = newRows[sec.order_num] || [];
-        srs.forEach((_, ri) => {
-          resolveLockedCols(sec.order_num, ri, newRows, virtSections, activeDropdowns);
-          resolveFormulaColumns(sec.order_num, ri, newRows, virtSections, newSums, calcOrderMapRef.current, localCache);
-        });
-        if (!newSums[sec.order_num]) newSums[sec.order_num] = {};
-        (cfg.summaries || []).forEach(s => {
-          newSums[sec.order_num][s.id] = evalSummaryExpr(
-            s.formula, sec.order_num, newRows, newSums,
-            calcOrderMapRef.current, localCache
-          );
-        });
-      } else if (cfg.type === "formula_display") {
-        if (!newSums[sec.order_num]) newSums[sec.order_num] = {};
-        (cfg.formulas || []).forEach(f => {
-          newSums[sec.order_num][f.id] = evalExpr(
-            f.expr, sec.order_num, undefined, newRows, newSums,
-            calcOrderMapRef.current, localCache
-          );
-        });
-      }
-    });
+    // Two passes across virtSections ensures that cross-section dependencies
+    // (e.g. section 1 referencing section 0 summaries, or section 2 referencing section 1)
+    // are fully and accurately resolved without any one-step lag.
+    for (let secPass = 0; secPass < 2; secPass++) {
+      virtSections.forEach(sec => {
+        const cfg = sec.config;
+        if (cfg.type === "input_table") {
+          const srs = newRows[sec.order_num] || [];
+          srs.forEach((_, ri) => {
+            resolveLockedCols(sec.order_num, ri, newRows, virtSections, activeDropdowns);
+            resolveFormulaColumns(sec.order_num, ri, newRows, virtSections, newSums, calcOrderMapRef.current, localCache);
+          });
+          if (!newSums[sec.order_num]) newSums[sec.order_num] = {};
+          const sumList = cfg.summaries || [];
+          const maxPasses = Math.min(sumList.length + 1, 10);
+          for (let p = 0; p < maxPasses; p++) {
+            let changed = false;
+            for (const s of sumList) {
+              const newVal = evalSummaryExpr(
+                s.formula, sec.order_num, newRows, newSums,
+                calcOrderMapRef.current, localCache
+              );
+              const oldVal = newSums[sec.order_num][s.id];
+              if (oldVal === undefined || Math.abs(newVal - oldVal) > 1e-12) {
+                changed = true;
+                newSums[sec.order_num][s.id] = newVal;
+              }
+            }
+            if (!changed) break;
+          }
+        } else if (cfg.type === "formula_display") {
+          if (!newSums[sec.order_num]) newSums[sec.order_num] = {};
+          const formList = cfg.formulas || [];
+          const maxPasses = Math.min(formList.length + 1, 10);
+          for (let p = 0; p < maxPasses; p++) {
+            let changed = false;
+            for (const f of formList) {
+              const newVal = evalExpr(
+                f.expr, sec.order_num, undefined, newRows, newSums,
+                calcOrderMapRef.current, localCache
+              );
+              const oldVal = newSums[sec.order_num][f.id];
+              if (oldVal === undefined || Math.abs(newVal - oldVal) > 1e-12) {
+                changed = true;
+                newSums[sec.order_num][f.id] = newVal;
+              }
+            }
+            if (!changed) break;
+          }
+        }
+      });
+    }
 
     // Commit the local cache back to the shared ref so subsequent cross-calc
     // lookups (e.g. loadCrossCalcData) can still use it for localStorage fallback.
